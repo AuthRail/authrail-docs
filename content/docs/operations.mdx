@@ -1,30 +1,182 @@
 ---
-title: "Health, logs and telemetry"
-description: "Find degraded coverage and delivery failures without exposing sensitive payloads."
+title: "Monitor your deployment"
+description: "Check that your application's rule checker is running, then follow a request through its records."
+icon: ListChecksIcon
 ---
 
-Start with two questions: can this sidecar evaluate the intended deployment, and is the real application applying its decisions? Local health answers part of the first question. It cannot answer the second alone.
+Your application has stopped a request, or a decision has not appeared in
+AuthRail. Where should you look? Start with the deployment's connection, then
+follow the affected request.
 
-## Inspect local health
+A **deployment** is one configured installation of your AI application. Its
+**sidecar** is the rule-checking process running beside it. **Health** describes
+whether that process is running, has usable rules and has reports waiting for
+delivery. It is separate from the Health assessment of a governance Control.
 
-`GET /health` reports signed-bundle validity and sequence, executor-key fingerprints, queued or blocked reports and a process-local cumulative `telemetryFailures` count. Confirm that the bundle belongs to the intended organisation and deployment. Check expiry as well as process liveness. A stale or missing signal is not a healthy deployment.
+There are three places to look, each with a different purpose:
 
-The sidecar sends a bounded deployment signal at startup and periodically. Compare the last received time in AuthRail with local queue and application status. Configuration downloads prove configuration delivery, not that every tool call is intercepted.
+| Information | Where to find it | What it helps you answer |
+| --- | --- | --- |
+| Connection status and Action records | Your AuthRail workspace. | Is the deployment communicating, and what happened to this request? |
+| Local process logs | The terminal, service manager or Docker running your sidecar. | What checks and reporting steps did the sidecar handle? |
+| Optional monitoring data, called telemetry | Your own monitoring system. | Which technical step is slow or failing? |
 
-## Diagnose recording gaps
+The first two work without setting up a monitoring service. This page starts
+with them; optional telemetry setup comes afterwards.
 
-Watch queued reports and their age, blocked delivery, unavailable recording, unknown outcomes and explicit gaps. An upload outage can leave reports durable locally. An unwritable or exhausted queue cannot establish retention. Preserve gap archives for operator review; do not clear them to make a health panel appear clean.
+## Check the connection in AuthRail
 
-Keep operator credentials separate from adapter credentials. Local gap-review endpoints are operator actions and do not grant permission for a business effect. Consult the sidecar's packaged protocol and command help for exact supported recovery operations.
+1. Open **AI Inventory** and choose your AI system.
+2. Under **Deployments**, open the installation you want to inspect.
+3. In **Overview**, find **Connection health** and its last update time.
+4. Select **Check again**. Read any message about rules or reports waiting for
+   delivery.
 
-## Export safe telemetry
+<ProductShot src="/screenshots/runtime-deployment-overview.jpg" alt="A sample deployment Overview showing Connection health, last update time and selected Rails" caption="Connection health helps you check communication with this deployment. Selected Rails show which rules it is configured to use." />
 
-`AUTHRAIL_OTLP_ENDPOINT` configures an OTLP/HTTP Collector base URL; omit it to disable export. Use HTTPS for remote collectors. Local backend development includes an OpenTelemetry Collector so API and worker follow the deployed signal path without vendor credentials.
+**Expected result:** a recent connection update and usable rules for the
+intended deployment. If the update is old, check that the sidecar is running
+and can reach AuthRail. Ask the person operating it to check its network and
+deployment credential.
 
-W3C `traceparent` connects checks, claims, receipts and queued reports. It is correlation, never authorization. Use stable request, Action, attempt and approval IDs in bounded diagnostic context, not metric labels. Keep credentials, prompts, raw source text, provider bodies and personal data out of logs and traces.
+A recent update confirms communication. Check that the application's actual
+tools use the SDK before relying on Enforce protection; see the
+[security review](/docs/security).
 
-Exporter failure cannot change a Rail decision. The sidecar uses bounded memory and a short export deadline; `telemetryFailures` includes drops and failed exports but does not prove downstream Collector retention. Monitor delivery separately from durable Action recording.
+## Follow a request in the connection log
 
-## Upgrade without erasing recovery
+An **Action** is AuthRail's record of a particular request. Use it to investigate
+one payment, reply or other protected operation:
 
-Pin compatible artifacts. Stop only the instance being upgraded through your change process, preserve its entire private state set, replace the executable or image and check bundle, keys and queues before routing protected calls. Rollback retains the newer state; restoring an older snapshot can erase reports or lower sequence protection. A binary unable to read current state must stop rather than create blank state.
+1. In the deployment, open **Actions & decisions** and find **Connection log**.
+2. Find the event for the request and select **View related action**. If your
+   application supplies a business request key, enter it under **Find an exact
+   action key**.
+3. Open the Action's checks, approval and execution reports. Read the request
+   decision separately from the application's reported outcome.
+
+<ProductShot src="/screenshots/runtime-connection-log.jpg" alt="A deployment connection log showing recorded decisions, reported execution events and links to related Actions" caption="View related action opens the request behind a log entry. Its execution report describes what the application reported." />
+
+**Expected result:** you can explain the decision and whether the application
+reported completion. To confirm a provider effect independently, inspect the
+matching record in that provider. If the outcome is uncertain, follow
+[execution and recovery](/docs/recovery) before retrying.
+
+If the log cannot refresh, retry after restoring the connection. An older list
+does not tell you whether a newer event happened.
+
+## Follow the sidecar's local logs
+
+Use local logs when you need to see what the running process handled. For a
+native process started in the foreground, read its terminal. For a service,
+read the output captured by its service manager.
+
+For the Docker setup, run this from the sidecar checkout:
+
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml logs --tail 50 --follow sidecar
+```
+
+Try a safe request in your application. Look for `decision` events and any
+`execution_report` events. These include identifiers that help you find the
+related Action in AuthRail. See the [sample terminal output](/docs/application-example#4-read-the-sidecar-events)
+for an allowed, denied and approval-required sequence.
+
+**Expected result:** log entries appear as requests are checked. Press
+**Ctrl+C** to stop following the output; the sidecar keeps running. Local logs
+work with or without telemetry. They omit arguments, source text, provider
+responses and credentials.
+
+<details className="guide-details">
+<summary>More about local status and log events</summary>
+
+For a native sidecar, check its status on the same host:
+
+```sh
+curl --fail --silent --show-error http://127.0.0.1:7078/health
+```
+
+A **bundle** is the signed set of Rails and settings sent by AuthRail. In the
+status response, `bundleValid: true` means the loaded bundle passes its checks
+and has not expired. Compare `mode` with the mode selected in AuthRail.
+`pendingReports` counts reports waiting for delivery; `blockedReports` counts
+reports needing local review. Preserve those reports while investigating.
+
+For Docker, run the supplied health command from the sidecar checkout:
+
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml exec sidecar /usr/local/bin/authrail-container health
+```
+
+It prints no JSON and exits `0` for a valid loaded bundle, or `1` otherwise.
+The listener is inside Docker's private application network. Follow the
+[Docker placement guide](/docs/docker) to connect the SDK to it.
+
+| Event | Meaning |
+| --- | --- |
+| `decision` | A call or result check, its mode, outcome and reporting status. |
+| `execution_report` | The application reported an attempt's start, completion, failure or uncertainty. |
+| `report_delivered` | AuthRail acknowledged a previously queued report. This does not resume a held action. |
+| `check_unavailable` | The sidecar could not establish trusted request history. |
+| `request_completed` | A local SDK request finished. Read the decision outcome separately from its HTTP status. |
+
+`retained` means AuthRail acknowledged the report. `queued` means the sidecar
+saved it locally for later delivery. A reported success describes the
+application's assertion, rather than an independent provider lookup.
+
+Logs are best-effort diagnostics. Slow or failed output can drop entries;
+`logDrops` counts queue overflow and output errors. Your operator owns log
+capture, rotation and retention. Durable Actions and the report queue have
+separate responsibilities. Keep recording-gap files when reporting cannot be
+confirmed; do not rerun an operation just to recreate its report.
+
+In AuthRail's Connection log, authorised users can select a date range and
+export diagnostic entries. Removing diagnostic logs does not remove Actions,
+decisions, approvals or execution receipts.
+
+</details>
+
+## Optional: use your own monitoring system
+
+If your operations team already uses monitoring tools, the sidecar can send
+**traces** and **metrics** there. A trace follows the technical steps of a
+request; a metric counts or measures repeated activity.
+
+**OpenTelemetry Protocol (OTLP)** is the transport used to send this data. A
+**Collector** receives it and forwards it to your monitoring service. This is
+your team's monitoring setup. AuthRail's Action records continue to use their
+separate reporting connection to AuthRail.
+
+To enable it:
+
+1. Ask your operations team for its **OTLP/HTTP Collector address**.
+2. Set `AUTHRAIL_OTLP_ENDPOINT` to that address in the sidecar's private deployment
+   configuration.
+3. Check the receiving monitoring service for traces and metrics.
+
+Leave the setting unset if you do not use a Collector. The exporter does not
+forward the sidecar's process log lines. A telemetry failure does not change a
+Rail decision; investigate Action reporting separately.
+
+<details className="guide-details">
+<summary>More about response time and maintenance</summary>
+
+A request can include a model call, business-data lookups, a local rule check,
+required AuthRail reports, the provider operation and a result check. Measure
+each part when investigating slowness. Keep the selected Rails, model settings
+and installation details with the measurements. Test with safe effects and
+compare typical and slow runs; a single fastest run cannot describe every
+deployment. Human approval is a separate waiting period.
+
+Trace identifiers help you find related technical events; they grant no
+permission. Keep prompts, credentials, source documents and provider bodies out
+of diagnostic fields. `telemetryFailures` counts dropped telemetry and export
+errors, rather than proving that a Collector retained the data.
+
+Before a restart or upgrade, pause protected work and preserve the **whole**
+private state directory. Keep keys, credentials, queued reports and recovery
+history. Check the new process's rules and queues before resuming work. Avoid
+restoring an older snapshot to clear a warning. The
+[compatibility guide](/docs/compatibility) explains the upgrade review.
+
+</details>

@@ -1,0 +1,116 @@
+---
+title: "Tests and Evidence"
+description: "Check one period of work and save the material supporting your conclusion."
+icon: ClipboardTextIcon
+---
+
+A **Test** describes a repeatable check of a Control. **Evidence** is the material
+reviewed to support the conclusion.
+
+Suppose the support team requires approval before sensitive account changes.
+A useful Test checks the team's changes for a month and verifies that each
+included request has its required approval. The request list and review records
+are supporting Evidence. Use this flow when you need to show that a documented
+practice actually worked during a particular period.
+
+## Check one period of human reviews
+
+### 1. Open the Control and define the check
+
+From the active Framework's **Controls**, open the relevant Control's **Tests
+and Evidence**. This keeps the check connected to the obligation you are
+investigating. You can also reach it from the Control itself.
+
+While editing the Control draft, choose **Add test** in **Tests**. Describe the
+procedure, what would count as a pass and which requests are included. Set the
+schedule and how long a result may be relied on. A check of one team's requests
+must not imply that the whole organisation was inspected.
+
+### 2. State what proof is needed
+
+In **Required Evidence**, use **Add requirement** in the same draft. Describe
+the material needed, its source, the period it must cover, how often it should
+be supplied and who should review it.
+
+The requirement might ask for a Test result, an uploaded file or an eligible
+record from a connected system. Review and approve the Control version with
+these instructions before recording results against it.
+
+### 3. Perform the check and record what you found
+
+Inspect the requests and approvals for the period you defined. Choose **Record
+Test result**, then enter the period, the material inspected, the outcome and
+your explanation. Use **History** to inspect earlier checks.
+
+<ProductShot src="/screenshots/framework-tests-evidence.jpg" alt="Control Tests and Evidence showing a quarterly check, its procedure and Record Test result and History actions" caption="Define the procedure and how long a result remains usable before recording another result." />
+
+Record a failure when the expectation was not met. If the material could not be
+retrieved or the check could not complete, record that problem rather than
+calling it a pass.
+
+### 4. Submit the supporting Evidence
+
+Use the submission action shown for the requirement, such as **Select Test
+result** or **Upload Evidence**. Submit the material for review. An authorised
+reviewer checks that it matches the requirement and period, then accepts or
+rejects it.
+
+You should now have a saved check and the supporting material with its review
+state. Readiness can use eligible results and accepted proof; recording a Test
+result does not automatically accept it as Evidence. Continue with
+[readiness and remediation](/docs/readiness) to inspect the effect on a duty.
+
+<details className="guide-details">
+<summary>More about result names, freshness and history</summary>
+
+A **Test Run** is one recorded check, including its period, inputs, outcome and
+explanation. An **Evidence requirement** describes the proof needed; an
+**Evidence Record** is one submission with its source and review history.
+
+These records belong to the reviewed Control version. When a scoped
+Implementation defines a different practice, define its Tests and Evidence on
+that Implementation instead.
+
+A later failed check cannot be hidden by an older pass. A successful result
+stops counting when its freshness expires—the date after which a new result
+is needed. Replacing Evidence keeps the previous submission and review in
+history rather than overwriting them.
+
+Missing material needs a submission; rejected material needs the review reason
+addressed; stale material needs a new suitable period. Defining no Tests or
+Evidence requirements does not establish that a Control is healthy.
+
+</details>
+
+<details className="guide-details">
+<summary>More about Evidence review</summary>
+
+File Evidence requires review. If no eligible independent reviewer exists,
+AuthRail can accept eligible non-file Evidence under its recorded sole-operator
+fallback. Inspect the actual acceptance decision and reason; that fallback is
+not independent review.
+
+A Test result required as Evidence still needs a separate Evidence submission
+and acceptance. Check source, period, freshness and review state when deciding
+which material to rely on. Inaccessible records need the right access; access
+failure is not a passing result.
+
+</details>
+
+<details className="guide-details">
+<summary>More about connected records and Runtime proof</summary>
+
+A **Connection** collects read-only records from a provider account your
+organisation has authorised. An **Observation** is a saved source fact collected
+at a particular time. It can supply an input to a Test or Evidence submission;
+it is not itself a passing Test.
+
+Runtime Actions and execution reports can also support a suitably defined
+Test. The Test must specify the operations, period and required records.
+Observe-mode reports cannot establish enforcement, and a successful Action does
+not automatically satisfy the Control. See [Runtime and Framework proof](/docs/framework-proof).
+
+If collection fails, recover the input or replace it with eligible reviewed
+proof. Do not turn an unavailable provider record into a passing declaration.
+
+</details>

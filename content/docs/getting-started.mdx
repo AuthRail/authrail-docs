@@ -1,44 +1,109 @@
 ---
-title: "Getting started"
-description: "Prepare one reviewed action and connect its real execution boundary."
+title: "Connect your first application"
+description: "Prepare one action in AuthRail, connect your application, and see its decisions."
+icon: PlugsConnectedIcon
 ---
 
-Start with a safe operation in a customer-owned test system or an isolated mock ledger. You choose your deployment name and provider test facilities; AuthRail does not require a separate Test/Live environment model.
+import { AUTHRAIL } from '@/lib/constants';
 
-## 1. Prepare the dashboard configuration
+Your application already has a function an AI assistant can use: read an
+invoice, add a comment, or send a reply. Connecting it to AuthRail lets you see
+how your rules apply to that function's requests and results.
 
-In AI Inventory, select or discover the AI system, review its identity and confirm it. Create an Observe deployment for the application you will connect. Review an exact Operation Version for the tool you will wrap, publish the relevant Rails, and select their exact versions on that deployment. A draft rule or setup key does not authorize execution.
+This guide starts with one action in **Observe**. Your function keeps running
+as usual while AuthRail records what its rules would decide. By the end, you
+will be able to open a request in your workspace and inspect its checks.
 
-Obtain the organisation ID, deployment ID, deployment credential and independently trusted signing-key fingerprint through the tenant setup. Register the protected application's Ed25519 public key. Keep the corresponding private key in the application.
+You need an AuthRail account, access to manage AI Inventory and Rails, and an
+application with a function you can safely try. Use a safe test system for this
+first connection: Observe does not stop a function when a rule would deny it.
 
-Generate an application key pair in its private configuration directory:
+## 1. Add the AI system
 
-```bash
-openssl genpkey -algorithm Ed25519 -out executor-private.pem
-openssl pkey -in executor-private.pem -pubout -out executor-public.pem
-chmod 600 executor-private.pem
-```
+<a href={AUTHRAIL.workspaceOrigin}>Open your AuthRail workspace</a> and select
+your organisation. In **AI Inventory**, add or select the AI system you are
+connecting. Review its details and confirm its identity.
 
-The sidecar receives only `executor-public.pem`. Create a separate random adapter token of at least 32 characters for local application-to-sidecar authentication. The deployment credential, adapter token and executor private key have different jobs. Do not give any of them to the agent.
+This gives the application a place in AuthRail. It does not install anything
+in your application yet.
 
-## 2. Start a customer-side sidecar
+## 2. Describe the action
 
-Use the [Docker setup](/docs/docker), the recommended distribution path. [Native installation](/docs/native) remains available. Give each instance its own private persistent state directory; never reuse the state of another deployment to make setup pass.
+Open **Rails → Connected actions**. If your action is already listed, open
+**View action details** and check that its description, inputs and results
+match the function you intend to connect.
 
-Check the local `/health` response. Confirm the intended tenant and deployment, valid signed bundle, accepted sequence and expected key fingerprints. A running process with no usable bundle is not ready for Enforce. Health alone does not prove interception.
+If it is not listed, select **Connect an action**:
 
-## 3. Add the adapter at the protected function
+1. Enter an **Action name** and a stable **Action ID**, such as `invoice.read`.
+2. Under **What does it do?**, describe the function.
+3. Name the input field and its type. For example, an invoice reader might
+   receive a text field named `invoiceId`.
+4. Add a result field and type for the value you want to check, such as a text
+   field named `status`.
+5. Choose whether the function reads information, changes data or sends data
+   out, and describe its effect. Then select **Add action**.
 
-Choose [Node](/docs/node) or [Go](/docs/go). A custom adapter can implement [the HTTP protocol](/docs/http). The adapter belongs inside the credential-owning application, where it can authenticate the caller, resolve the target resource and stop the actual tool. An agent-visible wrapper around another credentialed path does not establish that boundary.
+In **Registered actions**, review the entry and select **Confirm action**.
+This describes a function you own; it does not create that function or connect
+to its provider.
 
-Supply a stable business Action key and exact Operation Version. For example, a refund request ID should remain stable when a network request retries. Do not generate a fresh Action key on every retry.
+Expand **View action details** and use **Copy version ID** under **Reviewed
+Operation Version ID**. Keep this value for the SDK setup. It identifies the
+exact action description you reviewed, rather than just its display name.
 
-## 4. Compare prepared outcomes
+## 3. Publish a rule
 
-Run an allowed attempt and a would-deny attempt in Observe. Both protected functions may execute because Observe is advisory. Inspect the separate call/result checks and recording status; verify the resulting Action and certificates in AuthRail.
+Open **Rails**, create a Rail for this action, and decide what it should allow,
+deny or send for human approval. Try the rule's examples, review it and publish
+it. The [Rails guide](/docs/rails) walks through those choices.
 
-Then review all bypass paths and explicitly select Enforce with the Enforce adapter. An out-of-bound request must stop before the effect. An approval-required request must wait. A result rejection must withhold output. Check the effect ledger as well as the Action history. Do not infer absence of effects from a red decision label.
+For the first connection, choose a rule whose result you can explain for a
+safe example request. A draft does not affect your application.
 
-## 5. Exercise a failure before relying on it
+## 4. Create the deployment
 
-Stop only your isolated test sidecar and retry a fresh action: Observe remains advisory; Enforce must stop. Exercise a provider timeout and reconcile by the original provider idempotency key. [Recovery](/docs/recovery) explains why an unknown outcome must never trigger a blind retry.
+Return to your AI system in **AI Inventory → Deployments** and select **Add
+deployment**. Give this installation a name that makes sense to your team.
+A deployment is the application setup whose rules and history you want to track.
+
+Open the deployment and keep it in **Observe**. In **Overview → Rails for this
+deployment**, choose the published Rail versions and apply them.
+
+AuthRail now knows which AI system, action and rules belong together. The next
+steps connect that setup to your running application.
+
+## 5. Connect the application
+
+Complete these guides in order:
+
+1. [Prepare the connection details](/docs/identity). This shows where to copy
+   your deployment settings, how to create the application's keys, and which
+   files each process needs.
+2. Run the sidecar with [Docker](/docs/docker), the recommended container setup,
+   or [natively](/docs/native) if your application runs directly on your host.
+   The sidecar is the local service that checks your selected rules.
+3. Add the [Node SDK](/docs/node) or [Go SDK](/docs/go) around the function your
+   application already uses. The SDK asks the sidecar to check the call and
+   the returned result.
+
+Your application keeps its business logic and provider credentials. Keep those
+credentials and the connection secrets outside the AI agent's reach.
+
+## 6. Find your first request
+
+Run a safe request through the connected function. In the deployment, open
+**Actions & decisions** and select its Action. Inspect the request check and
+result check, including their reasons.
+
+A report marked `retained` has reached AuthRail. A `queued` report is saved by
+the sidecar and still needs delivery. The [monitoring guide](/docs/operations)
+explains how to inspect the sidecar if a request is missing.
+
+An Observe decision describes what the rules would decide; your function can
+still run after a denial. When you are ready to require permission before the
+function runs, follow [Observe and Enforce](/docs/modes). Review the application's
+[other access routes](/docs/security) first.
+
+The [Runtime walkthrough](/docs/application-example) shows the connected sample
+application, its sidecar logs and the resulting AuthRail records.

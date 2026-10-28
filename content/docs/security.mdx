@@ -1,35 +1,98 @@
 ---
-title: "Security and bypass review"
-description: "Establish what the agent cannot reach before claiming enforcement."
+title: "Protect the execution boundary"
+description: "Check that an agent can use a protected tool only through the application's rule checks."
+icon: KeyIcon
 ---
 
-An AuthRail deployment is protected only at the boundaries that actually intercept the operation. Start the review with provider credentials and all routes capable of producing the same business effect.
+Suppose you protect a refund tool with AuthRail, but the agent can also read the
+Stripe credential and make a refund directly. The protected tool can stop a
+request; the direct route remains open.
 
-## Separate credentials by responsibility
+An **execution boundary** is the point where your application performs the real
+operation. AuthRail's SDK must check that point, while the application keeps
+the credentials needed to execute it. This page helps the application developer
+check that the agent has no other route to the same effect.
 
-| Credential | Holder | Responsibility |
+Do this review before relying on Enforce, and repeat the affected checks when
+you add tools or change access to files, credentials or networks.
+
+## Review one protected operation
+
+Choose a concrete operation, such as sending a support reply or refunding a
+payment. Then work through its actual routes:
+
+1. **List everything that can perform it.** Include other tools, direct API
+   calls, shell commands and work delegated to another agent.
+2. **Check where its credentials live.** The agent must not be able to read
+   them through files, prompts, process settings, browser code or tool results.
+3. **Check the SDK placement.** The real business function must go through the
+   required decision and execution steps before it runs in Enforce.
+4. **Check who and what the request belongs to.** Obtain the signed-in user or
+   workload identity, resource and provider account from trusted application
+   code. An agent-written argument must not switch those identities or accounts.
+5. **Try a denied request and an unavailable check in a safe system.** Inspect
+   the application's saved effect record or provider account to establish that
+   the protected function did not execute.
+6. **Try the alternative routes you listed.** Each must use the required checks
+   or be unavailable to the agent.
+
+**Expected result:** the team can show where the action is checked and why the
+agent cannot perform the same action elsewhere. Record any uncovered routes
+and treat their access as advisory. A running sidecar alone cannot establish
+protection for every tool.
+
+<details className="guide-details">
+<summary>More about who holds each credential</summary>
+
+| Credential | Holder | Purpose |
 | --- | --- | --- |
-| Deployment credential | Sidecar | Authenticate exact deployment to the control plane |
-| Adapter token | Protected application and local sidecar | Authenticate local protocol requests |
-| Executor private key | Protected application | Sign attribution, input and outcome assertions |
-| Provider write credential | Protected executor | Perform the actual business effect |
-| Operator token | Authorized operator | Review local recording gaps |
-| Discovery key | Protected setup path | Short-lived onboarding lookup |
+| Deployment token | Sidecar. | Connect this deployment to AuthRail. |
+| Adapter token | Protected application and sidecar. | Authenticate local SDK requests. |
+| Executor private key | Protected application. | Sign the application's identity, input and outcome reports. |
+| Provider credential | Protected application. | Perform the business operation. |
+| Operator token | Authorised operator. | Review local recording gaps. |
 
-None belongs in agent prompts, a browser bundle, an agent-accessible file or tool response. The sidecar receives the executor public key, not its private key. A provider management-plane Connection does not authorize Runtime write operations.
+The sidecar verifies requests using the executor's **public** key. Keep the
+private key and provider credential with the protected application, outside the
+agent's reach. The sidecar is not a store for credentials the agent can request.
 
-## Review every equivalent route
+A discovery key helps set up an application. It does not grant permission to
+execute a protected operation. A signature establishes an assertion from the
+registered key; it does not independently establish provider completion or
+which model generated the original request.
 
-Inventory direct provider access, secondary HTTP routes, shell commands, files, subagents, network egress and unknown tools. Verify that the agent cannot obtain the key, impersonate the protected principal, change deployment identity, replace reviewed source configuration or submit a different account.
+</details>
 
-A tool wrapper with a second unprotected route is advisory in practice. Report that bypass clearly, even when every test of the wrapper passes. A local loopback listener protects network placement; it does not authenticate arbitrary processes on the host. Keep the adapter token and host process boundary private.
+## Keep the local rule checker private
 
-## Keep assertions within their meaning
+The sidecar runs beside the protected application on the customer's system.
+Its listener uses **loopback**, the local network address available on that
+machine. The SDK also authenticates with the adapter token, because a local
+address alone does not authenticate another process.
 
-A valid signature proves an assertion came from the registered executor key. It does not independently prove business identity, provider execution, sanitizer quality or sandbox containment. A key fingerprint received only from an untrusted bundle cannot establish trust in that bundle.
+For Docker, follow the [application placement instructions](/docs/docker)
+instead of publishing the decision port. Keep one configured decision process
+for its deployment; do not expose it as a public service or share it between
+unrelated deployments.
 
-Do not expose a sidecar decision endpoint publicly or share one decision process between unrelated deployments. The supported boundary is a customer-side sidecar beside a protected application. Custom HTTP adapters must implement the same protocol and failure semantics, not create a second policy engine.
+## Review information before sending it
 
-## Use containment as an additional boundary
+Result checks can stop sensitive output from reaching the agent. They happen
+after the business function, so they cannot undo an earlier provider operation
+or model call.
 
-The [OpenShell path](/docs/openshell) places an untrusted agent in a customer-operated sandbox and keeps the executor and sidecar outside it. Review exact network and filesystem policy, credentials, lifecycle and observed active-policy state. A configuration template is an input to that review, not proof that containment is active.
+AuthRail's contextual AI feature sends selected material to the configured
+model provider so it can answer the reviewed question. Choose the permitted
+fields and perform any required removal or redaction in trusted application
+code **before** that call. The [contextual AI guide](/docs/facts) explains who
+receives the text and what AuthRail retains.
+
+## Add a sandbox where your application needs one
+
+A sandbox restricts the files, commands and networks an agent can use. The
+[NVIDIA OpenShell integration](/docs/openshell) keeps the protected application
+and sidecar outside the agent's sandbox.
+
+Review the policy actually loaded by the sandbox and test the credential, file
+and network routes above. A policy template describes intended restrictions;
+verify those restrictions in the running installation before relying on them.

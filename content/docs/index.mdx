@@ -1,25 +1,102 @@
 ---
-title: "AuthRail documentation"
-description: "Understand the product, connect a protected application and operate its records."
+title: "Introduction"
+description: "Learn what AuthRail does and follow one example from an organisational rule to a checked AI action."
+icon: BookOpenIcon
 ---
 
-AuthRail connects two tasks: governing AI-requested actions and maintaining an explainable Framework-led compliance journey. Runtime checks proposed tool calls against published Rails. The compliance workspace connects exact Framework Obligations to reusable Controls, Tests and retained Evidence.
+An AI support assistant can read a conversation, suggest a reply and ask a tool
+to change a customer's account. Giving it a useful model is one part of the
+work. Your team also needs to decide which changes it may request, when a
+person should review them and how to check what happened.
 
-A decision says whether an action may proceed. An execution receipt says what a protected application reported. Independent provider read-back can establish an external effect. These are different claims; a certificate never turns them into legal certification.
+**AuthRail is a workspace for governing how your organisation uses AI.** It
+helps you organise the duties you follow, document the practices your teams use,
+review proof that those practices work and check actions in connected AI
+applications.
 
-## Choose your starting point
+You can start with the organisation's governance work. Installing an SDK comes
+later, when you connect an application.
 
-- **Developers:** follow [Getting started](/docs/getting-started), then install the [Docker sidecar](/docs/docker) and connect [Node](/docs/node), [Go](/docs/go), or [HTTP](/docs/http).
-- **Business administrators:** understand [identity](/docs/identity), [Rails](/docs/rails), and the move from [Observe to Enforce](/docs/modes).
-- **Reviewers and operators:** learn [approvals](/docs/approvals), [execution and recovery](/docs/recovery), and [the retained records](/docs/records).
-- **Compliance teams:** start with [Framework proof](/docs/framework-proof). A Runtime record contributes only through an accepted Control-owned Test or Evidence contract.
+## Follow one support-team example
 
-## Where AuthRail runs
+Suppose your support team wants a person to review sensitive account changes
+before its AI assistant can make them. The team needs a clear practice, a way to
+apply it and records it can review afterward.
 
-The AuthRail control plane manages identity, reviewed Operations, versioned Rails, approvals and history. A customer-side **sidecar** receives signed deployment configuration and evaluates locally. A language adapter places checks at the actual tool boundary. The customer's **protected executor** keeps provider credentials and performs the business operation.
+### 1. Understand the duties you need to meet
 
-The sidecar does not replace a workflow engine, hold the provider write credential or execute every operation itself. If the agent has another path to those credentials or tools, a healthy sidecar cannot make that path protected. Read [the security boundary](/docs/security) before claiming enforcement.
+A **Framework** groups duties your organisation follows, such as obligations
+from a regulation or standard. In AuthRail, you choose a Framework, explain
+where it applies and review the duties relevant to your organisation.
 
-## Current delivery status
+For the support team, one applicable duty might concern human oversight. That
+gives the team a reason to establish and check its review process. The
+[Frameworks guide](/docs/frameworks) shows how to start that work.
 
-These guides describe the source implementation and its explicitly identified validation limits. Docker packaging, Node/Go parity and the OpenShell path are being integrated. No public release matrix or complete production acceptance is implied. Pin compatible source revisions or verified immutable artifacts together; see [Compatibility](/docs/compatibility). Python is optional follow-up work. A first-party Runtime MCP adapter is outside the current delivery scope.
+### 2. Describe what people should do
+
+A **Policy** states the organisation's expectation: sensitive account changes
+need human review. A **Control** describes the practice that fulfils it: who
+reviews the request, what they inspect and how the application waits for their
+decision.
+
+The same Policy and Control can support several Frameworks. You maintain the
+practice once rather than writing a different copy for each obligation.
+
+<ProductShot src="/screenshots/policy-published-version.jpg" alt="A published AuthRail Policy showing its owner, review schedule and purpose" caption="A Policy gives the team a written expectation with a responsible owner. A Control explains how the team puts it into practice." />
+
+### 3. Check that the practice works
+
+A **Test** describes a repeatable check. For example: inspect the support team's
+sensitive changes for a month and check whether each has the required review.
+**Evidence** is the material reviewed to support the conclusion, such as the
+request list and approval records.
+
+**Readiness** shows how that reviewed work supports the Framework's applicable
+duties and what still needs attention. A missing record or failed check stays
+visible; a percentage is not legal certification.
+
+### 4. Apply the rule inside an AI application
+
+**Runtime** connects reviewed rules to an application's actual tools. Those
+rules are called **Rails**. They can check a request before a tool runs and
+check its result before information returns to the agent.
+
+For the support assistant, Runtime can require approval before the protected
+account-change function continues. Your application keeps the provider
+credentials and performs the operation. AuthRail records the decisions and the
+application's execution reports so the team can investigate them afterward.
+
+Runtime has two modes. **Observe** shows what the rules would decide while the
+application continues. **Enforce** makes the connected protected path require
+permission before it runs. The developer must place the check at the real tool
+and keep the agent from reaching its credentials another way.
+
+## Start with your organisation's work
+
+Begin with [Frameworks and scope](/docs/frameworks), then follow the governance
+guides through Policies, Controls and proof. You will have a clear account of
+what your team expects, how it operates and what supports that account.
+
+After that, [How Runtime works](/docs/concepts) explains the application
+connection. The [Runtime walkthrough](/docs/application-example) shows a sample
+request, the running sidecar and the resulting AuthRail records.
+
+<details className="guide-details">
+<summary>More about decisions, execution and proof</summary>
+
+An allowed decision says that a request met the checked rules. An execution
+report says what the application reported about its attempt. Looking up the
+provider's own record can establish whether an external change happened.
+These are different questions, and AuthRail keeps their records separate.
+
+An **Action** brings together a Runtime request's checks, approval and execution
+reports. **Activity Records** describe meaningful activity for review. A signed
+record helps establish integrity; it does not independently prove an external
+effect or certify compliance.
+
+Runtime records can support a Control's Test or Evidence review when that
+review defines which requests and outcomes qualify. They do not automatically
+make a Framework obligation ready.
+
+</details>

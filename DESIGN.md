@@ -1,9 +1,9 @@
 # AuthRail documentation design brief
 
-The existing implementation is a rejected draft. Preserve useful source and
-screenshots, but do not use its landing, introduction or navigation as the
-approved design. The founder requested a fresh agent and a dedicated docs
-conversation before Python work.
+This brief records the founder's agreed direction for the public documentation.
+The current lead owns the docs pass, with independent reviews for clarity and
+setup accuracy. Python follows documentation, then coordinated SDK release
+planning. Passing a build does not substitute for founder review.
 
 ## Reference and visual direction
 
@@ -14,10 +14,45 @@ and getting-started pages before proposing the AuthRail design. Follow their
 clear hierarchy, direct product explanation, grouped sidebar, useful icons,
 readable code blocks and straightforward setup. Use AuthRail's own real logo,
 mark, favicon and blue identity. Do not invent another text-only logo or generic
-favicon. Verify responsive layouts, accessibility, light/dark themes, keyboard
+favicon. Use Phosphor icons throughout authored docs UI; do not use Lucide. Import the current `SomethingIcon` exports, not deprecated
+aliases; use the same names in page icon metadata.
+Verify responsive layouts, accessibility, light/dark themes, keyboard
 navigation, search and on-page contents in the browser.
 
-## Explain the product before installation
+## Typography
+
+Use Oxanium semibold for the landing heading, with a smaller 64px desktop cap.
+Use IBM Plex Sans for paragraphs, navigation, brand text and documentation.
+Keep the brand text compact (20px desktop, 19px mobile). The landing retains its
+approved composition; typography must remain readable at narrow widths.
+
+## Landing page: one direct introduction
+
+Follow Authlier's actual simple landing: compact logo/navigation, one factual
+heading, one short product paragraph and a small documentation entry area.
+No refund card, feature grids, audience chooser, screenshots, product-story
+sections or slogans on the landing. Use AuthRail blue and a dark lower entry
+area with generous spacing. The landing states what AuthRail does; the docs
+pages explain why and how. Do not add a fake install command for the whole
+product, a fabricated GitHub star count or a link to the private reference app.
+
+## Navigation and learning order
+
+Start with Introduction. Teach Governance through dedicated Frameworks,
+Policies and Controls, Tests and Evidence, and Readiness pages. Then explain
+Runtime, Rails, modes, contextual facts, approvals and records. Only after those
+foundations introduce Connect your first application, identity and installation,
+the Node/Go adapters and NVIDIA OpenShell. Operation/recovery and detailed references follow.
+The introduction links into this sequence, rather than sending a beginner
+straight to installation. Use concrete examples and cross-links for defined
+terms; avoid a dense glossary squeezed into one introduction.
+
+The landing paragraph explains the purpose: AuthRail helps organisations govern
+AI use, understand activity, control actions, review sensitive decisions and
+connect that oversight to organisational policies and compliance requirements.
+Keep feature names for their proper explanations inside the docs.
+
+## Docs pages: explain the product before installation
 
 Begin with the AI governance problem in plain language: organisations need to
 understand AI activity, set boundaries, review decisions and retain useful proof.
@@ -28,10 +63,38 @@ result boundaries, with concrete examples and expected outcomes.
 
 Do not lead with the rejected refund/approval demo card, slogans such as
 "Set the boundaries. Keep the proof.", an audience chooser, internal architecture
-jargon or a public "Current delivery status" section. The first page must make
-the product understandable to someone who has never used AuthRail.
+jargon or a public "Current delivery status" section. The introductory docs pages must make the product understandable to someone
+who has never used AuthRail.
+
+Public integration guides use the supported Node and Go adapters. Do not publish
+a DIY HTTP implementation guide or present a custom adapter as an equivalent
+customer path. The underlying wire contract stays with the source implementation.
+Do not claim a latency figure without a representative measurement. Explain the
+parts of response time and how a customer can measure its own deployment.
+
+## Introduce every guide before its instructions
+
+Every page begins with what the concept does, why the reader would use it and
+one familiar example. Walk through one task in reader order and show the
+expected result. Define terms where they first become necessary. Do not make
+beginners decode contracts, cryptographic digests, namespaces, version bindings
+or recovery internals before understanding the task.
+
+Keep required setup complete. Put advanced explanations and uncommon failure
+cases in clearly named, keyboard-accessible details sections. Essential safety
+instructions remain visible where the action occurs. This is a structural
+writing rule, not permission to replace instructions with links or remove
+necessary identity, retention and execution boundaries.
 
 ## Teaching and evidence
+
+The GitHub README introduces AuthRail and links the public sidecar, SDK and docs
+repositories. It is a product entry point, not a contributor setup page.
+Introduce contextual AI explicitly as an AuthRail feature. Define health,
+telemetry and any other technical term before using it; state who supplies each
+setup value, where to obtain it and where any data is sent. Remove internal
+progress/acceptance commentary from public guides. Major concept pages need
+relevant genuine screenshots, including Policies, Controls and contextual AI.
 
 Each guide defines the concept, why it exists, who uses it, and how to complete
 a real task. Explain prerequisites, commands, expected results and recovery in
@@ -52,11 +115,11 @@ verified effects and Framework-qualified proof have different meanings.
 
 ## URLs, metadata and repositories
 
-Use one constants module for public URLs and links. Replace lib/site.ts's
+Use one constants module for public URLs and links. The first slice replaced lib/site.ts's
 AUTHRAIL_DOCS_URL environment-variable/localhost fallback; do not introduce
 public endpoint env configuration. The docs origin is https://docs.authrail.io;
 the API staging origin verified in source is https://api-staging.authrail.io.
-Verify the exact tenant staging origin before linking it. Secrets belong in
+The tenant staging origin verified in Caddy source is https://app-staging.authrail.io. Secrets belong in
 private storage/Secrets Manager, never constants or public examples.
 
 Add proper title/description metadata, canonical URLs, Open Graph/social tags,
@@ -71,8 +134,8 @@ setup, dependencies, AuthRail connection, safe scenarios and troubleshooting.
 
 ## Workflow
 
-First discuss the product introduction, page sections and navigation with the
-founder in the new chat. Update this brief and canonical root MD files with the
+The founder approved the simple Authlier-style landing and asked work to begin.
+Implement and inspect that first slice before expanding the documentation. Update this brief and canonical root MD files with the
 agreed decisions. Then implement and visually inspect the site slice by slice.
 Do not return to Python before this docs pass. Do not deploy or publish the
 rejected draft merely because its source is committed on main.

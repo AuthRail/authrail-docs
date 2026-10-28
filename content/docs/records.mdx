@@ -1,31 +1,108 @@
 ---
-title: "Decisions, receipts and Activity Records"
-description: "Read each record according to the claim it can support."
+title: "Actions, decisions and activity"
+description: "Find out why a request was allowed or stopped and what the application reported afterward."
+icon: ClockCounterClockwiseIcon
 ---
 
-An Action joins several records because permission and execution answer different questions. Open the exact Action to see its deployment, mode, Operation Version, phase decisions, Rails, approvals and attempts. Keep historical signed records intact when rules or names later change.
+An **Action** is the saved account of one Runtime request: the AI system and
+application involved, the rule checks, any approval and the reported execution.
+Use it when someone asks why a payment was stopped or whether an allowed
+request actually completed.
 
-| Record | What it explains | What it does not establish |
-| --- | --- | --- |
-| Decision Certificate | The retained evaluation, exact versions and decision integrity | Provider completion or legal certification |
-| Execution receipt | The authenticated executor's reported attempt or outcome | Independent provider verification |
-| Approval and permit | Human review and permission for the exact bound call | That an effect started or completed |
-| Activity Record | Linked customer-visible business activity | A replacement for the Action or evidence graph |
-| Runtime log | Bounded operational diagnosis and failures | Durable business truth or proof of all interception |
-| Internal telemetry | Correlated service performance and failure signals | Customer Evidence or authorization |
+For example, a support team sees an allowed account-change request. The Action
+can show the allowed check and a separate completion report. That difference
+matters: permission to make a change is not the same as a report that the
+application made it.
 
-## Read permission and effect separately
+## Explain one request from beginning to end
 
-For a denied Enforce call, inspect whether any start receipt exists and check the protected executor's effect ledger. For an allowed call, look for the reported attempt and outcome. A retained certificate with no receipt says nothing by itself about provider completion. An Observe would-deny result may accompany an actual execution because Observe is advisory.
+### 1. Find the Action
 
-The reference application's provider checks can read back an exact Stripe or QuickBooks record. That provider evidence is distinct from the receipt. Attestation verifies record integrity, not execution identity or compliance certification.
+Open **Actions & decisions** in AuthRail or follow **View in AuthRail** from
+the originating application. Check that you have the intended AI system,
+deployment, target and Runtime mode. In Observe, a would-deny decision may
+sit alongside a completed operation because the mode is advisory.
 
-## Follow exact history
+### 2. Read the request decision
 
-Certificates retain the exact evaluation rather than substituting the newest Rail. Receipt signatures use the retained executor assertion and public-key snapshot. Older receipts without those assertions remain identifiable as older evidence; never manufacture a signature for them.
+Read the outcome and reason. Follow the rules used for that decision and look
+for missing business facts or required processing. If the request needed human
+review, open its approval and check the reviewers, expiry and outcome.
 
-Use linked Action and Activity Record references to move between authorization and the tenant's history. Respect tenant authorization and purpose-bound support access. Internal operational views do not grant staff unrestricted access to tenant payloads.
+### 3. Inspect execution and the result check
 
-## Retain and export deliberately
+Expand **Execution reports**. Look for a started attempt and the application's
+completion, failure or uncertain-outcome report. Read the result check as well:
+the application may have completed an operation whose result was then withheld
+from the agent.
 
-The intended proof period, completeness, review and freshness come from the owning Test or Evidence requirement. Do not infer an export or retention guarantee that the installed deployment does not provide. Preserve the exact source references and [qualify Framework proof](/docs/framework-proof) before treating Runtime history as accepted Evidence.
+<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="Action showing allowed call and result checks and separate execution start and completion reports" caption="The checks explain permission. The execution entries describe what the protected application reported about its attempt." />
+
+If no completion is known, do not treat the Action as a successful provider
+change. Investigate the application's saved operation history and, where
+appropriate, the provider's own record before retrying.
+
+### 4. Follow the related activity
+
+Use the linked Activity Records to see meaningful events in their business
+context. An **Activity Record** describes the event for organisational review;
+the Action keeps the detailed Runtime checks and execution reports together.
+
+You should now be able to explain what was requested, why the rule allowed or
+stopped it, who reviewed it and what the application reported. The
+[Runtime walkthrough](/docs/application-example) shows this alongside the sample
+application and sidecar.
+
+<details className="guide-details">
+<summary>More about the different records</summary>
+
+| Record | What it explains |
+| --- | --- |
+| Decision Certificate | The saved check, its rule versions and reasons, with information to check record integrity. |
+| Execution receipt | A signed report from the registered executor about an attempt or its outcome. |
+| Approval and permit | Human review and one-use permission for the checked request. |
+| Activity Record | A meaningful business event linked to its context and Runtime Action where present. |
+| Runtime log | Operational events useful for diagnosing a deployment. |
+
+A certificate does not independently verify provider completion or certify
+compliance. A signed execution receipt is an application assertion, not an
+independent provider lookup. Approval does not show that execution started.
+Runtime logs and internal monitoring traces do not replace durable Actions,
+approvals, receipts or Evidence review.
+
+For a denied Enforce call, investigate any reported start and the application's
+or provider's history. A saved denial cannot prove that an alternative route
+did not perform the operation.
+
+</details>
+
+<details className="guide-details">
+<summary>More about agent, provider and model details</summary>
+
+An Action can show the inventory name and provider/model configuration saved
+with it. Later inventory edits do not replace that historical context.
+
+A contextual fact can also identify its source, account, resource, extraction
+model, settings and timestamps. Those details explain how the fact was obtained;
+they do not establish that the same model generated the agent's request. Treat
+execution identity as unreported when it was not reported rather than inferring
+it from configuration.
+
+Access remains limited by organisation and permissions. An internal support
+role does not automatically grant access to all tenant payloads.
+
+</details>
+
+<details className="guide-details">
+<summary>More about using Runtime history as proof</summary>
+
+When reviewing an older decision, use its saved certificates, execution reports
+and rule versions. A newer Rail cannot replace the one used for that Action.
+An older record without a saved signed report cannot be treated as if it had one.
+
+For audit use, a Control's Test or Evidence requirement defines the period,
+coverage, completeness, freshness and review needed. See
+[Framework proof](/docs/framework-proof). An integrity attestation does not turn
+an application-reported effect into independent verification.
+
+</details>

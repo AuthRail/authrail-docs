@@ -1,3 +1,3 @@
 import type { MetadataRoute } from 'next';
-import { siteURL } from '@/lib/site';
-export default function robots(): MetadataRoute.Robots { return { rules: { userAgent: '*', allow: '/' }, sitemap: new URL('/sitemap.xml', siteURL).href }; }
+import { AUTHRAIL } from '@/lib/constants';
+export default function robots(): MetadataRoute.Robots { return { rules: { userAgent: '*', allow: '/' }, sitemap: new URL('/sitemap.xml', AUTHRAIL.docsOrigin).href }; }

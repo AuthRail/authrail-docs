@@ -1,30 +1,114 @@
 ---
-title: "Approvals and one-use permits"
-description: "Keep a human decision bound to the exact requested business action."
+title: "Human approvals"
+description: "Review a waiting request and let the originating application continue it safely."
+icon: ClipboardTextIcon
 ---
 
-An `approval_required` decision creates a durable wait. The protected function has no permission to run yet. A named authorized reviewer sees bounded human review context for the exact Action, requested values, matched Rail, reason and expiry.
+A **human approval** lets a named person review a request that should not
+proceed automatically. For example, a payment rule may send an amount above the
+automatic limit to a reviewer. In Enforce, the protected function waits while
+the reviewer decides.
 
-## Bind the review to the request
+Use this flow when the request needs a person's judgement. Approving it gives
+permission for that request; it does not make the payment or prove that it ran.
 
-The executor supplies a fresh signed `reviewSummary` tied to the input digest. Missing or invalid context leaves the request unavailable for a useful review. Approval rules still enforce tenant membership, exact digest, expiry and required quorum. A named authorized reviewer may approve their own request where configured; this does not establish independent review.
+## Review one waiting request
 
-If material business arguments change, the old approval does not authorize the changed action. Expired or cancelled requests remain historical records; create a new checked request through the proper lifecycle.
+### 1. Open the request assigned to you
 
-## Claim permission before executing
+In AuthRail, open **Rails → Approvals for you** using an account named by the
+approval rule. Choose the waiting request. If you are not an eligible reviewer,
+ask the person responsible for that action's approval setup to check the
+reviewer list.
 
-After approval, the protected executor signs a claim to local `POST /approval-permits/claim`. The sidecar forwards it using the deployment credential. The server consumes the approved request once and returns a short-lived permit bound to the same Action and input. The agent never receives the deployment credential or a reusable universal permission.
+### 2. Check what you are being asked to allow
 
-The adapter records `started` before invoking the protected callback. A permit proves permission to start under those conditions. It does not prove the callback ran or the provider completed.
+Read the Action, its reason, requested values and expiry. For a payment, check
+the amount, account and purpose. The application supplies this review context
+for the request being checked; do not substitute a different request discussed
+in chat.
 
-## Persist the waiting continuation
+<ProductShot src="/screenshots/runtime-approval-review.jpg" alt="Enforce payment request awaiting approval for invoice-demo with amount 150 and reviewer actions" caption="This request is waiting for review; no execution has been reported. Approval would give permission for this request, not prove that the payment ran." />
 
-A process may restart while waiting for a human. Store the SDK's bounded continuation in your own authenticated, private durable store, associated with the original task and business request. The callback itself is application code, not serialized authority. On resume, restore the exact Operation and arguments, refresh the signed proof and invoke only the credential-owning callback after a valid claim.
+### 3. Approve or reject the request
 
-Node exposes `resumeApprovalFrom` and `recoverApprovalFrom`; Go exposes the corresponding persisted continuation helpers. Check the installed SDK reference for the exact signatures. Never reconstruct a continuation from an agent-controlled request.
+Approve only the request you intend to allow, or reject it using the available
+review action. If the rule requires several approvals, your vote alone may not
+complete the review. The configured number of approvals is called the
+**quorum**.
 
-## Handle a lost claim response
+### 4. Return to the originating application
 
-An uncertain claim must not be sent again blindly. Use `POST /approval-permits/recover`, which can read an existing still-valid permit before an execution attempt has started. It cannot issue a second permit or resume an already-started attempt. If recovery cannot establish permission, keep waiting and investigate. After an uncertain provider effect, follow [execution recovery](/docs/recovery), not approval recovery.
+After the required approval, continue the waiting workflow in the application
+that made the request. It resumes the same input through its protected
+function. In the sample application, an approved waiting request offers
+**Continue request**.
 
-A Policy can require approval again at the result hook. An adapter may release that retained result only with a previously claimed permit for the same Action. Missing, denied, replayed or different-Action result decisions remain blocked.
+Inspect the linked Action afterward for its execution reports and result check.
+The expected result is a reviewed request with a recorded decision and, if the
+application continued successfully, a separate report of its execution. A
+rejected or expired request must not run through that approval.
+
+<details className="guide-details">
+<summary>More about setting up reviewers and review context</summary>
+
+A Runtime manager opens **Rails → Connected actions**, chooses the action,
+then opens **View action details → Approval reviewers**. Select authorised
+organisation members and the required number of approvals.
+
+The developer supplies a signed `reviewSummary` with a short title and the
+facts needed to decide. A request without the required valid summary cannot
+enter the approval flow. Keep credentials, raw prompts and full provider
+responses out of it.
+
+Approval requires valid organisation membership and an unexpired request. A
+named authorised reviewer may approve their own request where permitted; that
+is not independent review. Where separation of duties is needed, configure and
+operate the reviewer policy accordingly.
+
+</details>
+
+<details className="guide-details">
+<summary>More about how an application resumes approval</summary>
+
+After approval, the adapter obtains a short-lived **one-use permit** for the
+same Action and input. It records the execution start before invoking the
+business function and checks the result before releasing it to the agent.
+
+Changing the amount, account or message requires a new checked request. An
+approval cannot authorise replacement input from the model. Expired and
+cancelled requests remain historical; resuming must not revive them.
+
+If the workflow waits across requests or restarts, save the SDK's **approval
+continuation**, the context needed to resume, in private persistent application
+storage. Tie it to the original organisation, user, deployment and business
+task. Restore it from that storage, not from agent-supplied replacement context.
+
+| SDK | Same-process continuation | Saved continuation | Lost permit response |
+| --- | --- | --- | --- |
+| Node | `resumeApproval` | `resumeApprovalFrom` | `recoverApprovalFrom` |
+| Go | `ResumeApproval` | `ResumeApprovalFrom` | `RecoverApprovalFrom` |
+
+Restore the original business function and arguments. The SDK does not save the
+continuation for you. See the [Node](/docs/node) and [Go](/docs/go) guides for the
+application integration.
+
+</details>
+
+<details className="guide-details">
+<summary>More about a lost response or a blocked result</summary>
+
+A lost permit response differs from a failed business operation. Recovery can
+read an existing valid permit for an attempt that has not started; it cannot
+issue another permit or authorise an attempt already started.
+
+If permission cannot be established, keep the function stopped and inspect the
+Action. If the business effect may have happened, follow
+[execution recovery](/docs/recovery) rather than claiming permission again.
+
+A result check may still require approval because it sees the same business
+arguments. The SDK releases that saved result only with the original Action's
+claimed permit. A denied, missing or mismatched result stays withheld even if
+the operation completed.
+
+</details>

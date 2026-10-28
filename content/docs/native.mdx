@@ -1,38 +1,142 @@
 ---
 title: "Run a native sidecar"
-description: "Build or package a pinned binary with private persistent state."
+description: "Build the executable, run it beside your application, and check that it has loaded your rules."
+icon: TerminalIcon
 ---
 
-Use a native binary when your protected executor runs on the same customer host and Docker is unsuitable. The decision semantics and recovery obligations are identical to Docker.
+import { AUTHRAIL } from '@/lib/constants';
 
-## Build from reviewed source
+A native sidecar runs directly on your computer or server as a separate
+program. Choose it when your protected Node or Go application also runs on that
+host. It checks the same rules as the [Docker installation](/docs/docker).
 
-Go 1.26 or newer is required. From a pinned `authrail-sidecar` checkout:
+You will build the executable, give it your deployment settings, then leave it
+running while the application makes checks. You need Git and Go 1.26 or newer.
+First complete [the dashboard setup](/docs/getting-started) and
+[connection details](/docs/identity), including the registered public key and
+private token files.
 
-```bash
-go build -o authrail-sidecar ./cmd/authrail-sidecar
-sh scripts/package.sh YOUR_VERSION ./dist
+## 1. Build the executable
+
+Get the <a href={AUTHRAIL.repositories.sidecar}>sidecar source</a> and compile it:
+
+<CommandBlock lang="bash" code={`git clone --branch main ${AUTHRAIL.repositories.sidecar}.git
+cd authrail-sidecar
+go build -o authrail-sidecar ./cmd/authrail-sidecar`} />
+
+A successful build returns to the shell and creates `authrail-sidecar` in the
+checkout. It has not started the sidecar yet.
+
+## 2. Give it the deployment settings
+
+In the same terminal, replace the `YOUR_...` values with those from the
+deployment's **Integration setup → Configure the sidecar**. Use your own API
+address if it differs from this example:
+
+<CommandBlock lang="bash" code={`export AUTHRAIL_CONTROL_PLANE_URL=${AUTHRAIL.apiOrigin}
+export AUTHRAIL_ORGANISATION_ID=YOUR_ORGANISATION_ID
+export AUTHRAIL_DEPLOYMENT_ID=YOUR_DEPLOYMENT_ID
+export AUTHRAIL_TRUSTED_KEY_SHA256=YOUR_TRUSTED_SIGNING_KEY
+export AUTHRAIL_EXECUTOR_PUBLIC_KEY_FILE="$HOME/.local/share/authrail/my-deployment/executor-public.pem"
+export AUTHRAIL_DEPLOYMENT_TOKEN="$(cat "$HOME/.local/share/authrail/my-deployment/deployment-token")"
+export AUTHRAIL_ADAPTER_TOKEN="$(cat "$HOME/.local/share/authrail/my-deployment/adapter-token")"
+umask 077
+mkdir -p "$HOME/.local/state/authrail/my-deployment"
+chmod 700 "$HOME/.local/state/authrail/my-deployment"
+export AUTHRAIL_STATE_FILE="$HOME/.local/state/authrail/my-deployment/state.json"`} />
+
+The token and key paths refer to the files from the connection guide. The
+state directory stores the sidecar's rules, report queue and recovery history.
+Keep it private and use a separate directory for each sidecar instance.
+
+These settings include private credentials. Keep the terminal and process
+environment outside the agent's reach. The application's private key and
+provider credentials do not belong in the sidecar.
+
+## 3. Start it
+
+Run:
+
+```sh
+./authrail-sidecar
 ```
 
-The packaging script produces a current-platform archive and adjacent SHA-256 checksum. The archive includes the binary, protocol, compatibility guidance and conformance fixtures. Verify its checksum before unpacking. This creates a local artifact; it does not publish an official release.
+The sidecar stays in the foreground and prints startup and service messages.
+Leave this terminal open. Use another terminal to start your application and
+check the local service:
 
-## Configure one instance
-
-Supply the variables in [Configuration](/docs/configuration) through your service manager or private secret store. A minimal setup needs the HTTPS control-plane URL, deployment credential, organisation/deployment IDs, trusted signing-key fingerprint, adapter token, public executor key file and an instance-specific private state-file path.
-
-Set `AUTHRAIL_STATE_FILE` inside a private directory owned by the process user, and preserve all adjacent files. Keep the executor private key and provider credential in the protected application. Use a separate unprivileged service identity and keep the listener on loopback.
-
-Start the binary after configuration:
-
-```bash
-./authrail-sidecar
+```sh
 curl --fail --silent --show-error http://127.0.0.1:7078/health
 ```
 
-A successful HTTP response is not sufficient: inspect bundle validity, expected deployment, sequence, key fingerprints and queue status. The process can be alive before a usable bundle arrives. The application uses the same loopback endpoint and authenticates with the separate adapter token.
+Look for `bundleValid: true` and the mode selected for this deployment. The
+response also shows the loaded bundle, application-key fingerprints and pending
+report counts. HTTP success alone only means the endpoint responded.
 
-## Stop and upgrade safely
+If there is no valid bundle, check the copied settings, deployment token,
+registered application key and selected Rails. The deployment's **Overview →
+Connection health** should also show a recent update after the sidecar connects.
 
-SIGINT or SIGTERM stops synchronization and allows bounded HTTP shutdown. Your service manager must give the process time to exit. Keep one state set per instance and avoid concurrent owners of the same path.
+## 4. Connect the SDK
 
-Stop only the instance under your change process, preserve the entire private state directory, replace the pinned binary and restart with the same identity, keys and credentials. Never delete a rejected state file or restore an older accepted sequence to make startup succeed. See [operations](/docs/operations) for queue and telemetry checks and [compatibility](/docs/compatibility) before changing versions.
+Follow the [Node](/docs/node) or [Go](/docs/go) guide in your protected application.
+Use `http://127.0.0.1:7078` as its sidecar URL, the same adapter token, and the
+application's private key. These processes must run on the same host; keep the
+sidecar listener private.
+
+After a safe request, the terminal shows decision events. The
+[Runtime walkthrough](/docs/application-example) includes an actual native
+status check and operation logs. [Monitoring](/docs/operations) explains how
+to read those events.
+
+<details className="guide-details">
+<summary>Stop or remove the native sidecar</summary>
+
+Pause the protected application or move its traffic to a replacement first.
+If you started the sidecar in this terminal, press Ctrl+C. If a service manager
+starts it, stop that specific service. Disable its automatic startup when
+removing the installation.
+
+For a background process, find its listener:
+
+```sh
+lsof -nP -iTCP:7078 -sTCP:LISTEN
+```
+
+Use the configured port if different. Confirm that the process belongs to this
+sidecar, then send SIGTERM with `kill -TERM PID`, using the confirmed numeric
+PID. Allow it to exit and run the listener check again. Do not stop unrelated
+processes or use a broad process-name kill command.
+
+For permanent removal, remove the stopped executable and its service-manager
+entry. Keep private state and credentials until queued reports, blocked reports
+and unknown effects are resolved and retained as required. Deleting the program
+does not erase AuthRail's retained Actions. Do not delete state to clear a warning.
+
+</details>
+
+<details className="guide-details">
+<summary>Package, maintain or upgrade an installation</summary>
+
+For a maintained installation, have a service manager or secret store supply
+the credentials rather than relying on an interactive terminal. Keep the
+instance's identity and complete private state through restarts.
+
+To build a local archive for another installation of the same OS and CPU, run
+this from the source checkout:
+
+```sh
+sh scripts/package.sh development ./dist
+```
+
+It creates an archive and adjacent SHA-256 checksum. Verify the checksum before
+unpacking. Choose a reviewed source commit when you need a repeatable build.
+
+Before an upgrade, pause the application, stop the sidecar with Ctrl+C or
+SIGTERM, and allow its bounded shutdown to complete. Preserve the entire state
+directory and credential files. Replace the executable and restart with the
+same settings, then check valid rules and report queues before accepting work.
+Never restore an older state copy or delete rejected state to make startup
+succeed. Follow [recovery](/docs/recovery) for unresolved reports and effects.
+
+</details>

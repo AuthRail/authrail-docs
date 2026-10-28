@@ -1,30 +1,115 @@
 ---
-title: "Execution, idempotency and recovery"
-description: "Distinguish safe delivery retries from an uncertain business effect."
+title: "Execution and recovery"
+description: "Find out whether an action happened before trying it again."
+icon: GitBranchIcon
 ---
 
-The customer's protected executor performs the business operation. AuthRail records permission and the executor's signed assertions about execution. A network timeout can occur after a provider commits an effect, so an exception is not enough to classify failure.
+Your application asks a provider to make a payment. The request times out.
+Did the payment fail, or did the provider complete it and lose the response?
+Trying again immediately could pay twice.
 
-## Use stable business identity
+Use this guide when an application crashes, a provider response is lost or an
+Action has an unknown outcome. The first task is to establish what happened to
+**the original request**.
 
-Choose one Action key per business intent and keep it across retries and process restarts. Do not reuse it for a different refund or changed arguments. The Enforce callback receives a provider idempotency key of `ar-<Action ID>`. Supply it to a provider that supports idempotency and preserve it in your own effect ledger.
+AuthRail keeps the permission decision and the application's execution reports
+separately. An allowed decision tells you the request had permission. The
+application must check the provider or its own saved business records to
+establish the effect.
 
-The Action key deduplicates AuthRail history. It cannot deduplicate a provider that ignores the provider key. Your executor still owns atomic local effect bookkeeping, provider-specific guarantees and duplicate-safe recovery.
+## Investigate the original request
 
-## Record the attempt
+The developer or operator responsible for the protected application should:
 
-Before the effect, the adapter sends a signed `started` receipt. After a known success it sends `succeeded`. If the outcome cannot be established, it reports `unknown`. Receipts bind the Action, attempt, event and exact input; repeating receipt delivery cannot authorize another effect.
+1. **Stop automatic retries for this request.** Keep its saved request, Action
+   and execution-attempt identifiers. Keep the original arguments and provider
+   request key too.
+2. **Open its Action in AuthRail.** Read the request decision and execution
+   reports. An attempt marked `started` may have reached the provider.
+3. **Look up the original operation.** Use the trusted provider account or the
+   application's saved effect record. Match the request key, resource and
+   relevant amount or other business details.
+4. **Report the established outcome through the SDK.** Report success when the
+   source confirms the effect. Report failure only when the source confirms
+   that no effect occurred.
+5. **Leave it unknown if the source cannot establish either answer.** Keep the
+   request for an operator to investigate.
 
-A success receipt is an authenticated application assertion. Read back the provider record when independent effect evidence matters. Do not label an application-reported success as independently verified merely because AuthRail retained it.
+This is called **reconciliation**: checking the original effect and updating
+its reported outcome. A timeout, HTTP error or the agent's recollection is not
+enough to establish that nothing happened.
 
-## Resolve an unknown outcome
+**Expected result:** the same Action has an established outcome or remains
+explicitly unknown. The investigation itself does not repeat the payment.
 
-Persist the SDK recovery context before losing the process. Query the provider or protected effect ledger using the original provider idempotency key and reviewed account. If it establishes success, reconcile as `reconciled_succeeded` with the provider reference. If it establishes no effect, reconcile as `reconciled_failed`. If neither can be established, leave the outcome unknown and escalate to an operator.
+## Retry only after confirming no effect
 
-Only authenticated no-effect reconciliation can permit a fresh signed call decision and another attempt. Keep the same business arguments and provider key. Refresh facts and trajectory for the new decision and obtain any newly required approval. Never retry the business operation merely to see whether it succeeds this time.
+A confirmed no-effect reconciliation can allow another execution attempt. The
+application still needs a fresh decision, any required approval, and fresh
+business facts used by the rule.
 
-## Preserve the report queue
+Keep the same business arguments and provider request key. Keep the same
+AuthRail Action key—the value your application assigned to this business
+request. Changing that key creates a different request; it does not resolve
+the uncertainty around the first one. Do not reuse an Action key with different
+arguments.
 
-`retained` means AuthRail saved the report and returned references. `queued` means only the sidecar's private durable queue holds it. `unavailable` means durable recording is not established. Report delivery retries must not rerun the callback.
+A provider **idempotency key** is a request key it can use to recognize a repeat
+of the same operation. Pass the SDK's provider key to services that support it,
+and keep it in your application's saved records. Confirm the provider's own
+idempotency behavior before relying on it to prevent duplicate effects.
 
-Preserve the complete sidecar state directory through restarts and upgrades: accepted sequence, report queue, trajectory ledger and recording-gap archives. A queue that cannot retain more data creates a recording gap. Observe remains advisory; Enforce cannot proceed on a queued or unavailable call. A recording outage after an effect is an operational recovery problem and cannot undo that effect.
+<details className="guide-details">
+<summary>More about saving recovery information</summary>
+
+The protected application keeps provider credentials and performs the business
+function. Before that function runs in Enforce, the adapter sends a signed
+`started` receipt to AuthRail. Your application must also save the recovery
+context with its business request so it survives a process restart.
+
+Keep the Action ID, attempt ID, original input, provider idempotency key and
+any approval permit reference. The Enforce callback receives a provider key
+of the form `ar-<Action ID>`. Use the recovery context supplied by your adapter,
+rather than reconstructing a different attempt after a crash.
+
+Node's `reconcile` and Go's `Reconcile` report an outcome established by the
+protected application's lookup. They accept recovery context, a provider
+reference and a known outcome. The resulting receipt is
+`reconciled_succeeded` or `reconciled_failed`. Neither method automatically
+repeats the business function.
+
+A signed receipt establishes what the registered executor key reported. It does
+not independently retrieve or verify the provider record.
+
+</details>
+
+## Check whether the result was withheld
+
+An operation can finish even if AuthRail stops its result from being returned
+to the agent. For example, the provider may create an invoice, then the result
+check may prevent the agent from seeing sensitive invoice fields.
+
+Inspect the execution reports and provider record before retrying. A withheld
+response does not delete the invoice. If the business operation needs to be
+reversed, use your application's supported reversal process.
+
+## Restore report delivery without repeating the action
+
+The sidecar may have a report waiting to reach AuthRail. Read its recording
+status before deciding what to do:
+
+| Status | Meaning | What to do |
+| --- | --- | --- |
+| `retained` | AuthRail saved the report. | Keep its record references with the application task. |
+| `queued` | The sidecar saved the report locally for delivery. | Restore connectivity and keep the complete state directory. |
+| `unavailable` | Durable recording could not be established. | Investigate storage and delivery; preserve the application's recovery information. |
+
+Enforce holds a new operation when its required call report has not been
+retained. Later report delivery does not start that operation automatically.
+A reporting problem after execution cannot undo an effect that already happened.
+Observe remains advisory during a reporting outage.
+
+Keep the entire sidecar state directory through restarts, including queues,
+saved session history and recording-gap files. Deleting those files can remove
+the information needed to recover. See [monitoring](/docs/operations) to inspect
+connection status and local logs.

@@ -1,29 +1,83 @@
 ---
 title: "Compatibility and coverage"
-description: "Pin verified components and keep unsupported paths visible."
+description: "Choose an SDK and sidecar that work together, then check which actions your application protects."
+icon: InfoIcon
 ---
 
-The current source contract uses signed bundle and local evaluation `formatVersion: 1`. That number describes a shape; it does not prove that arbitrary package versions work together or that all tools are protected.
+Your application uses an SDK to talk to its sidecar. Those two components need
+to work together. You also need to know **which tools actually use them**.
 
-## Verify the installed combination
+These are separate questions. **Compatibility** means the installed components
+can exchange the required requests and reports. **Coverage** means the
+application's real operations pass through the checks. Successfully installing
+a compatible SDK does not automatically protect the application's other tools.
 
-Pin the server contract, sidecar revision or image digest, SDK revision/package and OpenShell integration version together. Run the versioned `conformance/v1` canonical input, decision and failure fixtures. The same corpus is mirrored in Node and Go; protocol changes require coordinated review.
+Use this page when choosing an integration or preparing an upgrade. The task
+is to record the combination you will run and verify it with safe requests.
 
-Then run actual call and result interception through the installed artifacts. Inspect retained Actions, signed receipts and certificates, test a denied attempt without effects, and exercise approval plus uncertain-outcome recovery. A mock callback can prove translation and lifecycle behavior. It cannot prove a real provider effect or an independent provider read-back.
+## Choose the SDK for your application
 
-No public immutable release matrix is currently claimed. The sidecar repository's `COMPATIBILITY.md` records the bounded source combinations checked so far. An earlier check is evidence for those exact sources, not automatic acceptance of later changes.
+| Your application | Start here |
+| --- | --- |
+| JavaScript or TypeScript tool functions | [Node SDK](/docs/node). |
+| Go functions or HTTP handlers | [Go SDK](/docs/go). |
+| An agent running inside NVIDIA OpenShell | [OpenShell integration](/docs/openshell), with the protected application and SDK outside the sandbox. |
 
-## Supported source paths
+Run the sidecar with [Docker](/docs/docker), the recommended setup, or use a
+[native binary](/docs/native). Both run the same local decision process.
 
-Node and Go expose Observe and Enforce adapters against the same local sidecar protocol. HTTP is the language-neutral contract for a custom protected adapter. Docker is the recommended sidecar setup, with native binaries retained. Python remains optional follow-up work; a first-party Runtime MCP adapter is outside this delivery scope.
+## Record the components you will run
 
-Guard support is handler-specific. Missing or conflicting obligations stop Enforce. An `isolate` label does not prove an active containment boundary. OpenShell's customer-operated path has its own validation status and must not be generalized to arbitrary shells or all sandbox tools.
+Keep the SDK package version or source revision and the sidecar image digest or
+native archive version with your deployment notes. An image **digest** identifies
+the exact container image, rather than a tag that can later point elsewhere.
 
-## Distinguish four checks
+Use a combination verified together. Review changes before upgrading either
+component independently. For OpenShell, also record the upstream version and
+policy used; its guide describes the reviewed 0.1.6 integration.
 
-- **Protocol conformance:** the adapter translates the signed wire contract correctly.
-- **Connected integration:** installed components carry a real checked call and retained records across boundaries.
-- **Deployment coverage:** every relevant effect and credential path has been reviewed and intercepted or disclosed.
-- **Product acceptance:** founder E2E, Framework-led release gates, staging and production checks have been completed separately.
+## Check the protected operation
 
-A passing build or healthy process satisfies none of the remaining checks by implication. Keep the deployment advisory until its own enforceable boundary is established.
+In a safe application or provider test account:
+
+1. **Try an allowed request in Enforce.** Inspect its call and result checks,
+   execution start and reported completion.
+2. **Try a denied request.** Check the effect record or provider account to
+   establish that the operation did not run.
+3. **Try a request needing approval.** Review it, then continue the saved
+   request through the application's approval flow.
+4. **Check reporting failure and recovery.** Confirm that permission saved only
+   in a local queue cannot start Enforce execution. Use the
+   [recovery guide](/docs/recovery) to test a lost response without duplicating
+   a business effect.
+5. **Review other routes to the same action.** Follow the
+   [security guide](/docs/security), including credentials, tools and network
+   paths that could bypass the protected application.
+
+**Expected result:** you know which installed versions were exercised, which
+operations were protected and what happened when a check or dependency failed.
+Keep gaps visible to the team operating the application. When checking a real
+provider effect, inspect its actual record separately from the application's
+report to AuthRail.
+
+<details className="guide-details">
+<summary>More about protocol versions and upgrades</summary>
+
+The signed bundle and local evaluation use `formatVersion: 1`. This names a
+message format. It does not by itself establish compatible recovery behavior
+or coverage of every tool.
+
+The sidecar's packaged `COMPATIBILITY.md` describes source combinations and
+checks. Its shared `conformance/v1` examples check that implementations encode
+signed requests and interpret decisions consistently. Keep those references,
+the server contract and any OpenShell artifacts with the deployment review.
+Use the supported SDKs rather than rebuilding their signing and recovery logic.
+
+Before replacing a running instance, preserve the entire sidecar state set,
+application recovery records, keys and pending approvals. Verify the new
+combination in a safe installation first. Review coverage again when changing
+sandbox access, provider accounts, processing handlers or network permissions.
+A missing handler or unavailable required isolation cannot be treated as a
+passing Enforce check.
+
+</details>

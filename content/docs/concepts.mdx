@@ -1,28 +1,103 @@
 ---
-title: "How Runtime fits together"
-description: "Follow one proposed refund from identity to a retained outcome."
+title: "How Runtime works"
+description: "See what your agent tries to do and apply your rules before its tools run."
+icon: SquaresFourIcon
 ---
 
-Consider a support assistant requesting a USD 240 refund. Your application already knows the staff member, customer payment and provider account. AuthRail adds a checked boundary around the request.
+An AI agent can ask to do something useful and still go beyond what your team
+allows. A support agent might need to read a ticket, write a reply and change an
+account. Those actions should not all have the same permission.
 
-## Name the system and its deployment
+**Runtime** is the part of AuthRail that connects your rules to those tool calls.
+It shows what the agent requested, why a request was allowed or stopped, and what
+your application reported afterwards. It can also require a person to approve a
+request before the application continues.
 
-An **AI Inventory item** identifies the AI system your tenant has reviewed. A **deployment** identifies one place that system runs, with its own authenticated workload identity, selected Rails and Runtime mode. An integration key such as `support-assistant` helps find the system; it is not authentication. Tenant confirmation and deployment credentials establish the reviewed setup.
+Your application still performs the work. AuthRail checks the rules around it.
 
-## Define what can be requested
+## Follow a simple example
 
-An **Operation Version** is the reviewed contract for one capability, such as refunding a payment. It defines the action shape and attribution requirements. A tool name, imported OpenAPI endpoint or uploaded description only proposes a contract. A human reviews it before it becomes the exact version used by the deployment.
+Imagine an assistant that pays invoices. Your team allows payments up to 100
+units, asks a person to review larger payments, and only permits the selected
+invoice to be changed.
 
-A **Rail** adds a boundary. A Data Rail can use a reviewed account balance, a Policy Rail can translate an exact published business Policy, and a Guard Rail can govern sensitive input or output. Publication creates an immutable version; deployment selection identifies exactly which versions will apply.
+| The agent asks to… | Your rule says… |
+| --- | --- |
+| Pay 80 units on the selected invoice | Allow the request. |
+| Pay 150 units on the selected invoice | Ask a reviewer. |
+| Pay a different invoice | Deny the request. |
 
-## Check the call, then the result
+You configure these action rules as [Rails](/docs/rails). Runtime checks the
+actual request against the Rails selected for that application.
 
-The adapter signs the call using the protected executor's key. The sidecar verifies the signed deployment bundle, workload attribution and required context, then evaluates the selected rules. In Observe the outcome is advisory. In Enforce the adapter stops unless the covered call is freshly allowed and centrally retained, or a matching approval permit is obtained.
+## What happens when a tool is called?
 
-An **Action** links the stable business request to decisions, approvals and reported attempts. For our refund, a rule might require named human approval above USD 100. Approval does not perform the refund: the protected executor claims a one-use permit, records its start, then invokes the provider with a stable idempotency key.
+1. **The agent proposes an action.** For example, “pay 80 units on this invoice.”
+2. **Your application identifies the user and invoice.** It uses its own trusted
+   records, rather than accepting the agent's claim about who owns the invoice.
+3. **The application asks AuthRail to check the call.** In Enforce, a denied
+   request stops here. A request needing approval waits for a reviewer.
+4. **Your application runs an allowed tool.** It keeps the payment credential and
+   reports the attempt and its outcome.
+5. **The tool's result is checked before it reaches the agent.** A result that
+   breaks a rule can be withheld. This cannot undo a payment that already ran.
 
-The adapter records the application's outcome and checks the result before returning it to the agent. A result block can withhold sensitive output. It cannot reverse a refund that already happened.
+Start in [Observe](/docs/modes) to see the decisions while testing your rules.
+Choose Enforce only after reviewing the application path that will apply them.
 
-## Retain the right explanation
+## Where does it run?
 
-The Decision Certificate explains the exact decision and its inputs in bounded form. The receipt records the executor's signed outcome assertion. Activity Records explain linked business activity. Runtime logs support diagnosis. None replaces the others or independently proves the provider effect. [Records](/docs/records) explains how to read each one.
+You connect your application with an **SDK**, a library added to your code, and
+a **sidecar**, a small service running beside it.
+
+| Part | What it does |
+| --- | --- |
+| AuthRail workspace | Your team reviews AI systems, publishes Rails, handles approvals and inspects records. |
+| Sidecar | Loads the deployment's Rails, checks requests locally and sends reports to AuthRail. |
+| Your application and SDK | Ask for the checks, apply the decision and run the actual business function. |
+
+The application keeps provider credentials away from the agent. The SDK must
+check the function that really performs the work. If the agent can call the
+same provider through another route, that route also needs protection.
+
+## See the decision and the reported result
+
+Open an Action in AuthRail to inspect the request check, result check and
+execution reports together.
+
+<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="AuthRail showing an allowed invoice request, an allowed result and separate started and completion-reported entries" caption="One sample payment: AuthRail retained the checks and the application's start and completion reports." />
+
+**Allowed** is a permission decision. **Completion reported** means the application
+said it completed the operation. To verify a provider effect, inspect the matching
+record in that provider. These records answer different questions.
+
+The [Runtime walkthrough](/docs/application-example) follows this example through
+the application, sidecar logs and AuthRail screens.
+
+<details className="guide-details">
+<summary>How Runtime knows which application and action to check</summary>
+
+An **AI Inventory item** identifies the AI system your team reviews. A
+**deployment** identifies one installation of that system, with its own mode,
+selected Rails and application identity.
+
+Each connected action has a reviewed **Operation Version** describing its inputs,
+results and identity requirements. The SDK uses that version so a function name
+alone cannot substitute for the reviewed action.
+
+Your team confirms the AI system and the application authenticates its requests.
+A configured provider or model name describes setup; it does not prove which
+model generated a request. See [identity and deployment](/docs/identity).
+
+</details>
+
+## Connect Runtime to your governance work
+
+[Policies and Controls](/docs/policies-controls) describe what your organisation
+expects and how it puts those expectations into practice. Runtime can apply
+those expectations to connected actions. A Control's [Test or Evidence
+review](/docs/framework-proof) determines which Runtime records support its proof.
+
+Continue with [Rails](/docs/rails) to understand the rules, or
+[connect your first application](/docs/getting-started) when you are ready to set
+up the integration.

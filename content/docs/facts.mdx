@@ -1,28 +1,128 @@
 ---
-title: "Facts and contextual extraction"
-description: "Supply bounded trusted inputs without moving provider credentials into the agent."
+title: "Facts and contextual AI"
+description: "Give a rule the business information it needs, including an answer read from selected text."
+icon: FileTextIcon
 ---
 
-Data Rails need facts about the business request. The protected application reads the exact reviewed source and supplies a resolution signed as part of the call. The sidecar evaluates locally; it does not fetch provider data or invoke a model.
+**AuthRail's contextual AI** helps a rule use information that needs to be read
+from text. Your application uses AuthRail's SDK to ask a configured model a
+reviewed question, check the answer and supply it to the rule.
 
-## Use a reviewed lookup
+For example, a support team may require human review when a customer message
+asks for passwords or API keys. The rule needs an answer to “does this message
+request credentials?” That answer is a **fact**: information used when deciding
+whether the action may continue.
 
-The SDKs provide customer callback/API readers and focused Stripe and QuickBooks helpers. Configure the source version, account, resource lookup, timeout and expected field from reviewed configuration. Never take the provider URL, account or credential from agent text.
+Some facts do not need a model. An application can read an invoice balance
+from a trusted system. Use contextual AI when the answer requires interpreting
+selected material, and a normal lookup when the source already stores the value.
 
-A Stripe invoice-status lookup verifies the reviewed account, including `Stripe-Account` for Connect reads. A QuickBooks invoice-balance lookup reads one invoice in the exact reviewed realm with an application-owned OAuth token. It returns `Invoice.Balance`; that numeric balance is not currency-qualified without an additional reviewed currency source.
+## Add a credentials-request check to a support reply
 
-Provider credentials, refresh tokens and raw responses remain in the protected application. The application owns OAuth consent, exact callback origin/state/account binding, encrypted token persistence, serialized refresh and revocation. An AuthRail management-plane Connection does not supply Runtime write permission.
+This setup involves the person reviewing the rule and the developer connecting
+the application. The reviewer decides what question is appropriate; the
+developer controls the source text and the model call.
 
-## Treat uncertainty as missing trusted context
+### 1. Choose the question and the text it needs
 
-A resolution can be `ok`, `unavailable` or `untrusted`. Provider timeouts and failures yield unavailable context. Account/resource mismatch or invalid values are untrusted. Neither supplies a passing fact. Freshness is checked against the reviewed source; an old response does not become current because it was signed today.
+Use a question with an answer the rule can check, such as a Yes/No answer to
+whether the customer message requests credentials. Select the customer message
+needed for that question, rather than sending an entire ticket and every
+attachment.
 
-The Rail's configured unavailable behavior governs the resulting decision. Investigate the read and restore the source rather than replacing missing values with permissive defaults.
+**The selected text goes to the configured model provider.** Decide which
+fields may leave the application and which provider and account may receive
+them. Remove unnecessary fields and redact protected values in trusted
+application code before the model call where your disclosure policy requires it.
+The extractor does not automatically remove every protected value. If the
+material cannot be shared safely, do not send it.
 
-## Extract a contextual fact
+### 2. Review the source setup with the rule
 
-A contextual extractor asks one reviewed question of bounded source material. Its Context Source Version pins model identity, settings fingerprint, instructions version, result type and confidence boundary. The executor sends the bounded text to its configured provider, checks the typed result and signs the resolution. Raw source text and provider keys are not sent to the sidecar or AuthRail.
+Record the source, the expected answer, the model and instructions, the required
+confidence, and what should happen if the answer cannot be obtained. AuthRail
+saves the reviewed setup as a **Context Source Version**. The rule selects that
+saved version so the application uses the setup that was reviewed.
 
-The model answers a predicate, choice or score question. It does not make the final authorization decision. Refusal or insufficient confidence means `uncertain`; timeout or dependency failure means `unavailable`. A confident answer is still contextual input and not independent proof that the model understood the text.
+<ProductShot src="/screenshots/contextual-ai-rail.jpg" alt="AuthRail Data Rail defining a Yes/No question about a customer message requesting secret credentials" caption="This Data Rail defines the question. The application's model check supplies the answer, and a Policy Rail uses it to decide whether review is needed." />
 
-For trajectory-sensitive rules, supply reviewed session history from the protected application's durable state. Do not let agent-written claims of previous approval or previous actions replace authenticated history. Bounded trajectory evidence describes its coverage; it does not establish interception of omitted tools or sessions.
+### 3. Connect the application's fact reader
+
+The developer uses a matching SDK extractor—the helper that sends the selected
+text and question to the model. The application checks the answer's format and
+confidence, signs the answer with its source information, and reports that fact
+to AuthRail. The fact report contains the answer and source information rather
+than the selected raw text.
+
+Your application owns the model credential and the choice of source fields.
+The agent must not choose another provider URL, switch accounts or supply its
+own credential for this check.
+
+### 4. Compare ordinary and sensitive requests
+
+Connect the fact to the rule that requires review, then try an ordinary customer
+message and one asking for credentials. Also test an unavailable or uncertain
+answer. Inspect the Action's decision and source status.
+
+The expected result is a typed answer the rule can use, with enough source
+information to explain where it came from. A positive credentials answer can
+require review before the protected send function runs. The model's answer
+supplies context; it does not itself give permission to send a reply.
+
+See [Rails](/docs/rails) for rule authoring and [Actions and decisions](/docs/records)
+for reviewing the result.
+
+<details className="guide-details">
+<summary>More about ordinary lookups and model answers</summary>
+
+| Question | Source | Example answer |
+| --- | --- | --- |
+| What is the invoice's remaining balance? | Reviewed QuickBooks invoice lookup | A number such as `80`. Currency needs its own reviewed source. |
+| What is the invoice's status? | Reviewed Stripe invoice lookup | The status from the selected invoice and account. |
+| Does the customer message ask for credentials? | A configured model reading that message | `true` or `false`, with the required confidence. |
+
+Other model questions can return a category or a score. The returned value must
+match the shape expected by the rule; a free-form explanation cannot replace
+its required Yes/No answer.
+
+A fact reader performs a read. It must not execute the payment or message being
+checked. Provider credentials, OAuth consent, refresh and revocation belong to
+the application. A compliance Connection does not grant Runtime permission to
+change provider records.
+
+</details>
+
+<details className="guide-details">
+<summary>More about source trust and missing answers</summary>
+
+A Context Source Version also records the provider account and resource, the
+expected value type, how long the answer remains fresh and how failures are
+handled. If the source or model setup changes, review and publish a new version.
+Use that version's account and resource lookup in application code.
+
+A timeout or unavailable provider means the fact is unavailable. A wrong
+account, wrong resource or invalid value is untrusted. Neither is a passing
+answer. Do not replace an unread balance with zero or an uncertain sensitivity
+answer with false. Follow the configured denial or review behaviour while
+repairing the source.
+
+A refusal or insufficient model confidence leaves an uncertain answer. A later
+check of the answer cannot undo source text already disclosed to the provider.
+Keeping text out of AuthRail's fact report does not keep it out of that model.
+
+</details>
+
+<details className="guide-details">
+<summary>More about model identity and earlier actions</summary>
+
+The fact's source details identify the model used to read the text. That model
+can differ from the model configured in AI Inventory and from the model that
+produced the agent's request. Configuration alone does not prove which model
+ran the agent.
+
+Rules that depend on earlier actions need history from the application's
+trusted saved session state. An agent's claim that someone approved an action
+previously cannot replace an authenticated approval record. Keep raw provider
+bodies, credentials and source text out of diagnostic logs.
+
+</details>

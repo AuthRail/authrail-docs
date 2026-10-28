@@ -1,0 +1,156 @@
+---
+title: "Runtime walkthrough"
+description: "Follow a sample request from the application to its checks, logs and AuthRail record."
+icon: PlugsConnectedIcon
+---
+
+What does using Runtime look like? This walkthrough follows an assistant asking
+to pay an invoice. You will see the application screen, the sidecar running
+beside it, and the resulting record in AuthRail.
+
+The invoice example uses a local sample ledger. It does not move real money.
+A separate Stripe example at the end shows how to compare an application's
+report with a provider's own test record.
+
+## 1. Choose a request
+
+The sample application has a selected invoice and three scenarios: an allowed
+amount, an invoice outside the rules, and an amount needing approval.
+
+<ProductShot src="/screenshots/reference-app-payment.jpg" alt="Sample invoice application with Observe and Enforce modes and three payment scenarios" caption="Choose a scenario, then run it. The screen shows Enforce selected." />
+
+The application knows the signed-in user and the selected invoice. It checks
+those trusted details instead of accepting an invoice owner supplied by the
+agent.
+
+| Scenario | Expected result in Enforce |
+| --- | --- |
+| Allowed payment | The application can continue after the required checks. |
+| Invoice outside the rules | The protected payment stops. |
+| Payment needing approval | The request waits for a reviewer. |
+
+Your own application can use a chat screen, a background job or another
+interface. Place the SDK check around the function that performs the work.
+
+## 2. Check that the sidecar is ready
+
+The **sidecar** is the local service your application asks to check its Rails.
+Keep it running while the application makes requests.
+
+This terminal shows a native sidecar and its local status response. The rules
+are loaded (`bundleValid: true`), and there are no reports waiting for delivery
+(`pendingReports: 0`).
+
+<ProductShot src="/screenshots/sidecar-native-status.png" alt="Native AuthRail sidecar listening on port 22001 with valid rules and no pending or blocked reports" caption="This example runs natively on port 22001. The standard setup uses 7078. A ready sidecar still needs the application's SDK to send it the actual tool calls." />
+
+Use the [Docker](/docs/docker) or [native](/docs/native) guide to run your own
+sidecar. The [monitoring guide](/docs/operations) explains the status fields.
+
+## 3. Run the allowed request
+
+When the assistant requests a payment, the SDK asks the sidecar to check it.
+The application waits for the required permission and start report before
+performing the sample payment. It then reports completion and checks the result
+before returning it to the agent.
+
+<ProductShot src="/screenshots/runtime-enforce-sample.jpg" alt="Sample application with Enforce selected and an Allowed payment result" caption="An allowed Enforce attempt. The sample ledger recorded one local payment for this request." />
+
+Try the other scenarios too. A denied request should create no payment. A request
+needing approval should wait rather than run automatically. The
+[mode guide](/docs/modes) explains how Observe differs.
+
+## 4. Read the sidecar events
+
+The sidecar writes local logs while it handles requests. No monitoring service
+is needed to read them. Follow the process output in your terminal or use
+`docker compose logs` for the container setup.
+
+<ProductShot src="/screenshots/sidecar-runtime-logs.png" alt="Actual sidecar logs showing an allowed payment, its execution reports, a denied request and a request needing approval" caption="Actual native process output. Each request has its own identifiers; the two older service messages at the top belong to earlier attempts." />
+
+For the allowed request, read these events in order:
+
+1. **Call allowed:** `tool_call`, `allow`, `retained` means AuthRail saved the
+   decision before the payment began.
+2. **Execution reported:** `started`, then `succeeded` are the application's
+   reports about its attempt.
+3. **Result allowed:** `tool_result`, `allow`, `retained` means the result check
+   was also saved.
+
+The later `deny` and `approval_required` lines describe separate requests. They
+produced no sample payment. Use the request and Action IDs to follow one request
+without mixing its events with another.
+
+<details className="guide-details">
+<summary>What if a report is queued?</summary>
+
+`retained` means AuthRail acknowledged saving the report. `queued` means the
+sidecar saved it locally for later delivery. A `report_delivered` event confirms
+when that delivery succeeds.
+
+In Enforce, the application holds an action if its required permission report
+cannot be retained. Delivering the report later does not automatically run the
+held action. In Observe, the function may run while its advisory reports are
+still queued.
+
+An HTTP `status: 200` line only says the local request completed. Read the
+separate `outcome` field to understand the rule decision. See
+[monitoring](/docs/operations) for more about these events.
+
+</details>
+
+## 5. Open the Action in AuthRail
+
+Use **View in AuthRail** beside the application's result or a row in its history.
+The Action brings the request, checks, approval and execution reports together.
+
+<ProductShot src="/screenshots/reference-app-decisions.jpg" alt="Sample decision history with allowed, denied and approval-required requests and links to AuthRail" caption="The application gives each request a reason and a link to its AuthRail record." />
+
+Open **Execution reports** on the allowed Action:
+
+<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="AuthRail invoice Action showing allowed call and result checks, with separate started and completion-reported execution events" caption="The allowed request has two checks and two execution reports. Completion is reported by the application." />
+
+**Allowed** answers “was this permitted?” **Completion reported** answers “what
+did the application say happened?” To verify an external effect, check the
+matching provider record too.
+
+## 6. Compare a provider-backed result
+
+Here is a separate, previously completed **Stripe test refund**. The sample
+application reads the saved refund from Stripe and shows its amount, status and
+linked AuthRail decision.
+
+<ProductShot src="/screenshots/reference-stripe-refund-result.jpg" alt="Existing Stripe test refund showing USD 10, Completed, Enforce mode and its linked AuthRail Action" caption="A provider-backed example, separate from the local sample payment above. Opening this result reads the existing refund; it does not issue another one." />
+
+Stripe's own test dashboard shows the matching refund in its payment activity:
+
+<ProductShot src="/screenshots/stripe-test-refund-activity.jpg" alt="Stripe test payment activity showing a successful 10-dollar refund at the matching time" caption="Stripe's test record confirms the refund. This cropped view excludes customer, account and payment-method details." />
+
+The same approach works for other providers. This existing QuickBooks sandbox
+invoice was read back from QuickBooks. Its amount, balance, delivery status and
+linked decision can be checked without creating another invoice.
+
+<ProductShot src="/screenshots/reference-quickbooks-invoice-result.jpg" alt="Existing QuickBooks sandbox invoice showing a one-dollar amount and balance, line item, due date and Not sent delivery status" caption="A saved QuickBooks sandbox invoice read from the provider. Not sent means this example has not been delivered to a customer." />
+
+When checking your own provider, compare the account, record, amount, currency
+and status. Use the saved provider reference from your protected application.
+Do not rerun a payment merely to obtain a screenshot.
+
+<details className="guide-details">
+<summary>Compare the same journey in Observe</summary>
+
+In Observe, the application can run the tool while AuthRail records what its
+rules would decide. This separate sample payment completed, and its initially
+queued reports later reached AuthRail.
+
+<ProductShot src="/screenshots/runtime-observe-execution.jpg" alt="Observe Action with Would allow for both checks and one reported completion" caption="Observe reports a decision without claiming it stopped or permitted the tool. The application still reports the effect separately." />
+
+</details>
+
+## Use the records in your governance work
+
+A [Control's Test or Evidence review](/docs/framework-proof) can use relevant
+Runtime records to check whether a process worked. A list of allowed requests
+alone does not establish that a review Control worked over the whole period.
+
+Continue with [Rails](/docs/rails) to understand the rules, or
+[connect your first application](/docs/getting-started) to build your own path.

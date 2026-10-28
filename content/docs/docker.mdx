@@ -1,41 +1,111 @@
 ---
 title: "Run the sidecar with Docker"
-description: "Keep the decision endpoint private and preserve the entire state directory."
+description: "Build the sidecar image, start its container, and connect your application."
+icon: CubeIcon
 ---
 
-Docker is the recommended customer-side installation. Build from a pinned reviewed sidecar source revision; there is no claimed published registry image or verified release matrix yet. The repository includes the Dockerfile and Compose recipe used below. [Native installation](/docs/native) remains supported.
+import { AUTHRAIL } from '@/lib/constants';
 
-## Prepare configuration and secret files
+The sidecar is AuthRail's local rule checker. Docker builds it from source and
+runs it as a container beside your application. You do **not** build a native
+binary first, and the build command does not start the service.
 
-Complete [Getting started](/docs/getting-started) first. You need a reviewed deployment, exact IDs, an independently verified signing-key fingerprint, the deployment credential, a separate adapter token and the executor's registered public key.
+This guide takes you from the source checkout to a running sidecar. Install Git,
+Docker Engine or Docker Desktop, and Docker Compose. You do not need Go on your
+computer; the Docker build includes it.
 
-Store the two tokens and public PEM in private files outside the checkout. On Linux, provision them for container UID/GID `10001:10001`, mode `0400`, with a protected parent directory. Compose file secrets do not repair host permissions. Docker Desktop can map permissions differently; verify readability without printing contents. Keep the executor private key and provider credentials in the protected application only.
+Before starting, finish [the dashboard setup](/docs/getting-started) and
+[connection details](/docs/identity). You should have the deployment's copied
+settings and these files in your private `my-deployment` directory:
+`deployment-token`, `adapter-token` and `executor-public.pem`.
 
-From the `authrail-sidecar` repository root, export the non-secret setup values and private file paths:
+Your protected application must also run in Docker for this setup. It shares a
+private local connection with the sidecar. Keep the AI agent and its tools
+outside that connection and keep provider credentials in the application. If
+your application runs directly on your laptop, use the [native guide](/docs/native).
 
-```bash
-export AUTHRAIL_CONTROL_PLANE_URL=https://your-authrail-api.example.com
+## 1. Build the image
+
+In a terminal, get the <a href={AUTHRAIL.repositories.sidecar}>sidecar source</a>
+and build it:
+
+<CommandBlock lang="bash" code={`git clone --branch main ${AUTHRAIL.repositories.sidecar}.git
+cd authrail-sidecar
+docker build -t authrail-sidecar:development .`} />
+
+When the build finishes, your computer has an image named
+`authrail-sidecar:development`. An **image** is the packaged program. The next
+steps start a **container**, the running instance of that program.
+
+## 2. Supply this deployment's settings
+
+Keep this terminal open in the `authrail-sidecar` checkout. Replace the three
+`YOUR_...` values below with those from **Integration setup → Configure the
+sidecar**. The file paths refer to the private files you prepared in the
+[connection guide](/docs/identity):
+
+<CommandBlock lang="bash" code={`export AUTHRAIL_CONTROL_PLANE_URL=${AUTHRAIL.apiOrigin}
 export AUTHRAIL_ORGANISATION_ID=YOUR_ORGANISATION_ID
 export AUTHRAIL_DEPLOYMENT_ID=YOUR_DEPLOYMENT_ID
-export AUTHRAIL_TRUSTED_KEY_SHA256=YOUR_VERIFIED_SIGNING_KEY_FINGERPRINT
-export AUTHRAIL_DEPLOYMENT_TOKEN_PATH=/private/runtime/deployment-token
-export AUTHRAIL_ADAPTER_TOKEN_PATH=/private/runtime/adapter-token
-export AUTHRAIL_EXECUTOR_PUBLIC_KEY_PATH=/private/runtime/executor-public.pem
+export AUTHRAIL_TRUSTED_KEY_SHA256=YOUR_TRUSTED_SIGNING_KEY
+export AUTHRAIL_DEPLOYMENT_TOKEN_PATH="$HOME/.local/share/authrail/my-deployment/deployment-token"
+export AUTHRAIL_ADAPTER_TOKEN_PATH="$HOME/.local/share/authrail/my-deployment/adapter-token"
+export AUTHRAIL_EXECUTOR_PUBLIC_KEY_PATH="$HOME/.local/share/authrail/my-deployment/executor-public.pem"`} />
 
-docker compose -p authrail-runtime -f docker/compose.yaml up -d --build
+Use the API address displayed by your deployment if it differs from the example.
+These shell settings tell Compose which deployment and files to use. They do
+not put the token values in your source code. Keep the files private; only the
+sidecar container's user should be able to read its mounted credentials.
+
+<details className="guide-details">
+<summary>Linux file permissions</summary>
+
+The container runs as UID/GID `10001:10001`. On Linux, have the operator make
+the mounted files readable by that identity, for example with matching ownership
+and mode `0400` inside a protected parent directory. Docker Desktop handles
+host mounts differently. Compose file secrets mount the files; they do not
+repair host ownership. Do not make credentials world-readable to fix a mount
+error.
+
+</details>
+
+## 3. Start the sidecar
+
+Run:
+
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml up -d
+docker compose -p authrail-runtime -f docker/compose.yaml ps
+```
+
+Compose starts the image you built and creates a private state volume that
+survives container restarts. The `ps` output should show `sidecar` running and,
+after it receives its rules, healthy.
+
+Check that it has loaded valid rules:
+
+```sh
 docker compose -p authrail-runtime -f docker/compose.yaml exec sidecar /usr/local/bin/authrail-container health
 ```
 
-Replace every placeholder with its actual setup value. The API URL must be reachable from the container and meet the sidecar's HTTPS rule. Container loopback does not point at your host API; plain HTTP to `host.docker.internal` is deliberately rejected. Use reviewed HTTPS routing or an explicitly reviewed same-namespace local topology.
+Success returns to your shell without printing anything. A failure prints a
+message and exits unsuccessfully. If it fails, read the process output:
 
-The health command exits zero when the current signed bundle is valid. No selected bundle means unhealthy. A cached unexpired bundle may stay healthy while central reporting is unavailable; Enforce still requires central retention. Docker does not automatically restart an unhealthy process.
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml logs --tail 50 sidecar
+```
 
-## Place the protected executor
+Check that you copied the correct deployment settings, saved the token, and
+selected published Rails in the dashboard. Also check file permissions. A
+running container without valid rules is not ready to check your application.
 
-The decision listener remains `127.0.0.1:7078`. It is not published. Add your protected application to this Compose project using the sidecar's network namespace:
+## 4. Connect your application container
+
+The sidecar accepts local requests at `http://127.0.0.1:7078`. This address is
+private to its container. Put your application beside it by adding an
+`executor` service under the existing `services:` key in `docker/compose.yaml`:
 
 ```yaml
-services:
   executor:
     image: your-protected-application:reviewed-version
     network_mode: service:sidecar
@@ -44,14 +114,96 @@ services:
         condition: service_healthy
 ```
 
-This is a placement example, not a supplied application image. Configure that application's own secrets and authentication. Its Node/Go adapter uses `http://127.0.0.1:7078`, its mounted adapter token and executor private key. The containers share networking, not files. Do not place the untrusted agent in this namespace.
+Keep the existing `sidecar`, volume and secret definitions. Replace the
+application image name with the image you built for your own application.
+Mount its `adapter-token` and `executor-private.pem` privately, using the file
+paths expected by your application. The sidecar must not receive the private key.
 
-Publish only necessary application ingress ports on the sidecar service; never publish 7078. Addressing `http://sidecar:7078` from an ordinary bridge container cannot reach a loopback-only listener. When recreating the sidecar, recreate the executor too so it joins the new namespace.
+Start the added service with the same command:
 
-## Keep state through restart and upgrade
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml up -d
+```
 
-The named volume retains all of `/var/lib/authrail`: `state.json`, sequence floor, lock, report queue, trajectory and recording-gap archives. Keep the Compose project name stable because it identifies the volume. Do not use `down -v`, a blank replacement volume or an older state snapshot for recovery.
+In your application's [Node SDK](/docs/node) or [Go SDK](/docs/go) configuration,
+use `http://127.0.0.1:7078` as the sidecar URL. The application and sidecar share
+networking, while their files and credentials stay separate. Do not publish
+port `7078` or give the agent access to the sidecar's credentials.
 
-The image runs non-root with a read-only root filesystem, dropped capabilities and graceful SIGTERM handling. No startup root process repairs permissions. For upgrades, quiesce this pair, preserve the whole stopped private volume and host secrets, replace the pinned image and restart the pair. Check exact bundle, keys and queues before routing requests. Rollback changes the executable while retaining the latest state.
+You now have the local service ready for the SDK guide. After a safe request,
+use the [Runtime walkthrough](/docs/application-example) to compare its checks,
+logs and AuthRail history.
 
-See [Recovery](/docs/recovery) for offline reporting and unknown effects. A container smoke check is not the same as connected acceptance against the actual control plane and protected executor.
+<details className="guide-details">
+<summary>Why the application shares the sidecar's networking</summary>
+
+`network_mode: service:sidecar` places the application in the sidecar's network
+namespace, so both can use the same private loopback address. An unrelated
+container's `127.0.0.1` points at itself. An application on the host also cannot
+reach this listener through the host's loopback address.
+
+If your application receives incoming HTTP requests, publish only that reviewed
+application port on the `sidecar` service, which owns their shared networking.
+Recreate the application when recreating the sidecar so it joins the new
+namespace. Keep the untrusted agent outside it.
+
+</details>
+
+<details className="guide-details">
+<summary>Logs, restarts and upgrades</summary>
+
+**Follow logs.** These local process logs do not require an OpenTelemetry
+Collector:
+
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml logs --tail 50 --follow sidecar
+```
+
+Ctrl+C stops the log viewer, not the container. See [monitoring](/docs/operations)
+for the event meanings.
+
+**Restart.** Pause your protected application safely before stopping this
+project. Keep the project name stable so it reuses the same state volume:
+
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml stop
+docker compose -p authrail-runtime -f docker/compose.yaml start
+```
+
+**Upgrade.** Choose a reviewed source revision or immutable image digest. Preserve
+the whole `/var/lib/authrail` volume and credentials while stopped, replace the
+image, and check valid rules and report queues before accepting requests again.
+Do not use `down -v` or replace the volume to clear an error. A cached valid rule
+bundle can survive a connection outage; Enforce still requires retained
+permission and a retained execution start before an effect.
+
+</details>
+
+<details className="guide-details">
+<summary>Stop or remove this installation</summary>
+
+Pause the protected application or arrange its replacement first. From this
+checkout, run:
+
+```sh
+docker compose -p authrail-runtime -f docker/compose.yaml down
+docker compose -p authrail-runtime -f docker/compose.yaml ps
+```
+
+The second command should show no running services for this project. `down`
+removes its containers and network, including a protected application added to
+the project. It preserves named volumes.
+
+Keep the state volume and credential files until pending reports, blocked
+reports and unknown business outcomes have been resolved and retained as
+required. Do not use `down -v` or a system-wide Docker cleanup. Once no other
+installation needs the stopped image, remove it with:
+
+```sh
+docker image rm authrail-sidecar:development
+```
+
+Stopping or removing the local container does not delete the deployment or its
+history in AuthRail. See [recovery](/docs/recovery) before disposing of state.
+
+</details>

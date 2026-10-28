@@ -1,24 +1,106 @@
 ---
 title: "Observe and Enforce"
-description: "Know whether a decision is advisory and what actually stops an effect."
+description: "Compare advisory rule checks with protection that can stop an application's action."
+icon: ShieldCheckIcon
 ---
 
-A deployment has one of two Runtime modes: `observe` or `enforce`. The mode must be visible in history and the application experience. Rule examples and historical replay belong to Rail validation, not a third deployment mode.
+**Observe** shows what the rules would decide while the application continues.
+**Enforce** requires the protected application to apply the decision before an
+action runs. A deployment uses one of these modes.
 
-## Observe without claiming protection
+For example, a payment above the allowed limit can still execute in Observe
+while AuthRail records that the rule would deny it. In Enforce, the connected
+protected function stops on that denial. Use Observe to learn how your rules
+behave, then move to Enforce after checking the application's protection.
 
-The Observe adapter checks proposed calls and successful results but does not wait for permission before running the function. A would-deny decision, unavailable sidecar or recording outage does not stop it. An Observe outcome is useful for finding missing coverage and context; it is not an enforced block.
+## Move one connected application into Enforce
 
-The function's result or error and the observation are separate. A successful function does not mean its decision report was retained. A function exception does not prove there was no provider effect. Applications can separately report observed execution outcomes through the existing signed receipt lifecycle.
+Use a safe system for these checks. Observe does not prevent a payment or
+another business change merely because a rule would block it.
 
-## Enforce at the credential boundary
+### 1. Start with selected rules in Observe
 
-The Enforce adapter must stop unless the call is covered, fresh, allowed, centrally retained and not a replay. A matching one-use approval permit can allow a retained approval wait to proceed. It records an authenticated start before invoking the protected callback, reports its outcome, then checks the result before exposure.
+Confirm the AI system and deployment in **AI Inventory**. Publish the relevant
+action and Rails, then select them for that deployment. The developer connects
+the application's Observe adapter at its tool and result checks.
 
-Missing, queued, unavailable, uncovered, denied, replayed or mismatched responses cannot authorize execution. A result-phase block withholds output; the business effect may already exist and needs its own reconciliation or compensation workflow.
+Run representative safe requests: one allowed, one outside the rule, one that
+needs approval and any case where required context cannot be obtained. Inspect
+the reported decisions and what the application actually did.
 
-## Move deliberately between modes
+### 2. Review the protected tool path
 
-First confirm identity, publish and select exact Rails, inspect Observe outcomes and review every credential/network/tool bypass route. Then explicitly change the deployment and connect the Enforce adapter. Changing the server-side mode does not convert a call to `Observe` into a protected callback. A customer can retain separate deployments when comparing modes, with exact versions and names chosen by that customer.
+Before enabling Enforce, the developer connects the Enforce adapter at the real
+business function. Keep the provider credential behind that function and check
+that the agent cannot reach the tool or credential through another route.
 
-A healthy sidecar is only one part of this check. If the agent can call the provider directly, reach another unprotected route or obtain the executor credential, the deployment remains advisory in practice. [Security](/docs/security) provides the review boundary.
+The selected rules must cover the intended action. AuthRail must also have the
+required call and result reports for the selected setup. Rule examples alone
+do not show that the actual application is connected.
+
+### 3. Turn on Enforce in AuthRail
+
+Open the deployment's **Overview**, choose **Review Enforce setup** and inspect
+its readiness. Confirm the tested protected-tool boundary, then choose
+**Turn on Enforce** when ready. Wait for the sidecar to receive the selected
+Enforce rules before relying on protection.
+
+Changing a dashboard mode does not turn code using an Observe adapter into a
+protected function. The application integration and deployment mode must agree.
+
+### 4. Verify both an allowed and a denied request
+
+Run the allowed request and inspect its call decision, execution reports and
+result check. Run a denied request and verify that the protected function did
+not execute. Check the application's saved history or the provider record,
+not only the label on a decision.
+
+<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="Enforce Action showing allowed request and result checks with separate Started and Completion reported entries" caption="This safe sample run retained both rule checks and the application's start and completion reports." />
+
+You should now be able to show both what the rules decided and what the
+protected application did. [Human approvals](/docs/approvals) explains the
+waiting path for requests that need review.
+
+<details className="guide-details">
+<summary>More about Enforce permission and failure behaviour</summary>
+
+SDK guides call the protected business function a **callback**. A **retained**
+decision or report means AuthRail saved it and acknowledged it. A report saved
+only in the local sidecar queue is still waiting for that acknowledgement.
+
+Enforce requires a fresh allowed decision covering the actual input, or the
+matching one-use permit after a required approval. It retains the execution
+start before the business function and checks a successful result before
+returning it to the agent.
+
+| Situation | What the protected path does |
+| --- | --- |
+| Fresh allowed call retained by AuthRail | Records the execution start, then invokes the protected function. |
+| Human approval needed | Waits and saves the original request context for authorised resumption. |
+| Denied, uncovered, stale or mismatched decision | Stops before the function. |
+| Sidecar unavailable or call report only queued locally | Stops before the function. |
+| Result denied after execution | Withholds the result; the business effect may already exist. |
+| Execution or completion reporting leaves an uncertain outcome | Preserves recovery information for investigation before retry. |
+
+A denied result cannot undo a completed provider operation. If the outcome is
+uncertain, follow [execution recovery](/docs/recovery) rather than repeating the
+action to find out what happened.
+
+</details>
+
+<details className="guide-details">
+<summary>More about Observe and separate deployments</summary>
+
+Observe remains advisory if the sidecar or recording service is unavailable.
+A missing decision does not prove that nothing happened, and an application
+exception does not prove that a provider made no change.
+
+The application can report its observed execution outcome separately. That
+report does not turn an advisory decision into enforcement.
+
+You can use separately named deployments to compare modes. Each keeps its own
+identity and rule selection. There is no required Test/Live naming scheme or
+third Runtime mode. If protection becomes unavailable, repair it deliberately
+rather than silently falling back to Observe.
+
+</details>

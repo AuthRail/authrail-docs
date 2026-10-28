@@ -1,34 +1,108 @@
 ---
-title: "Rails and reviewed context"
-description: "Choose business boundaries, exact sources and supported processing."
+title: "Rails"
+description: "Create a rule for an application's action and check how it handles representative requests."
+icon: StackIcon
 ---
 
-A Rail is a reusable published rule applied to an exact reviewed Operation. A draft is editable; publication creates an immutable Rail Version. The deployment selects exact versions, so a later edit does not silently change an earlier Action's explanation.
+A **Rail** is a rule AuthRail checks for an action your application can perform.
+For example, a payment rule may allow small payments and require a person's
+approval above a limit. Another rule may keep a code-review comment internal.
 
-## Choose the boundary you need
+Use Rails when an organisational expectation needs to be checked at the actual
+application call or result. The application adapter applies the decision at the
+protected function; publishing a document alone does not add that check.
 
-| Rail | Purpose | Example |
-| --- | --- | --- |
-| Guard | Check input, result, information flow or retained context at a supported boundary | Require a reviewed sanitizer before a message is released |
-| Data | Use a bounded trusted fact from a reviewed source | Require approval when an invoice balance exceeds a threshold |
-| Policy | Apply a condition grounded in an exact published business Policy | Refunds above USD 100 require a named reviewer |
+## Add a payment-review rule
 
-Choose the actual action first, then the rule's source, condition and outcome. Use examples and Rail validation before publication. Rail examples and replay are rule validation; they do not introduce a third Runtime mode or perform the live business operation.
+For this example, suppose a published Policy requires approval for payments
+above the organisation's automatic limit. The payment action must already be
+reviewed in AuthRail. Its saved description, called an **Operation**, defines
+the information the application supplies and the result it returns.
 
-## Facts come from a protected source
+### 1. Open the action's rule setup
 
-A Context Source Version defines the account, lookup, field shape, freshness, trust and unavailable behavior for a fact. An import can suggest those fields. It does not connect to a provider or authenticate the source.
+Open **Rails** and choose **Create Rail**. Select the kind of Rail and the
+reviewed payment action. Read its amount, account and target fields before
+writing the condition.
 
-The protected executor performs the reviewed read using its own credential. The sidecar evaluates the signed bounded fact resolution. A fact lookup must never execute the protected business operation. [Facts and extraction](/docs/facts) explains provider reads and model-assisted context.
+| Kind | What it supplies |
+| --- | --- |
+| Guard Rail | A boundary on input, results or information flow, with supported processing where needed. |
+| Data Rail | A reviewed source of business context, such as an invoice balance or a model's answer about a message. |
+| Policy Rail | A rule drawn from a published organisational Policy. |
 
-## Guard processing is an application responsibility
+Choose a **Policy Rail** for this payment expectation and select the published
+Policy version that supplies it.
 
-The local protocol can require a `sanitize`, `transform` or `isolate` obligation with an exact handler ID, version and target field. A supported adapter reads those requirements and invokes only an application-registered matching handler. It signs before/after digests and the evidence bound to the exact bundle. Processing does not grant permission: the final decision still checks conditions, facts and approvals.
+<ProductShot src="/screenshots/rails-catalogue.jpg" alt="Rails catalogue listing Guard, Data and Policy Rails" caption="The catalogue keeps different rule types together. An application's deployment selects the published Rails it will use." />
 
-Sanitization and transformation apply to reviewed string fields and cannot change resource identity. Unknown handlers, overlapping conflicting targets or unsupported isolation cannot be treated as fulfilled. Observe remains advisory and does not transform the actual tool input or result.
+### 2. Describe the condition and outcome
 
-A signed handler assertion does not independently prove handler quality or sandbox containment. [OpenShell](/docs/openshell) describes the narrower customer-operated containment path and its validation limits.
+Set the payment condition and the required outcome. For example, an amount
+above the reviewed limit requires human approval. Keep the allowed account and
+invoice boundaries clear so approval of an amount does not grant access to
+another record.
 
-## Keep history understandable
+If the decision needs information not supplied by the requested arguments,
+choose the reviewed fact source. [Facts and contextual AI](/docs/facts) explains
+how the application supplies that information.
 
-For an Action, inspect the exact Rail Versions, phase, reasons and fulfilled or missing obligations. A newer published version is not a replacement for historical truth. A denial, approval requirement or missing fact should lead to a deliberate configuration or business review, never an automatic change that makes the same input pass.
+### 3. Try examples before publication
+
+Add a normal allowed request, a request outside the boundary and a request that
+needs approval. Include a missing-context case if the rule uses facts. Run Rail
+validation and read the outcome and reasons for each example.
+
+Validation checks the rule against the examples. It does not pay an invoice or
+send a message. Revise the draft if it does not express the intended expectation.
+
+### 4. Publish and select the rule
+
+Publish the reviewed Rail, then select that version for the application's
+deployment. A deployment is the configured installation of an application with
+its own identity and selected rules.
+
+The expected result is a tested, published rule selected for the intended
+application. Confirm its behaviour through real safe application requests in
+[Observe](/docs/modes) before relying on Enforce protection.
+
+<details className="guide-details">
+<summary>More about versions and later changes</summary>
+
+A draft can change; a published Rail Version cannot be edited. Older Actions
+keep the rule version used for their decision even after you publish an
+improvement.
+
+A new publication does not silently replace a deployment's selection. Review
+and update that selection deliberately. If a decision is unexpected, inspect
+the selected version and the version saved on the Action before editing a draft.
+
+Examples and historical replay are Rail-validation tools, separate from the
+two Runtime deployment modes, Observe and Enforce.
+
+</details>
+
+<details className="guide-details">
+<summary>More about processing and trusted facts</summary>
+
+Some Guard rules require `sanitize` for content cleanup, `transform` for a value
+change or `isolate` for a supported containment step. The application registers
+the trusted code for that step, called a **handler**. The rule identifies its
+version and the field it must process; the adapter invokes only a matching
+handler and signs evidence of the processed value before the final decision.
+
+Missing handlers, conflicting targets and unsupported isolation stop Enforce.
+Processing does not override a denial or approval requirement. Observe remains
+advisory and does not transform the real input or result.
+
+Handlers must not perform business effects such as posting a comment or moving
+money. A signed handler report does not independently establish the quality of
+redaction or isolation. See [NVIDIA OpenShell](/docs/openshell) for its supported
+containment path.
+
+The protected application performs reviewed fact lookups; the sidecar checks
+the signed answers. An imported schema does not create a provider connection
+or make a source trustworthy. A failed lookup is not a zero balance or a
+negative sensitivity answer. Configure and test the rule's unavailable behaviour.
+
+</details>

@@ -1,0 +1,52 @@
+---
+title: "Source code and resources"
+description: "Find the code, guides and workspace for your integration."
+icon: BookOpenIcon
+---
+
+import { AUTHRAIL } from '@/lib/constants';
+
+Use the AuthRail workspace to configure your organisation and review its
+records. Use the public sidecar and SDK repositories when connecting your own
+application. They have different roles: installing a library does not create
+your workspace or its rules.
+
+## Open AuthRail
+
+<a href={AUTHRAIL.workspaceOrigin}>Sign in to the AuthRail workspace</a> and select
+your organisation. If you cannot manage AI systems or publish Rails, ask your
+workspace administrator for the access needed for your task.
+
+New to the product? Begin with the [introduction](/docs). Ready to connect code?
+Follow [your first application](/docs/getting-started).
+
+## Choose the code you need
+
+| Repository | Use it to… |
+| --- | --- |
+| <a href={AUTHRAIL.repositories.sidecar}>AuthRail Sidecar</a> | Run the local service that checks your application's Rails. Includes Docker, native setup and the OpenShell example. |
+| <a href={AUTHRAIL.repositories.node}>Node SDK</a> | Connect a JavaScript or TypeScript application. |
+| <a href={AUTHRAIL.repositories.go}>Go SDK</a> | Connect a Go application. |
+| <a href={AUTHRAIL.repositories.docs}>Documentation</a> | Read this site's source or report a documentation issue. |
+
+Start with the chosen repository's README. The [compatibility
+guide](/docs/compatibility) explains how to use matching sidecar and SDK revisions.
+
+## NVIDIA OpenShell
+
+If your agent runs in OpenShell, use the [AuthRail integration
+guide](/docs/openshell). For operating the sandbox itself, use the
+<a href={AUTHRAIL.references.openshell}>NVIDIA documentation</a> and
+<a href={AUTHRAIL.references.openshellRepository}>OpenShell repository</a>.
+
+## Integration references
+
+Our integration research draws on <a href={AUTHRAIL.references.openappa}>OpenAPPA's
+work on checking tool calls and tool results</a>. AuthRail's SDKs, rules and approval
+flow have their own implementation. Follow the AuthRail guides for your integration.
+
+## Report a problem safely
+
+Include the component version, command, expected result and a redacted error in
+an issue on the relevant repository. Keep credentials, customer source text and
+private logs out of public issues.

@@ -1,26 +1,47 @@
 ---
 title: "Connect a Node application"
-description: "Wrap the protected function and keep its effect separate from the check."
+description: "Check an existing server-side function and inspect its call and result decisions."
+icon: CodeIcon
 ---
 
-The Node SDK belongs in the credential-owning server application. It requires Node.js 20 or newer. The agent can request a tool; your application authenticates the request and decides which reviewed Operation and resource it represents.
+import { AUTHRAIL } from '@/lib/constants';
 
-## Install the reviewed SDK
+The Node SDK adds AuthRail checks around a function your application already
+uses. It sends the requested call and returned result to the local sidecar,
+then makes the decisions available to your application.
 
-The package name is `@authrail/sdk-node`. Pin a version verified with your sidecar; do not assume a registry version has been released from the current source. To use a reviewed source checkout:
+This guide connects one invoice-reading function in **Observe**. By the end,
+you can read both decisions and find the request in AuthRail. The invoice
+reader still runs even if a rule would deny it, so use a safe system first.
 
-```bash
-# In authrail-sdk-node
+You need Node.js 20 or newer, an existing application, and a running sidecar.
+Complete [the dashboard setup](/docs/getting-started) and
+[connection details](/docs/identity) first. Keep the organisation ID, deployment
+ID, reviewed Operation Version ID, adapter-token file and private-key file
+available to the protected server application.
+
+## 1. Install from source
+
+Get the <a href={AUTHRAIL.repositories.node}>Node SDK source</a> and compile it:
+
+<CommandBlock lang="bash" code={`git clone --branch main ${AUTHRAIL.repositories.node}.git
+cd authrail-sdk-node
 npm ci
-npm run build
-npm pack
+npm run build`} />
+
+This creates JavaScript and TypeScript declarations in `dist/`. It does not start your application. From your own application's directory, which has a `package.json`, install that built checkout:
+
+```sh
+npm install /absolute/path/to/authrail-sdk-node
 ```
 
-Install the generated `.tgz` in your protected application using its actual path. Keep the lockfile and artifact checksum with the deployment record. [Compatibility](/docs/compatibility) explains the current source status.
+Use the actual absolute checkout path. Pin a reviewed commit and keep your lockfile for repeatable builds.
 
-## Start with Observe
+## 2. Connect to the sidecar
 
-Create a client using the deployment identity and private application key:
+Create the client once in your server application. Here `config` is your own
+configuration object: its IDs come from AuthRail, and its file paths point to
+the private files you prepared in the connection guide.
 
 ```ts
 import { readFileSync } from 'node:fs';
@@ -28,37 +49,68 @@ import { ObserveClient } from '@authrail/sdk-node';
 
 const client = new ObserveClient({
   sidecarUrl: 'http://127.0.0.1:7078',
-  adapterToken: privateConfig.adapterToken,
-  organisationId: privateConfig.organisationId,
-  deploymentId: privateConfig.deploymentId,
-  executorPrivateKey: readFileSync(privateConfig.privateKeyFile, 'utf8'),
+  organisationId: config.organisationId,
+  deploymentId: config.deploymentId,
+  adapterToken: readFileSync(config.adapterTokenFile, 'utf8').trim(),
+  executorPrivateKey: readFileSync(config.executorPrivateKeyFile, 'utf8'),
 });
-
-const operation = {
-  operationVersionId: reviewedRefundOperation.versionId,
-  actionKey: refundRequest.id,
-  principalId: authenticatedStaff.id,
-  principalSource: 'application_session' as const,
-  sessionId: task.id,
-  resourceId: payment.id,
-  resourceSource: 'application_lookup' as const,
-};
-const { result, observation } = client.observe(
-  operation,
-  { paymentId: payment.id, amount: refundRequest.amount },
-  () => protectedPayments.refund(refundRequest),
-);
-const refund = await result;
-const checks = await observation;
 ```
 
-The surrounding variables are your authenticated application data, not SDK-provided services. Arguments and successful results must be bounded JSON objects matching the reviewed contract. `result` carries the callback result or error. `observation` carries separate call/result decisions or errors. Observe never holds the function for permission; use safe test effects while evaluating would-deny rules.
+The token file is the local `adapter-token` created during setup. The private key is `executor-private.pem`; the sidecar gets only the matching public PEM. Keep this code in the protected server application, outside the agent and browser bundle.
 
-## Apply Enforce at the same boundary
+Use the [native sidecar](/docs/native) if this application runs on your host,
+or follow the [Docker application placement](/docs/docker#4-connect-your-application-container) if it runs in Docker. The local URL must reach the sidecar beside this application.
 
-Create `EnforceClient` with the same protected configuration and use its checked arguments and recovery context:
+## 3. Check an invoice read
+
+Suppose an authenticated staff member asks an assistant to read an invoice. The application resolves the invoice ID and uses an existing `invoiceService.read` function:
 
 ```ts
+const { result, observation } = client.observe({
+  operationVersionId: config.invoiceReadOperationVersionId,
+  actionKey: request.stableBusinessKey,
+  principalId: session.staffId,
+  sessionId: session.id,
+  resourceId: invoice.id,
+  principalSource: 'application_session',
+  resourceSource: 'application_lookup',
+}, { invoiceId: invoice.id }, () => invoiceService.read(invoice.id));
+
+const invoiceResult = await result;
+const checks = await observation;
+console.log(checks.callDecision?.outcome, checks.resultDecision?.outcome);
+console.log(checks.callError, checks.resultError);
+```
+
+`request`, `session`, `invoice` and `invoiceService` are your application's objects. Resolve them through authenticated middleware and a protected lookup, rather than trusting IDs supplied by the model. The reviewed Operation must cover the arguments, returned JSON object and resource identity in this example. For an action without a target resource, omit `resourceId` and use `resourceSource: 'not_applicable'`.
+
+`result` is the function's own result or error. `observation` has separate call/result decisions or errors. A failed function has no successful result to check. In Observe, a deny decision or unavailable sidecar does **not** stop the function. Use a safe system when testing actions with effects.
+
+## 4. Read the decisions
+
+With a healthy setup, the checks contain decisions for `tool_call` and `tool_result`. The outcome depends on your published Rails. `recordingStatus: 'retained'` means AuthRail stored that report; `'queued'` means it is saved locally for later delivery. An error is not an allow decision.
+
+Open the deployment's **Actions & decisions** in your workspace. Inspect the Action and both certificates. Keep `actionKey` stable across retries of the same business request; generate a different business key for a different request. Arguments and successful results must be bounded JSON objects.
+
+## Next: require permission before the function runs
+
+Observe shows how the rules apply. Once you have checked the decisions and
+[reviewed other access routes](/docs/security), use Enforce to stop the function
+unless permission is established. Read [Observe and Enforce](/docs/modes),
+[human approvals](/docs/approvals) and [recovery](/docs/recovery) before changing
+that boundary.
+
+<details className="guide-details">
+<summary>Switch this integration to Enforce</summary>
+
+In the deployment's **Overview → Review Enforce setup**, resolve any missing
+setup or call/result reports, confirm the protected boundary and select
+**Turn on Enforce**. Replace the Observe client and wrapper with `EnforceClient`:
+
+```ts
+import { EnforceClient } from '@authrail/sdk-node';
+
+const enforcingClient = new EnforceClient(protectedClientConfig);
 const checked = await enforcingClient.enforce(operation, args,
   async (checkedArgs, execution) => {
     await privateLedger.saveRecovery(execution);
@@ -68,12 +120,37 @@ const checked = await enforcingClient.enforce(operation, args,
   });
 ```
 
-`enforcingClient` is an `EnforceClient`; `privateLedger` and `protectedPayments` are your durable application services. A fresh covered, centrally retained allow and retained start are required before this callback runs. The SDK checks the successful result before release. The callback must use the supplied provider idempotency key; the SDK cannot deduplicate an external provider on its own.
+`protectedClientConfig` has the same connection and key fields as the earlier
+client. This refund example uses your own `operation`, `args`, `privateLedger`
+and `protectedPayments`; it does not supply a payment service.
 
-## Handle waits and uncertain effects
+The SDK requires a covered allow decision or valid approval permit, saved by
+AuthRail, and a saved execution-start report before calling this function. Use
+the checked arguments and provider idempotency key. Save recovery context
+before the provider call. A result check can withhold output after the effect;
+it cannot undo that effect.
 
-`EnforceBlockedError` identifies the blocked phase and whether an effect may have occurred. A retained approval wait can expose `approvalContinuation`; encrypt and scope it before a process restart. `resumeApprovalFrom` claims an approved call; `recoverApprovalFrom` reads an existing permit after a lost claim response. Neither authorizes changed arguments or a started attempt.
+</details>
 
-`EnforceOutcomeUnknownError` carries recovery context. Check the provider with the original key before `reconcile`. Do not rerun the callback on a generic network exception. Read [approvals](/docs/approvals) and [recovery](/docs/recovery) before adding retry logic.
+<details className="guide-details">
+<summary>Approvals, unknown outcomes and additional SDK features</summary>
 
-For local source checks, run `npm test` in the SDK repository. These checks validate the adapter contract; run the actual application/sidecar path to establish connected coverage.
+A saved approval wait raises `EnforceBlockedError` with `approvalContinuation`.
+Encrypt and save it with the original authenticated request before a restart.
+`resumeApprovalFrom` claims an approved call. `recoverApprovalFrom` reads an
+existing permit after a lost claim response. Neither permits replacement
+model arguments or starts an already-started attempt.
+
+`EnforceOutcomeUnknownError` includes recovery context. Check the provider using
+the original idempotency key before `reconcile`. Do not rerun the function on
+a generic network error. The [recovery guide](/docs/recovery) explains this flow.
+
+The <a href={`${AUTHRAIL.repositories.node}#readme`}>SDK README</a> also covers
+source facts, Guard handlers and discovery. Run `npm test` from the SDK checkout
+to build and run its source checks. Those checks do not establish that every
+route in your application is protected.
+
+</details>
+
+The [Runtime walkthrough](/docs/application-example) shows a connected
+application and the decisions it retained in AuthRail.

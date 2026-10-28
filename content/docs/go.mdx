@@ -1,48 +1,110 @@
 ---
 title: "Connect a Go application"
-description: "Protect an existing Go function using the same sidecar protocol."
+description: "Add call and result checks to a protected Go function, then enforce it deliberately."
+icon: CodeIcon
 ---
 
-The Go SDK requires Go 1.26 or newer and runs inside the protected application. Keep its private executor key and provider credentials outside the agent. Use one nearby sidecar bound to this deployment.
+import { AUTHRAIL } from '@/lib/constants';
 
-## Pin the source you verified
+The Go SDK adds AuthRail checks around a function your application already
+uses. It asks the local sidecar to check the requested call and returned result,
+then gives your application those decisions.
 
-The module is `github.com/AuthRail/authrail-sdk-go`. Install an exact reviewed tag or commit with `go get github.com/AuthRail/authrail-sdk-go@REVISION`, replacing `REVISION` with the compatible version you verified. No public release matrix is implied by a module being available.
+This guide connects one invoice reader in **Observe**. You will read its call
+and result decisions and find the request in AuthRail. Observe keeps the
+function running even when a rule would deny it, so start with a safe system.
 
-Load the private PEM and create the client once:
+You need Go 1.26 or newer, an application module and a running sidecar. Complete
+[the dashboard setup](/docs/getting-started) and [connection details](/docs/identity)
+first. Keep the organisation ID, deployment ID, reviewed Operation Version ID,
+adapter-token file and private-key file available to your application.
+
+## 1. Add the SDK to your module
+
+From your existing application's Go module directory:
+
+```sh
+go get github.com/AuthRail/authrail-sdk-go@main
+```
+
+For a new application, create its directory and run `go mod init` with your module path first. `go get` resolves the main branch revision into `go.mod` and `go.sum`; it does not start a service. Replace `main` with a reviewed commit SHA when pinning a deployment. This guide does not assume a stable tagged release.
+
+The <a href={AUTHRAIL.repositories.go}>SDK repository</a> also supports source checks: clone `main`, then run `go build ./...` to compile or `go test ./...` to run its tests. Building does not start the sidecar or your application.
+
+## 2. Connect to the sidecar
+
+Use imports `context`, `os`, `strings`, and `authrail "github.com/AuthRail/authrail-sdk-go"` in the surrounding Go file. Inside your application's setup function:
 
 ```go
-privatePEM, err := os.ReadFile(privateKeyFile)
+privatePEM, err := os.ReadFile(config.ExecutorPrivateKeyFile)
 if err != nil { return err }
 privateKey, err := authrail.ParseExecutorPrivateKeyPEM(privatePEM)
 if err != nil { return err }
+adapterToken, err := os.ReadFile(config.AdapterTokenFile)
+if err != nil { return err }
 client, err := authrail.NewClient(authrail.Config{
     SidecarURL: "http://127.0.0.1:7078",
-    AdapterToken: adapterToken,
-    OrganisationID: organisationID,
-    DeploymentID: deploymentID,
+    OrganisationID: config.OrganisationID,
+    DeploymentID: config.DeploymentID,
+    AdapterToken: strings.TrimSpace(string(adapterToken)),
     ExecutorPrivateKey: privateKey,
 })
 if err != nil { return err }
 ```
 
-Import the module as `authrail` and load configuration through your application's private configuration path. The sidecar gets only the public key.
+`config` is your application-owned configuration. Its file paths refer to the private `adapter-token` and `executor-private.pem` prepared during setup. Never mount the private key into the sidecar or expose it to the agent.
 
-## Wrap the authenticated business boundary
+Use the [native sidecar](/docs/native) if this program runs on your host,
+or follow the [Docker application placement](/docs/docker#4-connect-your-application-container) if it runs in Docker. The local URL must reach the sidecar beside this application.
 
-Use `Observe` initially. Its callback result and `checks` are separate: a would-deny or unavailable decision does not stop the callback. For Enforce, wrap the exact protected operation:
+## 3. Check an invoice read
+
+Here the application has authenticated a staff session and resolved an invoice before calling its own invoice reader:
 
 ```go
-receipt, call, result, err := authrail.Enforce(ctx, client,
-    authrail.Operation{
-        VersionID: reviewedOperationVersionID,
-        ActionKey: refundRequest.ID,
-        PrincipalID: authenticatedStaff.ID,
-        PrincipalSource: "application_session",
-        SessionID: task.ID,
-        ResourceID: payment.ID,
-        ResourceSource: "application_lookup",
-    }, refundRequest, func(ctx context.Context, checked RefundRequest,
+invoiceResult, checks, err := authrail.Observe(ctx, client, authrail.Operation{
+    VersionID: config.InvoiceReadOperationVersionID,
+    ActionKey: request.StableBusinessKey,
+    PrincipalID: session.StaffID,
+    SessionID: session.ID,
+    ResourceID: invoice.ID,
+    PrincipalSource: "application_session",
+    ResourceSource: "application_lookup",
+}, map[string]any{"invoiceId": invoice.ID},
+    func(ctx context.Context) (map[string]any, error) {
+        return invoiceService.Read(ctx, invoice.ID)
+    })
+if err != nil { return err }
+observation := <-checks
+```
+
+`ctx`, `config`, `request`, `session`, `invoice` and `invoiceService` belong to your application. The reader returns a bounded JSON object matching the reviewed Operation's result contract; adapt the example to your actual types. An action without a target record leaves `ResourceID` empty and uses `ResourceSource: "not_applicable"`.
+
+`invoiceResult` and `err` come from your business function. The function runs even if a Rail would deny the request or the sidecar is missing. The checks finish separately. Inspect `observation.CallError` and `ResultError` before reading `CallDecision` and `ResultDecision`.
+
+## 4. Read the decisions
+
+With a healthy setup, both phase decisions are available and their outcomes follow the selected Rails. `RecordingStatus == "retained"` means AuthRail stored the check; `"queued"` means the sidecar saved it for later delivery. Open the deployment's **Actions & decisions** to review retained Actions and certificates.
+
+Use one stable business `ActionKey` across retries of the same request. A different request needs a different key. A callback result and an allow decision are separate: neither independently proves that a provider completed an effect.
+
+## Next: require permission before the function runs
+
+Once you have checked the Observe decisions and [reviewed other access routes](/docs/security),
+use Enforce to stop the function unless permission is established. Read
+[Observe and Enforce](/docs/modes), [human approvals](/docs/approvals) and
+[recovery](/docs/recovery) before changing that boundary.
+
+<details className="guide-details">
+<summary>Switch this integration to Enforce</summary>
+
+In the deployment's **Overview → Review Enforce setup**, resolve any missing
+setup or call/result reports, confirm the protected boundary and select
+**Turn on Enforce**. Replace the advisory wrapper with `Enforce`:
+
+```go
+receipt, call, result, err := authrail.Enforce(ctx, client, operation,
+    refundRequest, func(ctx context.Context, checked RefundRequest,
         execution authrail.ExecutionContext) (RefundReceipt, error) {
         if err := ledger.SaveRecovery(ctx, execution); err != nil {
             return RefundReceipt{}, err
@@ -51,16 +113,48 @@ receipt, call, result, err := authrail.Enforce(ctx, client,
     })
 ```
 
-`RefundRequest`, `RefundReceipt`, `ledger` and `payments` are your reviewed application types and services. The function uses the SDK-supplied provider key and persists recovery context. The SDK requires retained permission and start before invoking it, reports the outcome and checks the result before exposure.
+This refund example uses your own `operation`, input/output types, `ledger` and
+`payments` service. The SDK requires a covered allow decision or valid approval
+permit, saved by AuthRail, and a saved execution-start report before calling
+the function. Use its checked input and provider idempotency key.
 
-A successful callback or a call decision alone is not independent provider proof. If `err` reports a result-phase block, an effect may already exist even though `receipt` is withheld.
+Save recovery context before calling the provider. A result check can withhold
+`receipt` after an effect exists; it cannot undo that effect.
 
-## Restore approval waits after restart
+</details>
 
-On `ApprovalRequired`, call `pending.Continuation()` and securely store the resulting `ApprovalContinuation` with the exact business request. It is JSON-serializable but contains sensitive call data and must be encrypted, tenant/deployment scoped and inaccessible to the agent.
+<details className="guide-details">
+<summary>Save an approval wait and recover uncertain outcomes</summary>
 
-Use `ResumeApprovalFrom[Input, Output](ctx, client, continuation, execute)` after approval. If the first claim response was lost, `RecoverApprovalFrom` reads the existing unexpired permit instead of issuing another claim. Both still need a fresh retained start before the callback. Keep the same executor identity and original reviewed input.
+Use `errors.As` from Go's `errors` package to get a pending approval:
 
-For `OutcomeUnknownError`, inspect `Recovery`, read the provider by the original key and call `client.Reconcile` only after success or no effect is established. Leave unresolved effects unknown.
+```go
+var pending *authrail.ApprovalRequired
+if errors.As(err, &pending) {
+    continuation, snapshotErr := pending.Continuation()
+    if snapshotErr != nil { return snapshotErr }
+    // Encrypt and save continuation with this authenticated business request.
+}
+```
 
-Run `go test ./...` for SDK checks. The source example under `examples/enforce-payment` exercises a protected HTTP handler with an isolated mock ledger; its fixed test principal and Action key must be replaced in a real application. It does not prove all HTTP routes are intercepted.
+The continuation includes private input and context. Encrypt it and save it
+with the original user, organisation, deployment and Action. Never accept a
+replacement continuation from an agent.
+
+After approval, `ResumeApprovalFrom[Input, Output]` resumes the saved call. If a
+permit claim response was lost, `RecoverApprovalFrom` reads the existing permit.
+Both still require a saved execution start before an effect.
+
+On `OutcomeUnknownError`, inspect `Recovery`, query the provider by the original
+key, and call `client.Reconcile` only when the result is established. Leave
+unresolved effects unknown. See [recovery](/docs/recovery) for the complete flow.
+
+The <a href={`${AUTHRAIL.repositories.go}#readme`}>SDK README</a> covers complete
+signatures, source facts, Guard handlers and discovery. From the SDK checkout,
+`go build ./...` compiles it and `go test ./...` runs its source checks. Neither
+starts the sidecar or establishes coverage of your application's other routes.
+
+</details>
+
+The [Runtime walkthrough](/docs/application-example) shows a connected
+application and the decisions it retained in AuthRail.

@@ -6,8 +6,7 @@
     "dev": "next dev --port 3010",
     "build": "next build",
     "start": "next start --port 3010",
-    "typecheck": "next typegen && tsc --noEmit",
-    "check:links": "node scripts/check-links.mjs"
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "fumadocs-core": "16.15.10",

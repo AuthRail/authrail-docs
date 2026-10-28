@@ -1,0 +1,36 @@
+---
+title: "Use the local HTTP protocol"
+description: "Implement a custom adapter without creating another authorization engine."
+---
+
+Node and Go handle signing and the call/result lifecycle for you. A custom adapter implements the same language-neutral protocol against a loopback sidecar. Do not implement separate Rail semantics or treat a hosted endpoint as an alternative decision runtime.
+
+## Check the complete contract first
+
+The public sidecar repository owns [PROTOCOL.md](https://github.com/AuthRail/authrail-sidecar/blob/feat/runtime-sidecar/PROTOCOL.md) and the versioned conformance corpus. Pin the reviewed source revision. The table below is a navigation aid; it is not sufficient to implement signing correctly.
+
+| Local endpoint | Responsibility |
+| --- | --- |
+| `GET /health` | Read bundle and process metadata; does not prove adapter coverage |
+| `GET /guard-requirements` | Read exact supported phase obligations; does not authorize execution |
+| `POST /evaluate` | Check signed `tool_call` or `tool_result` input |
+| `POST /approval-permits/claim` | Consume exact approved request once |
+| `POST /approval-permits/recover` | Read an existing unexpired permit before start |
+| `POST /execution-receipts` | Retain authenticated attempt and reconciliation assertions |
+| `POST /execution/observed-receipts` | Report Observe outcomes without granting permission |
+
+Adapter endpoints require the separate Bearer token. `POST /evaluate` uses `Content-Type: application/json`, a stable business `Idempotency-Key` and `formatVersion: 1`. The body binds a request UUID, exact Operation Version, phase, bounded arguments, authenticated attribution and short-lived Ed25519 identity proof.
+
+## Reproduce signed bytes exactly
+
+The executor statement binds organisation and deployment, request, Action key, Operation, phase, canonical input digest, attribution, optional review-summary digest and issue/expiry times. Canonical input begins with `arguments`, then optional `result`, facts, trajectory and Guard evidence in the prescribed order. Nested object keys use UTF-8 byte ordering. A visually identical JSON object with different canonical bytes is not the same signed input.
+
+Use the shared canonical and deterministic signed-request fixtures, not a fabricated signature copied from an example. The sidecar verifies the registered executor key and current signed bundle before evaluation.
+
+## Implement the whole lifecycle
+
+Reuse the call's request and Action identity at the result hook. Enforce only a covered, fresh, centrally retained, non-replayed allow or matching claimed approval permit. Record an authenticated start before the business effect, use `ar-<Action ID>` as its provider idempotency key, retain outcome receipts and check the result before exposure.
+
+Never retry a permit claim after an uncertain response; recover the existing permit. Never retry an unknown business effect before provider reconciliation. Recording delivery retries are separate from effect retries. A custom adapter must prove malformed input, timeout, replay, receipt and result failure behavior as well as a happy-path allow.
+
+Run conformance against your own host and separately review all bypass paths. Passing fixtures proves translation, not universal interception.

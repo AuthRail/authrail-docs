@@ -1,0 +1,30 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "getting-started",
+    "concepts",
+    "---Connect your application---",
+    "docker",
+    "native",
+    "node",
+    "go",
+    "http",
+    "identity",
+    "---Govern actions---",
+    "rails",
+    "modes",
+    "facts",
+    "approvals",
+    "recovery",
+    "---Operate and explain---",
+    "records",
+    "operations",
+    "security",
+    "openshell",
+    "framework-proof",
+    "---Reference---",
+    "configuration",
+    "compatibility"
+  ]
+}

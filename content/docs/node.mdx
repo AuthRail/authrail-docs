@@ -1,0 +1,79 @@
+---
+title: "Connect a Node application"
+description: "Wrap the protected function and keep its effect separate from the check."
+---
+
+The Node SDK belongs in the credential-owning server application. It requires Node.js 20 or newer. The agent can request a tool; your application authenticates the request and decides which reviewed Operation and resource it represents.
+
+## Install the reviewed SDK
+
+The package name is `@authrail/sdk-node`. Pin a version verified with your sidecar; do not assume a registry version has been released from the current source. To use a reviewed source checkout:
+
+```bash
+# In authrail-sdk-node
+npm ci
+npm run build
+npm pack
+```
+
+Install the generated `.tgz` in your protected application using its actual path. Keep the lockfile and artifact checksum with the deployment record. [Compatibility](/docs/compatibility) explains the current source status.
+
+## Start with Observe
+
+Create a client using the deployment identity and private application key:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { ObserveClient } from '@authrail/sdk-node';
+
+const client = new ObserveClient({
+  sidecarUrl: 'http://127.0.0.1:7078',
+  adapterToken: privateConfig.adapterToken,
+  organisationId: privateConfig.organisationId,
+  deploymentId: privateConfig.deploymentId,
+  executorPrivateKey: readFileSync(privateConfig.privateKeyFile, 'utf8'),
+});
+
+const operation = {
+  operationVersionId: reviewedRefundOperation.versionId,
+  actionKey: refundRequest.id,
+  principalId: authenticatedStaff.id,
+  principalSource: 'application_session' as const,
+  sessionId: task.id,
+  resourceId: payment.id,
+  resourceSource: 'application_lookup' as const,
+};
+const { result, observation } = client.observe(
+  operation,
+  { paymentId: payment.id, amount: refundRequest.amount },
+  () => protectedPayments.refund(refundRequest),
+);
+const refund = await result;
+const checks = await observation;
+```
+
+The surrounding variables are your authenticated application data, not SDK-provided services. Arguments and successful results must be bounded JSON objects matching the reviewed contract. `result` carries the callback result or error. `observation` carries separate call/result decisions or errors. Observe never holds the function for permission; use safe test effects while evaluating would-deny rules.
+
+## Apply Enforce at the same boundary
+
+Create `EnforceClient` with the same protected configuration and use its checked arguments and recovery context:
+
+```ts
+const checked = await enforcingClient.enforce(operation, args,
+  async (checkedArgs, execution) => {
+    await privateLedger.saveRecovery(execution);
+    return protectedPayments.refund(checkedArgs, {
+      idempotencyKey: execution.providerIdempotencyKey,
+    });
+  });
+```
+
+`enforcingClient` is an `EnforceClient`; `privateLedger` and `protectedPayments` are your durable application services. A fresh covered, centrally retained allow and retained start are required before this callback runs. The SDK checks the successful result before release. The callback must use the supplied provider idempotency key; the SDK cannot deduplicate an external provider on its own.
+
+## Handle waits and uncertain effects
+
+`EnforceBlockedError` identifies the blocked phase and whether an effect may have occurred. A retained approval wait can expose `approvalContinuation`; encrypt and scope it before a process restart. `resumeApprovalFrom` claims an approved call; `recoverApprovalFrom` reads an existing permit after a lost claim response. Neither authorizes changed arguments or a started attempt.
+
+`EnforceOutcomeUnknownError` carries recovery context. Check the provider with the original key before `reconcile`. Do not rerun the callback on a generic network exception. Read [approvals](/docs/approvals) and [recovery](/docs/recovery) before adding retry logic.
+
+For local source checks, run `npm test` in the SDK repository. These checks validate the adapter contract; run the actual application/sidecar path to establish connected coverage.

@@ -1,0 +1,29 @@
+---
+title: "Compatibility and coverage"
+description: "Pin verified components and keep unsupported paths visible."
+---
+
+The current source contract uses signed bundle and local evaluation `formatVersion: 1`. That number describes a shape; it does not prove that arbitrary package versions work together or that all tools are protected.
+
+## Verify the installed combination
+
+Pin the server contract, sidecar revision or image digest, SDK revision/package and OpenShell integration version together. Run the versioned `conformance/v1` canonical input, decision and failure fixtures. The same corpus is mirrored in Node and Go; protocol changes require coordinated review.
+
+Then run actual call and result interception through the installed artifacts. Inspect retained Actions, signed receipts and certificates, test a denied attempt without effects, and exercise approval plus uncertain-outcome recovery. A mock callback can prove translation and lifecycle behavior. It cannot prove a real provider effect or an independent provider read-back.
+
+No public immutable release matrix is currently claimed. The sidecar repository's `COMPATIBILITY.md` records the bounded source combinations checked so far. An earlier check is evidence for those exact sources, not automatic acceptance of later changes.
+
+## Supported source paths
+
+Node and Go expose Observe and Enforce adapters against the same local sidecar protocol. HTTP is the language-neutral contract for a custom protected adapter. Docker is the recommended sidecar setup, with native binaries retained. Python remains optional follow-up work; a first-party Runtime MCP adapter is outside this delivery scope.
+
+Guard support is handler-specific. Missing or conflicting obligations stop Enforce. An `isolate` label does not prove an active containment boundary. OpenShell's customer-operated path has its own validation status and must not be generalized to arbitrary shells or all sandbox tools.
+
+## Distinguish four checks
+
+- **Protocol conformance:** the adapter translates the signed wire contract correctly.
+- **Connected integration:** installed components carry a real checked call and retained records across boundaries.
+- **Deployment coverage:** every relevant effect and credential path has been reviewed and intercepted or disclosed.
+- **Product acceptance:** founder E2E, Framework-led release gates, staging and production checks have been completed separately.
+
+A passing build or healthy process satisfies none of the remaining checks by implication. Keep the deployment advisory until its own enforceable boundary is established.

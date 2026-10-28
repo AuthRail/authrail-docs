@@ -1,0 +1,30 @@
+---
+title: "Health, logs and telemetry"
+description: "Find degraded coverage and delivery failures without exposing sensitive payloads."
+---
+
+Start with two questions: can this sidecar evaluate the intended deployment, and is the real application applying its decisions? Local health answers part of the first question. It cannot answer the second alone.
+
+## Inspect local health
+
+`GET /health` reports signed-bundle validity and sequence, executor-key fingerprints, queued or blocked reports and a process-local cumulative `telemetryFailures` count. Confirm that the bundle belongs to the intended organisation and deployment. Check expiry as well as process liveness. A stale or missing signal is not a healthy deployment.
+
+The sidecar sends a bounded deployment signal at startup and periodically. Compare the last received time in AuthRail with local queue and application status. Configuration downloads prove configuration delivery, not that every tool call is intercepted.
+
+## Diagnose recording gaps
+
+Watch queued reports and their age, blocked delivery, unavailable recording, unknown outcomes and explicit gaps. An upload outage can leave reports durable locally. An unwritable or exhausted queue cannot establish retention. Preserve gap archives for operator review; do not clear them to make a health panel appear clean.
+
+Keep operator credentials separate from adapter credentials. Local gap-review endpoints are operator actions and do not grant permission for a business effect. Consult the sidecar's packaged protocol and command help for exact supported recovery operations.
+
+## Export safe telemetry
+
+`AUTHRAIL_OTLP_ENDPOINT` configures an OTLP/HTTP Collector base URL; omit it to disable export. Use HTTPS for remote collectors. Local backend development includes an OpenTelemetry Collector so API and worker follow the deployed signal path without vendor credentials.
+
+W3C `traceparent` connects checks, claims, receipts and queued reports. It is correlation, never authorization. Use stable request, Action, attempt and approval IDs in bounded diagnostic context, not metric labels. Keep credentials, prompts, raw source text, provider bodies and personal data out of logs and traces.
+
+Exporter failure cannot change a Rail decision. The sidecar uses bounded memory and a short export deadline; `telemetryFailures` includes drops and failed exports but does not prove downstream Collector retention. Monitor delivery separately from durable Action recording.
+
+## Upgrade without erasing recovery
+
+Pin compatible artifacts. Stop only the instance being upgraded through your change process, preserve its entire private state set, replace the executable or image and check bundle, keys and queues before routing protected calls. Rollback retains the newer state; restoring an older snapshot can erase reports or lower sequence protection. A binary unable to read current state must stop rather than create blank state.

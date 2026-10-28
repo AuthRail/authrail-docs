@@ -1,0 +1,30 @@
+---
+title: "Identity and deployment"
+description: "Separate setup discovery, authenticated workload identity and application attribution."
+---
+
+AuthRail needs to know which AI system is governed, where it is running and whose business request it carries. Those identities are related but not interchangeable.
+
+## Discovery is a setup step
+
+A tenant manager can issue a short-lived discovery key for a stable integration key and deployment name. SDK discovery can create an unconfirmed AI Inventory item or resolve an existing one. Repeating a lookup does not prove that workload is entitled to execute. An expired or revoked setup key cannot serve as a Runtime credential.
+
+Review and confirm the inventory item in the tenant workspace. Configure the exact deployment and its separate credential. Provider or model configuration alone does not prove the identity of the executing agent.
+
+## Bind the protected executor
+
+Register the application's Ed25519 public key on the deployment and configure that same public key in the sidecar. The private key stays with the protected executor. Each call and result proof binds the organisation, deployment, request, stable Action key, exact Operation Version, phase, input digest and attribution within a short validity window.
+
+The application derives `principalId` and `sessionId` from authenticated middleware or service identity, and resolves `resourceId` with an application lookup. It must not accept these as authoritative merely because an agent supplied them in JSON. Use `application_session` or `service_identity` for the verified principal source; a resource-free Operation uses `not_applicable`.
+
+A signature establishes that the registered executor made those assertions. It does not independently verify the person, resource or business effect.
+
+## Select exact versions
+
+Deployment configuration selects published Rail Versions and reviewed Operation contracts. The sidecar checks bundle signature, tenant and deployment audience, activation time, expiry and a monotonic sequence. It pins the trusted signing key from setup rather than trusting a key supplied by an arbitrary downloaded bundle.
+
+An invalid private state file stops startup. Do not delete it to bypass rollback protection. Preserve state and use the operator recovery process. During executor-key rotation, the sidecar can accept a bounded overlap with a configured previous public key so old queued reports remain verifiable. Retire that overlap only after checking the queues and retained history.
+
+## Confirm the whole boundary
+
+A deployment can be authenticated while only one of its tools is intercepted. Inventory tool calls and results, subagents, files, shell and network routes. Disclose direct provider access or unreviewed tools as uncovered. Authentication, health and coverage each answer a different question.

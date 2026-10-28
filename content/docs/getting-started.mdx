@@ -1,0 +1,44 @@
+---
+title: "Getting started"
+description: "Prepare one reviewed action and connect its real execution boundary."
+---
+
+Start with a safe operation in a customer-owned test system or an isolated mock ledger. You choose your deployment name and provider test facilities; AuthRail does not require a separate Test/Live environment model.
+
+## 1. Prepare the dashboard configuration
+
+In AI Inventory, select or discover the AI system, review its identity and confirm it. Create an Observe deployment for the application you will connect. Review an exact Operation Version for the tool you will wrap, publish the relevant Rails, and select their exact versions on that deployment. A draft rule or setup key does not authorize execution.
+
+Obtain the organisation ID, deployment ID, deployment credential and independently trusted signing-key fingerprint through the tenant setup. Register the protected application's Ed25519 public key. Keep the corresponding private key in the application.
+
+Generate an application key pair in its private configuration directory:
+
+```bash
+openssl genpkey -algorithm Ed25519 -out executor-private.pem
+openssl pkey -in executor-private.pem -pubout -out executor-public.pem
+chmod 600 executor-private.pem
+```
+
+The sidecar receives only `executor-public.pem`. Create a separate random adapter token of at least 32 characters for local application-to-sidecar authentication. The deployment credential, adapter token and executor private key have different jobs. Do not give any of them to the agent.
+
+## 2. Start a customer-side sidecar
+
+Use the [Docker setup](/docs/docker), the recommended distribution path. [Native installation](/docs/native) remains available. Give each instance its own private persistent state directory; never reuse the state of another deployment to make setup pass.
+
+Check the local `/health` response. Confirm the intended tenant and deployment, valid signed bundle, accepted sequence and expected key fingerprints. A running process with no usable bundle is not ready for Enforce. Health alone does not prove interception.
+
+## 3. Add the adapter at the protected function
+
+Choose [Node](/docs/node) or [Go](/docs/go). A custom adapter can implement [the HTTP protocol](/docs/http). The adapter belongs inside the credential-owning application, where it can authenticate the caller, resolve the target resource and stop the actual tool. An agent-visible wrapper around another credentialed path does not establish that boundary.
+
+Supply a stable business Action key and exact Operation Version. For example, a refund request ID should remain stable when a network request retries. Do not generate a fresh Action key on every retry.
+
+## 4. Compare prepared outcomes
+
+Run an allowed attempt and a would-deny attempt in Observe. Both protected functions may execute because Observe is advisory. Inspect the separate call/result checks and recording status; verify the resulting Action and certificates in AuthRail.
+
+Then review all bypass paths and explicitly select Enforce with the Enforce adapter. An out-of-bound request must stop before the effect. An approval-required request must wait. A result rejection must withhold output. Check the effect ledger as well as the Action history. Do not infer absence of effects from a red decision label.
+
+## 5. Exercise a failure before relying on it
+
+Stop only your isolated test sidecar and retry a fresh action: Observe remains advisory; Enforce must stop. Exercise a provider timeout and reconcile by the original provider idempotency key. [Recovery](/docs/recovery) explains why an unknown outcome must never trigger a blind retry.

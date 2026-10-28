@@ -1,0 +1,28 @@
+---
+title: "Facts and contextual extraction"
+description: "Supply bounded trusted inputs without moving provider credentials into the agent."
+---
+
+Data Rails need facts about the business request. The protected application reads the exact reviewed source and supplies a resolution signed as part of the call. The sidecar evaluates locally; it does not fetch provider data or invoke a model.
+
+## Use a reviewed lookup
+
+The SDKs provide customer callback/API readers and focused Stripe and QuickBooks helpers. Configure the source version, account, resource lookup, timeout and expected field from reviewed configuration. Never take the provider URL, account or credential from agent text.
+
+A Stripe invoice-status lookup verifies the reviewed account, including `Stripe-Account` for Connect reads. A QuickBooks invoice-balance lookup reads one invoice in the exact reviewed realm with an application-owned OAuth token. It returns `Invoice.Balance`; that numeric balance is not currency-qualified without an additional reviewed currency source.
+
+Provider credentials, refresh tokens and raw responses remain in the protected application. The application owns OAuth consent, exact callback origin/state/account binding, encrypted token persistence, serialized refresh and revocation. An AuthRail management-plane Connection does not supply Runtime write permission.
+
+## Treat uncertainty as missing trusted context
+
+A resolution can be `ok`, `unavailable` or `untrusted`. Provider timeouts and failures yield unavailable context. Account/resource mismatch or invalid values are untrusted. Neither supplies a passing fact. Freshness is checked against the reviewed source; an old response does not become current because it was signed today.
+
+The Rail's configured unavailable behavior governs the resulting decision. Investigate the read and restore the source rather than replacing missing values with permissive defaults.
+
+## Extract a contextual fact
+
+A contextual extractor asks one reviewed question of bounded source material. Its Context Source Version pins model identity, settings fingerprint, instructions version, result type and confidence boundary. The executor sends the bounded text to its configured provider, checks the typed result and signs the resolution. Raw source text and provider keys are not sent to the sidecar or AuthRail.
+
+The model answers a predicate, choice or score question. It does not make the final authorization decision. Refusal or insufficient confidence means `uncertain`; timeout or dependency failure means `unavailable`. A confident answer is still contextual input and not independent proof that the model understood the text.
+
+For trajectory-sensitive rules, supply reviewed session history from the protected application's durable state. Do not let agent-written claims of previous approval or previous actions replace authenticated history. Bounded trajectory evidence describes its coverage; it does not establish interception of omitted tools or sessions.

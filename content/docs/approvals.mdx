@@ -1,0 +1,30 @@
+---
+title: "Approvals and one-use permits"
+description: "Keep a human decision bound to the exact requested business action."
+---
+
+An `approval_required` decision creates a durable wait. The protected function has no permission to run yet. A named authorized reviewer sees bounded human review context for the exact Action, requested values, matched Rail, reason and expiry.
+
+## Bind the review to the request
+
+The executor supplies a fresh signed `reviewSummary` tied to the input digest. Missing or invalid context leaves the request unavailable for a useful review. Approval rules still enforce tenant membership, exact digest, expiry and required quorum. A named authorized reviewer may approve their own request where configured; this does not establish independent review.
+
+If material business arguments change, the old approval does not authorize the changed action. Expired or cancelled requests remain historical records; create a new checked request through the proper lifecycle.
+
+## Claim permission before executing
+
+After approval, the protected executor signs a claim to local `POST /approval-permits/claim`. The sidecar forwards it using the deployment credential. The server consumes the approved request once and returns a short-lived permit bound to the same Action and input. The agent never receives the deployment credential or a reusable universal permission.
+
+The adapter records `started` before invoking the protected callback. A permit proves permission to start under those conditions. It does not prove the callback ran or the provider completed.
+
+## Persist the waiting continuation
+
+A process may restart while waiting for a human. Store the SDK's bounded continuation in your own authenticated, private durable store, associated with the original task and business request. The callback itself is application code, not serialized authority. On resume, restore the exact Operation and arguments, refresh the signed proof and invoke only the credential-owning callback after a valid claim.
+
+Node exposes `resumeApprovalFrom` and `recoverApprovalFrom`; Go exposes the corresponding persisted continuation helpers. Check the installed SDK reference for the exact signatures. Never reconstruct a continuation from an agent-controlled request.
+
+## Handle a lost claim response
+
+An uncertain claim must not be sent again blindly. Use `POST /approval-permits/recover`, which can read an existing still-valid permit before an execution attempt has started. It cannot issue a second permit or resume an already-started attempt. If recovery cannot establish permission, keep waiting and investigate. After an uncertain provider effect, follow [execution recovery](/docs/recovery), not approval recovery.
+
+A Policy can require approval again at the result hook. An adapter may release that retained result only with a previously claimed permit for the same Action. Missing, denied, replayed or different-Action result decisions remain blocked.

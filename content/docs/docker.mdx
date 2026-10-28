@@ -1,0 +1,57 @@
+---
+title: "Run the sidecar with Docker"
+description: "Keep the decision endpoint private and preserve the entire state directory."
+---
+
+Docker is the recommended customer-side installation. Build from a pinned reviewed sidecar source revision; there is no claimed published registry image or verified release matrix yet. The repository includes the Dockerfile and Compose recipe used below. [Native installation](/docs/native) remains supported.
+
+## Prepare configuration and secret files
+
+Complete [Getting started](/docs/getting-started) first. You need a reviewed deployment, exact IDs, an independently verified signing-key fingerprint, the deployment credential, a separate adapter token and the executor's registered public key.
+
+Store the two tokens and public PEM in private files outside the checkout. On Linux, provision them for container UID/GID `10001:10001`, mode `0400`, with a protected parent directory. Compose file secrets do not repair host permissions. Docker Desktop can map permissions differently; verify readability without printing contents. Keep the executor private key and provider credentials in the protected application only.
+
+From the `authrail-sidecar` repository root, export the non-secret setup values and private file paths:
+
+```bash
+export AUTHRAIL_CONTROL_PLANE_URL=https://your-authrail-api.example.com
+export AUTHRAIL_ORGANISATION_ID=YOUR_ORGANISATION_ID
+export AUTHRAIL_DEPLOYMENT_ID=YOUR_DEPLOYMENT_ID
+export AUTHRAIL_TRUSTED_KEY_SHA256=YOUR_VERIFIED_SIGNING_KEY_FINGERPRINT
+export AUTHRAIL_DEPLOYMENT_TOKEN_PATH=/private/runtime/deployment-token
+export AUTHRAIL_ADAPTER_TOKEN_PATH=/private/runtime/adapter-token
+export AUTHRAIL_EXECUTOR_PUBLIC_KEY_PATH=/private/runtime/executor-public.pem
+
+docker compose -p authrail-runtime -f docker/compose.yaml up -d --build
+docker compose -p authrail-runtime -f docker/compose.yaml exec sidecar /usr/local/bin/authrail-container health
+```
+
+Replace every placeholder with its actual setup value. The API URL must be reachable from the container and meet the sidecar's HTTPS rule. Container loopback does not point at your host API; plain HTTP to `host.docker.internal` is deliberately rejected. Use reviewed HTTPS routing or an explicitly reviewed same-namespace local topology.
+
+The health command exits zero when the current signed bundle is valid. No selected bundle means unhealthy. A cached unexpired bundle may stay healthy while central reporting is unavailable; Enforce still requires central retention. Docker does not automatically restart an unhealthy process.
+
+## Place the protected executor
+
+The decision listener remains `127.0.0.1:7078`. It is not published. Add your protected application to this Compose project using the sidecar's network namespace:
+
+```yaml
+services:
+  executor:
+    image: your-protected-application:reviewed-version
+    network_mode: service:sidecar
+    depends_on:
+      sidecar:
+        condition: service_healthy
+```
+
+This is a placement example, not a supplied application image. Configure that application's own secrets and authentication. Its Node/Go adapter uses `http://127.0.0.1:7078`, its mounted adapter token and executor private key. The containers share networking, not files. Do not place the untrusted agent in this namespace.
+
+Publish only necessary application ingress ports on the sidecar service; never publish 7078. Addressing `http://sidecar:7078` from an ordinary bridge container cannot reach a loopback-only listener. When recreating the sidecar, recreate the executor too so it joins the new namespace.
+
+## Keep state through restart and upgrade
+
+The named volume retains all of `/var/lib/authrail`: `state.json`, sequence floor, lock, report queue, trajectory and recording-gap archives. Keep the Compose project name stable because it identifies the volume. Do not use `down -v`, a blank replacement volume or an older state snapshot for recovery.
+
+The image runs non-root with a read-only root filesystem, dropped capabilities and graceful SIGTERM handling. No startup root process repairs permissions. For upgrades, quiesce this pair, preserve the whole stopped private volume and host secrets, replace the pinned image and restart the pair. Check exact bundle, keys and queues before routing requests. Rollback changes the executable while retaining the latest state.
+
+See [Recovery](/docs/recovery) for offline reporting and unknown effects. A container smoke check is not the same as connected acceptance against the actual control plane and protected executor.

@@ -1,0 +1,28 @@
+---
+title: "How Runtime fits together"
+description: "Follow one proposed refund from identity to a retained outcome."
+---
+
+Consider a support assistant requesting a USD 240 refund. Your application already knows the staff member, customer payment and provider account. AuthRail adds a checked boundary around the request.
+
+## Name the system and its deployment
+
+An **AI Inventory item** identifies the AI system your tenant has reviewed. A **deployment** identifies one place that system runs, with its own authenticated workload identity, selected Rails and Runtime mode. An integration key such as `support-assistant` helps find the system; it is not authentication. Tenant confirmation and deployment credentials establish the reviewed setup.
+
+## Define what can be requested
+
+An **Operation Version** is the reviewed contract for one capability, such as refunding a payment. It defines the action shape and attribution requirements. A tool name, imported OpenAPI endpoint or uploaded description only proposes a contract. A human reviews it before it becomes the exact version used by the deployment.
+
+A **Rail** adds a boundary. A Data Rail can use a reviewed account balance, a Policy Rail can translate an exact published business Policy, and a Guard Rail can govern sensitive input or output. Publication creates an immutable version; deployment selection identifies exactly which versions will apply.
+
+## Check the call, then the result
+
+The adapter signs the call using the protected executor's key. The sidecar verifies the signed deployment bundle, workload attribution and required context, then evaluates the selected rules. In Observe the outcome is advisory. In Enforce the adapter stops unless the covered call is freshly allowed and centrally retained, or a matching approval permit is obtained.
+
+An **Action** links the stable business request to decisions, approvals and reported attempts. For our refund, a rule might require named human approval above USD 100. Approval does not perform the refund: the protected executor claims a one-use permit, records its start, then invokes the provider with a stable idempotency key.
+
+The adapter records the application's outcome and checks the result before returning it to the agent. A result block can withhold sensitive output. It cannot reverse a refund that already happened.
+
+## Retain the right explanation
+
+The Decision Certificate explains the exact decision and its inputs in bounded form. The receipt records the executor's signed outcome assertion. Activity Records explain linked business activity. Runtime logs support diagnosis. None replaces the others or independently proves the provider effect. [Records](/docs/records) explains how to read each one.

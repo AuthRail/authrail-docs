@@ -1,0 +1,34 @@
+---
+title: "Rails and reviewed context"
+description: "Choose business boundaries, exact sources and supported processing."
+---
+
+A Rail is a reusable published rule applied to an exact reviewed Operation. A draft is editable; publication creates an immutable Rail Version. The deployment selects exact versions, so a later edit does not silently change an earlier Action's explanation.
+
+## Choose the boundary you need
+
+| Rail | Purpose | Example |
+| --- | --- | --- |
+| Guard | Check input, result, information flow or retained context at a supported boundary | Require a reviewed sanitizer before a message is released |
+| Data | Use a bounded trusted fact from a reviewed source | Require approval when an invoice balance exceeds a threshold |
+| Policy | Apply a condition grounded in an exact published business Policy | Refunds above USD 100 require a named reviewer |
+
+Choose the actual action first, then the rule's source, condition and outcome. Use examples and Rail validation before publication. Rail examples and replay are rule validation; they do not introduce a third Runtime mode or perform the live business operation.
+
+## Facts come from a protected source
+
+A Context Source Version defines the account, lookup, field shape, freshness, trust and unavailable behavior for a fact. An import can suggest those fields. It does not connect to a provider or authenticate the source.
+
+The protected executor performs the reviewed read using its own credential. The sidecar evaluates the signed bounded fact resolution. A fact lookup must never execute the protected business operation. [Facts and extraction](/docs/facts) explains provider reads and model-assisted context.
+
+## Guard processing is an application responsibility
+
+The local protocol can require a `sanitize`, `transform` or `isolate` obligation with an exact handler ID, version and target field. A supported adapter reads those requirements and invokes only an application-registered matching handler. It signs before/after digests and the evidence bound to the exact bundle. Processing does not grant permission: the final decision still checks conditions, facts and approvals.
+
+Sanitization and transformation apply to reviewed string fields and cannot change resource identity. Unknown handlers, overlapping conflicting targets or unsupported isolation cannot be treated as fulfilled. Observe remains advisory and does not transform the actual tool input or result.
+
+A signed handler assertion does not independently prove handler quality or sandbox containment. [OpenShell](/docs/openshell) describes the narrower customer-operated containment path and its validation limits.
+
+## Keep history understandable
+
+For an Action, inspect the exact Rail Versions, phase, reasons and fulfilled or missing obligations. A newer published version is not a replacement for historical truth. A denial, approval requirement or missing fact should lead to a deliberate configuration or business review, never an automatic change that makes the same input pass.

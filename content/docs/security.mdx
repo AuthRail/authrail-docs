@@ -1,0 +1,35 @@
+---
+title: "Security and bypass review"
+description: "Establish what the agent cannot reach before claiming enforcement."
+---
+
+An AuthRail deployment is protected only at the boundaries that actually intercept the operation. Start the review with provider credentials and all routes capable of producing the same business effect.
+
+## Separate credentials by responsibility
+
+| Credential | Holder | Responsibility |
+| --- | --- | --- |
+| Deployment credential | Sidecar | Authenticate exact deployment to the control plane |
+| Adapter token | Protected application and local sidecar | Authenticate local protocol requests |
+| Executor private key | Protected application | Sign attribution, input and outcome assertions |
+| Provider write credential | Protected executor | Perform the actual business effect |
+| Operator token | Authorized operator | Review local recording gaps |
+| Discovery key | Protected setup path | Short-lived onboarding lookup |
+
+None belongs in agent prompts, a browser bundle, an agent-accessible file or tool response. The sidecar receives the executor public key, not its private key. A provider management-plane Connection does not authorize Runtime write operations.
+
+## Review every equivalent route
+
+Inventory direct provider access, secondary HTTP routes, shell commands, files, subagents, network egress and unknown tools. Verify that the agent cannot obtain the key, impersonate the protected principal, change deployment identity, replace reviewed source configuration or submit a different account.
+
+A tool wrapper with a second unprotected route is advisory in practice. Report that bypass clearly, even when every test of the wrapper passes. A local loopback listener protects network placement; it does not authenticate arbitrary processes on the host. Keep the adapter token and host process boundary private.
+
+## Keep assertions within their meaning
+
+A valid signature proves an assertion came from the registered executor key. It does not independently prove business identity, provider execution, sanitizer quality or sandbox containment. A key fingerprint received only from an untrusted bundle cannot establish trust in that bundle.
+
+Do not expose a sidecar decision endpoint publicly or share one decision process between unrelated deployments. The supported boundary is a customer-side sidecar beside a protected application. Custom HTTP adapters must implement the same protocol and failure semantics, not create a second policy engine.
+
+## Use containment as an additional boundary
+
+The [OpenShell path](/docs/openshell) places an untrusted agent in a customer-operated sandbox and keeps the executor and sidecar outside it. Review exact network and filesystem policy, credentials, lifecycle and observed active-policy state. A configuration template is an input to that review, not proof that containment is active.

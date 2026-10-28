@@ -1,0 +1,24 @@
+---
+title: "Observe and Enforce"
+description: "Know whether a decision is advisory and what actually stops an effect."
+---
+
+A deployment has one of two Runtime modes: `observe` or `enforce`. The mode must be visible in history and the application experience. Rule examples and historical replay belong to Rail validation, not a third deployment mode.
+
+## Observe without claiming protection
+
+The Observe adapter checks proposed calls and successful results but does not wait for permission before running the function. A would-deny decision, unavailable sidecar or recording outage does not stop it. An Observe outcome is useful for finding missing coverage and context; it is not an enforced block.
+
+The function's result or error and the observation are separate. A successful function does not mean its decision report was retained. A function exception does not prove there was no provider effect. Applications can separately report observed execution outcomes through the existing signed receipt lifecycle.
+
+## Enforce at the credential boundary
+
+The Enforce adapter must stop unless the call is covered, fresh, allowed, centrally retained and not a replay. A matching one-use approval permit can allow a retained approval wait to proceed. It records an authenticated start before invoking the protected callback, reports its outcome, then checks the result before exposure.
+
+Missing, queued, unavailable, uncovered, denied, replayed or mismatched responses cannot authorize execution. A result-phase block withholds output; the business effect may already exist and needs its own reconciliation or compensation workflow.
+
+## Move deliberately between modes
+
+First confirm identity, publish and select exact Rails, inspect Observe outcomes and review every credential/network/tool bypass route. Then explicitly change the deployment and connect the Enforce adapter. Changing the server-side mode does not convert a call to `Observe` into a protected callback. A customer can retain separate deployments when comparing modes, with exact versions and names chosen by that customer.
+
+A healthy sidecar is only one part of this check. If the agent can call the provider directly, reach another unprotected route or obtain the executor credential, the deployment remains advisory in practice. [Security](/docs/security) provides the review boundary.

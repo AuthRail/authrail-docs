@@ -1,0 +1,66 @@
+---
+title: "Connect a Go application"
+description: "Protect an existing Go function using the same sidecar protocol."
+---
+
+The Go SDK requires Go 1.26 or newer and runs inside the protected application. Keep its private executor key and provider credentials outside the agent. Use one nearby sidecar bound to this deployment.
+
+## Pin the source you verified
+
+The module is `github.com/AuthRail/authrail-sdk-go`. Install an exact reviewed tag or commit with `go get github.com/AuthRail/authrail-sdk-go@REVISION`, replacing `REVISION` with the compatible version you verified. No public release matrix is implied by a module being available.
+
+Load the private PEM and create the client once:
+
+```go
+privatePEM, err := os.ReadFile(privateKeyFile)
+if err != nil { return err }
+privateKey, err := authrail.ParseExecutorPrivateKeyPEM(privatePEM)
+if err != nil { return err }
+client, err := authrail.NewClient(authrail.Config{
+    SidecarURL: "http://127.0.0.1:7078",
+    AdapterToken: adapterToken,
+    OrganisationID: organisationID,
+    DeploymentID: deploymentID,
+    ExecutorPrivateKey: privateKey,
+})
+if err != nil { return err }
+```
+
+Import the module as `authrail` and load configuration through your application's private configuration path. The sidecar gets only the public key.
+
+## Wrap the authenticated business boundary
+
+Use `Observe` initially. Its callback result and `checks` are separate: a would-deny or unavailable decision does not stop the callback. For Enforce, wrap the exact protected operation:
+
+```go
+receipt, call, result, err := authrail.Enforce(ctx, client,
+    authrail.Operation{
+        VersionID: reviewedOperationVersionID,
+        ActionKey: refundRequest.ID,
+        PrincipalID: authenticatedStaff.ID,
+        PrincipalSource: "application_session",
+        SessionID: task.ID,
+        ResourceID: payment.ID,
+        ResourceSource: "application_lookup",
+    }, refundRequest, func(ctx context.Context, checked RefundRequest,
+        execution authrail.ExecutionContext) (RefundReceipt, error) {
+        if err := ledger.SaveRecovery(ctx, execution); err != nil {
+            return RefundReceipt{}, err
+        }
+        return payments.Refund(ctx, checked, execution.ProviderIdempotencyKey)
+    })
+```
+
+`RefundRequest`, `RefundReceipt`, `ledger` and `payments` are your reviewed application types and services. The function uses the SDK-supplied provider key and persists recovery context. The SDK requires retained permission and start before invoking it, reports the outcome and checks the result before exposure.
+
+A successful callback or a call decision alone is not independent provider proof. If `err` reports a result-phase block, an effect may already exist even though `receipt` is withheld.
+
+## Restore approval waits after restart
+
+On `ApprovalRequired`, call `pending.Continuation()` and securely store the resulting `ApprovalContinuation` with the exact business request. It is JSON-serializable but contains sensitive call data and must be encrypted, tenant/deployment scoped and inaccessible to the agent.
+
+Use `ResumeApprovalFrom[Input, Output](ctx, client, continuation, execute)` after approval. If the first claim response was lost, `RecoverApprovalFrom` reads the existing unexpired permit instead of issuing another claim. Both still need a fresh retained start before the callback. Keep the same executor identity and original reviewed input.
+
+For `OutcomeUnknownError`, inspect `Recovery`, read the provider by the original key and call `client.Reconcile` only after success or no effect is established. Leave unresolved effects unknown.
+
+Run `go test ./...` for SDK checks. The source example under `examples/enforce-payment` exercises a protected HTTP handler with an isolated mock ledger; its fixed test principal and Action key must be replaced in a real application. It does not prove all HTTP routes are intercepted.

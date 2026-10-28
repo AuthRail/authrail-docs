@@ -1,0 +1,38 @@
+---
+title: "Configuration reference"
+description: "Assign configuration to the component that owns its responsibility."
+---
+
+Keep configuration values in private deployment tooling. The names below describe the current sidecar source contract; no secret values are included. [Docker](/docs/docker) adds file-based token loading without changing the decision protocol.
+
+## Sidecar process
+
+| Variable | Purpose |
+| --- | --- |
+| `AUTHRAIL_CONTROL_PLANE_URL` | Reachable HTTPS AuthRail API origin; native local-loopback development is subject to the URL validation contract |
+| `AUTHRAIL_DEPLOYMENT_TOKEN` | Authenticate this exact deployment to AuthRail |
+| `AUTHRAIL_ORGANISATION_ID` | Exact tenant identity |
+| `AUTHRAIL_DEPLOYMENT_ID` | Exact deployment identity |
+| `AUTHRAIL_TRUSTED_KEY_SHA256` | Independently trusted signing-key fingerprint(s) |
+| `AUTHRAIL_STATE_FILE` | Private persistent state path unique to this instance |
+| `AUTHRAIL_ADAPTER_TOKEN` | Separate local adapter credential, at least 32 characters |
+| `AUTHRAIL_EXECUTOR_PUBLIC_KEY_FILE` | Registered protected executor public PEM |
+| `AUTHRAIL_PREVIOUS_EXECUTOR_PUBLIC_KEY_FILE` | Optional previous public key during reviewed rotation overlap |
+| `AUTHRAIL_OPERATOR_TOKEN` | Optional separate credential for recording-gap review |
+| `AUTHRAIL_HEALTH_ADDR` | Loopback listener; default `127.0.0.1:7078` |
+| `AUTHRAIL_SYNC_INTERVAL` | Configuration sync duration; default five seconds, minimum one second |
+| `AUTHRAIL_OTLP_ENDPOINT` | Optional OTLP/HTTP Collector base URL; omit to disable export |
+
+An operator token must differ from adapter and deployment credentials. The loopback listener rejects non-loopback binding. Do not change it to `0.0.0.0` for Docker networking.
+
+## Container launcher
+
+`AUTHRAIL_DEPLOYMENT_TOKEN_FILE`, `AUTHRAIL_ADAPTER_TOKEN_FILE` and optional `AUTHRAIL_OPERATOR_TOKEN_FILE` load tokens from private mounted files. Set the direct value or its file variable, not both. The Compose recipe takes host paths through `AUTHRAIL_DEPLOYMENT_TOKEN_PATH`, `AUTHRAIL_ADAPTER_TOKEN_PATH` and `AUTHRAIL_EXECUTOR_PUBLIC_KEY_PATH` and mounts them as secrets.
+
+`AUTHRAIL_SIDECAR_IMAGE` overrides the development image tag. Pin a verified immutable image digest for a reviewed rollout. The container state directory is `/var/lib/authrail`; mount the entire directory, not only `state.json`.
+
+## Protected application
+
+The SDK receives a loopback sidecar URL, local adapter token, organisation/deployment IDs and the executor private key. Your application also owns provider credentials, authenticated principal/resource resolution, exact Operation Versions, registered Guard handlers, durable continuation/recovery storage and business idempotency.
+
+A discovery key belongs only to setup. A signing-key fingerprint belongs to trust configuration. A trace ID belongs to diagnostics. None substitutes for another credential or a reviewed business permission.

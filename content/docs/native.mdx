@@ -1,0 +1,38 @@
+---
+title: "Run a native sidecar"
+description: "Build or package a pinned binary with private persistent state."
+---
+
+Use a native binary when your protected executor runs on the same customer host and Docker is unsuitable. The decision semantics and recovery obligations are identical to Docker.
+
+## Build from reviewed source
+
+Go 1.26 or newer is required. From a pinned `authrail-sidecar` checkout:
+
+```bash
+go build -o authrail-sidecar ./cmd/authrail-sidecar
+sh scripts/package.sh YOUR_VERSION ./dist
+```
+
+The packaging script produces a current-platform archive and adjacent SHA-256 checksum. The archive includes the binary, protocol, compatibility guidance and conformance fixtures. Verify its checksum before unpacking. This creates a local artifact; it does not publish an official release.
+
+## Configure one instance
+
+Supply the variables in [Configuration](/docs/configuration) through your service manager or private secret store. A minimal setup needs the HTTPS control-plane URL, deployment credential, organisation/deployment IDs, trusted signing-key fingerprint, adapter token, public executor key file and an instance-specific private state-file path.
+
+Set `AUTHRAIL_STATE_FILE` inside a private directory owned by the process user, and preserve all adjacent files. Keep the executor private key and provider credential in the protected application. Use a separate unprivileged service identity and keep the listener on loopback.
+
+Start the binary after configuration:
+
+```bash
+./authrail-sidecar
+curl --fail --silent --show-error http://127.0.0.1:7078/health
+```
+
+A successful HTTP response is not sufficient: inspect bundle validity, expected deployment, sequence, key fingerprints and queue status. The process can be alive before a usable bundle arrives. The application uses the same loopback endpoint and authenticates with the separate adapter token.
+
+## Stop and upgrade safely
+
+SIGINT or SIGTERM stops synchronization and allows bounded HTTP shutdown. Your service manager must give the process time to exit. Keep one state set per instance and avoid concurrent owners of the same path.
+
+Stop only the instance under your change process, preserve the entire private state directory, replace the pinned binary and restart with the same identity, keys and credentials. Never delete a rejected state file or restore an older accepted sequence to make startup succeed. See [operations](/docs/operations) for queue and telemetry checks and [compatibility](/docs/compatibility) before changing versions.

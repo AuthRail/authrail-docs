@@ -1,0 +1,34 @@
+---
+title: "OpenShell integration"
+description: "Keep the sandbox separate from the credential-owning executor."
+---
+
+OpenShell is a customer-operated containment layer. AuthRail remains the authorization control plane and customer-side decision sidecar. Each owns a different boundary: OpenShell limits what the sandbox can access; the protected AuthRail adapter checks a reviewed business operation before execution and result release.
+
+## Supported placement
+
+The integration under `authrail-sidecar/integrations/openshell` uses this narrow path:
+
+```text
+Agent sandbox → authenticated HTTPS protected executor
+               → Node adapter → loopback AuthRail sidecar
+               → protected provider operation
+```
+
+Keep the executor and sidecar outside the untrusted sandbox. The agent receives only a per-sandbox request credential for the protected executor. The executor fixes the deployment and principal from its reviewed configuration; it does not trust caller-supplied identity fields. Provider keys, executor private key, adapter token and deployment credential never enter the sandbox.
+
+This path does not claim transparent interception of arbitrary shell commands or every tool. Current upstream gRPC middleware is a research preview and does not supply AuthRail's approval, receipts and effect-recovery lifecycle.
+
+## Review containment policy
+
+The integration targets reviewed OpenShell v0.1.6 behavior. Require Landlock rather than silently weakening containment when unavailable. Pin exact allowed destination and binary rules, sandbox image and integration revision. Permit only the intended protected-executor route, not direct provider egress or access to host credential directories.
+
+A template is not active-policy proof. Review the sandbox's actual policy state, runtime availability, restart events and credential/network bypass paths. If containment or the authenticated executor cannot be established, stop the protected path and report degraded coverage. Do not infer an enforced deployment from a successful configuration load.
+
+## Validation boundary
+
+The AuthRail executor adapter and its containment templates require separate checks. First prove call/result interception, approval binding, receipts and unavailable behavior through the real sidecar. Then prove that a real OpenShell sandbox can reach only the reviewed executor path and cannot read credentials or reach the provider directly.
+
+Real OpenShell containment acceptance has not yet been established for this source combination. Do not treat these placement requirements as a finished runtime verification or use them to claim universal isolation. Installation and lifecycle commands must match the reviewed integration artifact; consult its README alongside [Compatibility](/docs/compatibility).
+
+Before upgrades, review upstream policy changes, preserve sandbox-to-deployment identity and executor state, rerun bypass checks and verify actual active policy. Do not silently fall back to an uncontained agent when an upgrade fails.

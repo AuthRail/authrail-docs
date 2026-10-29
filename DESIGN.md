@@ -18,6 +18,8 @@ favicon. Use Phosphor icons throughout authored docs UI; do not use Lucide. Impo
 aliases; use the same names in page icon metadata.
 Verify responsive layouts, accessibility, light/dark themes, keyboard
 navigation, search and on-page contents in the browser.
+Default to dark mode for a first visit. Keep the theme switch and respect a
+visitor's saved choice.
 
 ## Typography
 

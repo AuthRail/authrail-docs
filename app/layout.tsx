@@ -22,5 +22,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="en" className={readingFont.variable} suppressHydrationWarning><body><RootProvider theme={{ defaultTheme: 'light' }}>{children}</RootProvider></body></html>;
+  return <html lang="en" className={readingFont.variable} suppressHydrationWarning><body><RootProvider theme={{ defaultTheme: 'dark' }}>{children}</RootProvider></body></html>;
 }

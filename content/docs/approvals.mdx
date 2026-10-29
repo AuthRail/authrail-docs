@@ -91,7 +91,8 @@ For a workflow that must survive a restart:
    and continues the conversation or workflow.
 
 Node provides `resumeApprovalFrom(continuation, callback)`; Go provides
-`ResumeApprovalFrom`. The SDK does not persist or schedule this work for you.
+`ResumeApprovalFrom`; Python provides `resume_approval_from`. The SDK does not
+persist or schedule this work for you.
 Keep the original payment arguments and business idempotency key. If a payment
 may already have happened, use [execution recovery](/docs/recovery) before
 attempting it again.
@@ -154,9 +155,10 @@ task. Restore it from that storage, not from agent-supplied replacement context.
 | --- | --- | --- | --- |
 | Node | `resumeApproval` | `resumeApprovalFrom` | `recoverApprovalFrom` |
 | Go | `ResumeApproval` | `ResumeApprovalFrom` | `RecoverApprovalFrom` |
+| Python | `resume_approval` | `resume_approval_from` | `recover_approval_from` |
 
 Restore the original business function and arguments. The SDK does not save the
-continuation for you. See the [Node](/docs/node) and [Go](/docs/go) guides for the
+continuation for you. See the [Node](/docs/node), [Go](/docs/go) and [Python](/docs/python) guides for the
 application integration.
 
 </details>

@@ -68,13 +68,15 @@ reported by the executor. Those records do not independently prove a provider ef
 | [AuthRail Sidecar](https://github.com/AuthRail/authrail-sidecar) | Run the local rule checker with Docker or a native binary. Includes the supported OpenShell integration. |
 | [Node SDK](https://github.com/AuthRail/authrail-sdk-node) | Connect TypeScript and JavaScript applications to the sidecar. |
 | [Go SDK](https://github.com/AuthRail/authrail-sdk-go) | Connect Go applications through the same decision protocol. |
+| [Python SDK](https://github.com/AuthRail/authrail-sdk-python) | Connect async Python functions through the same sidecar. |
 | [Documentation](https://github.com/AuthRail/authrail-docs) | This public product documentation and website. |
 
 Docker builds the sidecar from source inside its build stage; you do not need
 to compile a native binary first. The SDK belongs in the protected application.
 See [Docker setup](https://docs.authrail.io/docs/docker),
 [Node setup](https://docs.authrail.io/docs/node) and
-[Go setup](https://docs.authrail.io/docs/go) for prerequisites and the full steps.
+[Go setup](https://docs.authrail.io/docs/go) and
+[Python setup](https://docs.authrail.io/docs/python) for prerequisites and the full steps.
 
 ## OpenShell and integration references
 

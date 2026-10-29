@@ -87,7 +87,7 @@ Complete these guides in order:
 2. Run the sidecar with [Docker](/docs/docker), the recommended container setup,
    or [natively](/docs/native) if your application runs directly on your host.
    The sidecar is the local service that checks your selected rules.
-3. Add the [Node SDK](/docs/node) or [Go SDK](/docs/go) around the function your
+3. Add the [Node SDK](/docs/node), [Go SDK](/docs/go) or [Python SDK](/docs/python) around the function your
    application already uses. The SDK asks the sidecar to check the call and
    the returned result.
 
@@ -95,7 +95,7 @@ Your application keeps its business logic and provider credentials. Keep those
 credentials and the connection secrets outside the AI agent's reach.
 
 The SDK connects your language's function calls to the sidecar. The sidecar
-holds and evaluates the selected rules, so Node and Go use the same rule
+holds and evaluates the selected rules, so Node, Go and Python use the same rule
 engine. [How Runtime works](/docs/concepts#where-does-it-run) explains why
 these are separate parts and how the sidecar receives rule updates.
 

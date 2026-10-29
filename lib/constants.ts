@@ -14,5 +14,6 @@ export const AUTHRAIL = {
     sidecar: 'https://github.com/AuthRail/authrail-sidecar',
     node: 'https://github.com/AuthRail/authrail-sdk-node',
     go: 'https://github.com/AuthRail/authrail-sdk-go',
+    python: 'https://github.com/AuthRail/authrail-sdk-python',
   },
 } as const;

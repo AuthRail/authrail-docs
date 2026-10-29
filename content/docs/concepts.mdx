@@ -66,7 +66,8 @@ a **sidecar**, a small service running beside it.
 
 The SDK and sidecar are separate because connecting a language's tools and
 evaluating business rules are different responsibilities. The Node adapter
-understands JavaScript tool calls; the Go adapter works with Go functions. Both
+understands JavaScript tool calls; Go and Python adapters work with their
+applications' functions. All three
 send checks to the same sidecar implementation, which loads the selected Rails,
 evaluates them locally and manages report delivery.
 

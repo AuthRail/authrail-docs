@@ -37,7 +37,7 @@ use it. Your application runs the model check through the SDK before submitting
 the fact for evaluation. The sidecar evaluates the resulting fact against those
 Rails; it does not choose a model or initiate the model call.
 
-The supplied Node and Go model clients use **OpenAI's Decisions API** with
+The supplied Node, Go and Python model clients use **OpenAI's Decisions API** with
 **GPT-6 Luna**. Your application supplies its own OpenAI API key and uses its own
 provider account. This check does not automatically reuse your agent's model or
 its credentials. Another provider needs an extractor implementation and
@@ -80,7 +80,8 @@ material cannot be shared safely, do not send it.
 Agree on the question, expected answer, model, confidence requirement and what
 should happen if the answer cannot be obtained. The application supplies the
 question and confidence setting to the SDK. Use
-`openAIDecisionsConfigSha256` in Node, or `OpenAIDecisionsConfigSHA256` in Go,
+`openAIDecisionsConfigSha256` in Node, `OpenAIDecisionsConfigSHA256` in Go, or
+`openai_decisions_config_sha256` in Python,
 to calculate the settings fingerprint for that exact question.
 
 In the source form, record that fingerprint, model identifier and instructions
@@ -89,6 +90,11 @@ version along with the source and freshness settings. Save and review it as a
 binds the application's model setup to the source that was reviewed; it does
 not supply the application with the question text. Keep the question in the
 application's reviewed configuration.
+
+Open the published Data Rail's **Integration details** to copy its **Reviewed
+source version ID** and source configuration. In the editor, use **Source
+details for developers**. The SDK needs this exact ID; the displayed version
+number alone is not enough.
 
 <ProductShot src="/screenshots/contextual-ai-rail.jpg" alt="AuthRail Data Rail for checking whether a customer message requests secret credentials" caption="A Data Rail for a contextual credentials check. The application supplies the model's answer, and a Policy Rail uses it to decide whether review is needed." />
 
@@ -108,7 +114,8 @@ For Node, create the model helper with `newOpenAIDecisionsExtractor`, then call
 `extractContextFact` with the selected bytes and reviewed source. Supply the
 returned resolution in the operation's `factResolutions` before its SDK check.
 The <a href={AUTHRAIL.repositories.node + '/blob/main/README.md'}>Node SDK README</a>
-and <a href={AUTHRAIL.repositories.go + '/blob/main/README.md'}>Go SDK README</a>
+and <a href={AUTHRAIL.repositories.go + '/blob/main/README.md'}>Go SDK README</a>,
+along with the <a href={AUTHRAIL.repositories.python + '/blob/feat/runtime-observe-adapter/README.md'}>Python SDK README</a>,
 show the matching source types and helper usage.
 
 ### 4. Compare ordinary and sensitive requests

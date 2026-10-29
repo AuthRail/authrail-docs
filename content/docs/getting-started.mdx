@@ -27,6 +27,8 @@ connecting. Review its details and confirm its identity.
 This gives the application a place in AuthRail. It does not install anything
 in your application yet.
 
+<ProductShot src="/screenshots/ai-inventory.jpg" alt="AuthRail AI Inventory listing the AI systems in an organisation" caption="AI Inventory is where you identify the system you want to connect." />
+
 ## 2. Describe the action
 
 Open **Rails → Connected actions**. If your action is already listed, open
@@ -61,6 +63,8 @@ it. The [Rails guide](/docs/rails) walks through those choices.
 For the first connection, choose a rule whose result you can explain for a
 safe example request. A draft does not affect your application.
 
+<ProductShot src="/screenshots/rails-catalogue.jpg" alt="AuthRail Rails workspace listing configured Rails" caption="Create and review your rule in Rails before selecting it for a deployment." />
+
 ## 4. Create the deployment
 
 Return to your AI system in **AI Inventory → Deployments** and select **Add
@@ -90,11 +94,18 @@ Complete these guides in order:
 Your application keeps its business logic and provider credentials. Keep those
 credentials and the connection secrets outside the AI agent's reach.
 
+The SDK connects your language's function calls to the sidecar. The sidecar
+holds and evaluates the selected rules, so Node and Go use the same rule
+engine. [How Runtime works](/docs/concepts#where-does-it-run) explains why
+these are separate parts and how the sidecar receives rule updates.
+
 ## 6. Find your first request
 
 Run a safe request through the connected function. In the deployment, open
 **Actions & decisions** and select its Action. Inspect the request check and
 result check, including their reasons.
+
+<ProductShot src="/screenshots/runtime-observe-execution.jpg" alt="An Observe Action in AuthRail showing rule checks and separately reported execution" caption="In Observe, inspect what the rules would decide alongside what the application reports doing." />
 
 A report marked `retained` has reached AuthRail. A `queued` report is saved by
 the sidecar and still needs delivery. The [monitoring guide](/docs/operations)

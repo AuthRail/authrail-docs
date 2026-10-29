@@ -49,6 +49,72 @@ The expected result is a reviewed request with a recorded decision and, if the
 application continued successfully, a separate report of its execution. A
 rejected or expired request must not run through that approval.
 
+## How long can a request wait?
+
+Read the **Expires** time on the approval request. That is the deadline for
+that request, rather than a fixed number of minutes after submission. The
+request cannot outlast the signed deployment configuration used to check it.
+If the decision uses a fact that becomes stale sooner, that earlier time sets
+the deadline. This does not mean the Rail itself is deleted or unpublished.
+
+For example, suppose a rule relies on a balance read at 10:00 that is valid for
+five minutes. Its approval cannot remain usable after 10:05, even if the
+reviewer has not responded. A request without that short-lived fact may have a
+longer window. The deadline shown in AuthRail tells the reviewer which applies.
+
+There is no separate setting for an arbitrary review period such as 48 hours.
+The displayed deadline follows the configuration and facts used for that check.
+If it has expired, the application must obtain a fresh decision; the old
+approval cannot be extended by retrying it.
+
+## Save and resume the application's work
+
+A payment can wait for review without leaving the original HTTP request open
+or keeping the agent process running. The application saves the waiting work
+and returns an “Awaiting approval” response. Approval in AuthRail does not
+automatically restart the application or make the payment.
+
+For a workflow that must survive a restart:
+
+1. When the SDK returns an approval-required block, save its **approval
+   continuation** in private persistent storage. This contains the original
+   checked call and decision needed to resume it.
+2. Alongside it, save your application's task ID, authenticated user and any
+   conversation or workflow state needed afterward. The continuation is not a
+   backup of the entire agent session. Protect it from access or changes by the
+   agent and other users.
+3. Arrange a worker or a “Continue request” action to check the review outcome.
+   After approval, load the original saved continuation and pass it to the
+   SDK with the same protected business function.
+4. The SDK claims permission for that exact request, records the start, invokes
+   the function and checks its result. Your application then updates its task
+   and continues the conversation or workflow.
+
+Node provides `resumeApprovalFrom(continuation, callback)`; Go provides
+`ResumeApprovalFrom`. The SDK does not persist or schedule this work for you.
+Keep the original payment arguments and business idempotency key. If a payment
+may already have happened, use [execution recovery](/docs/recovery) before
+attempting it again.
+
+<details className="guide-details">
+<summary>Approval expiry and the execution permit are different deadlines</summary>
+
+The signed deployment configuration has a validity period of 24 hours from
+activation. Approval uses its remaining validity, not a new 24-hour window
+from submission. Trusted facts can shorten
+that deadline further. Publishing or selecting another configuration does not
+extend an existing request, and the application must still pass the checks
+required to resume it.
+
+After review, the SDK claims a one-use execution permit. It lasts **up to 30
+seconds from the claim**, and can be shorter when the request or signed proof
+expires sooner. The application must retain its execution-start report while
+that permission is valid. This short permit window does not limit a reviewer
+to 30 seconds and is not a promise that the business operation finishes in
+30 seconds.
+
+</details>
+
 <details className="guide-details">
 <summary>More about setting up reviewers and review context</summary>
 

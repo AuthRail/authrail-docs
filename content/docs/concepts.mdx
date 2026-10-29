@@ -4,16 +4,24 @@ description: "See what your agent tries to do and apply your rules before its to
 icon: SquaresFourIcon
 ---
 
-An AI agent can ask to do something useful and still go beyond what your team
-allows. A support agent might need to read a ticket, write a reply and change an
-account. Those actions should not all have the same permission.
+An AI assistant becomes more consequential when it can use tools: reading a
+customer record, sending a message, changing an account or initiating a payment.
+Your organisation needs to understand those requests and decide whether they
+are appropriate for the user, the record and the circumstances involved.
 
-**Runtime** is the part of AuthRail that connects your rules to those tool calls.
-It shows what the agent requested, why a request was allowed or stopped, and what
-your application reported afterwards. It can also require a person to approve a
-request before the application continues.
+**AuthRail Runtime provides that oversight within a connected application.**
+Before a tool performs an operation, Runtime evaluates the request against the
+organisation's published Rails, using the application's verified identity and
+any business information the rule needs. The decision can allow the request,
+stop it or send it to a named reviewer. Runtime also checks the tool's result
+before it returns to the agent and keeps the decisions, approval and reported
+execution together so your team can investigate what happened.
 
-Your application still performs the work. AuthRail checks the rules around it.
+The application integrates these checks with the function that performs the
+operation. It retains its business logic and provider credentials, while the
+SDK applies the decision at that point. This placement matters: a denied payment
+must stop before the payment function runs, whereas a result check controls
+what the agent receives after the function has returned.
 
 ## Follow a simple example
 
@@ -56,9 +64,42 @@ a **sidecar**, a small service running beside it.
 | Sidecar | Loads the deployment's Rails, checks requests locally and sends reports to AuthRail. |
 | Your application and SDK | Ask for the checks, apply the decision and run the actual business function. |
 
+The SDK and sidecar are separate because connecting a language's tools and
+evaluating business rules are different responsibilities. The Node adapter
+understands JavaScript tool calls; the Go adapter works with Go functions. Both
+send checks to the same sidecar implementation, which loads the selected Rails,
+evaluates them locally and manages report delivery.
+
+Keeping that evaluator in the sidecar means each SDK does not need its own
+copy of the rule engine. A rule can therefore keep the same meaning across
+languages, and fixes to evaluation or reporting can be maintained in one place.
+The trade-off is an additional service to run beside the application. The
+[installation guides](/docs/docker) explain how to operate that service, while
+the SDK guides cover the code added to your application.
+
 The application keeps provider credentials away from the agent. The SDK must
 check the function that really performs the work. If the agent can call the
 same provider through another route, that route also needs protection.
+
+## How the sidecar stores and updates rules
+
+The sidecar stores the deployment's signed configuration in both a local file
+and memory. It saves the configuration to its state file and uses the in-memory
+copy to check requests. After a restart, it reads the saved file and verifies
+the configuration before using it. In Docker, that file belongs in the
+persistent state volume, so recreating a container does not erase it.
+
+To change the rules for an installation, publish the new Rail version, then
+select and apply it to that deployment. Publishing alone does not replace the
+version every deployment uses. The sidecar checks AuthRail for configuration
+updates every five seconds by default. It verifies an update's signature,
+deployment identity, validity and sequence before saving it and replacing the
+copy used in memory. An invalid update does not replace the accepted rules.
+
+The signed configuration has a validity deadline; this does not delete the
+Rail in your workspace. A saved configuration cannot authorize new Enforce
+operations indefinitely after it expires. See [monitoring](/docs/operations)
+for checking configuration validity and connection problems.
 
 ## See the decision and the reported result
 

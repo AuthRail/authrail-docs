@@ -4,18 +4,56 @@ description: "Give a rule the business information it needs, including an answer
 icon: FileTextIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 **AuthRail's contextual AI** helps a rule use information that needs to be read
 from text. Your application uses AuthRail's SDK to ask a configured model a
 reviewed question, check the answer and supply it to the rule.
 
-For example, a support team may require human review when a customer message
-asks for passwords or API keys. The rule needs an answer to “does this message
-request credentials?” That answer is a **fact**: information used when deciding
-whether the action may continue.
+An amount or account ID may be enough to check a simple payment limit. Other
+rules need to understand a document, a reason for a payment, the content of a
+proposed export or the description of a production change. A model can read
+that selected material and return a specific answer. That answer is a **fact**:
+information the rule uses when deciding whether the action may continue.
 
 Some facts do not need a model. An application can read an invoice balance
 from a trusted system. Use contextual AI when the answer requires interpreting
 selected material, and a normal lookup when the source already stores the value.
+
+| Before this action | A contextual question could ask | Your rule could require |
+| --- | --- | --- |
+| Export a document | Does it contain confidential business information? | Review before export when the answer is yes. |
+| Pay an invoice | Which approved purpose best describes the payment justification? | Review when no permitted purpose matches. |
+| Run a production change | Does the change plan describe deleting stored data? | Approval before a destructive change. |
+
+These are questions you can define, rather than preconfigured checks.
+Contextual AI returns a Yes/No answer, category or score. Your published rule
+uses that answer; model confidence alone does not establish permission.
+
+## Who configures and runs the model check?
+
+AuthRail's server stores the reviewed source configuration and the Rails that
+use it. Your application runs the model check through the SDK before submitting
+the fact for evaluation. The sidecar evaluates the resulting fact against those
+Rails; it does not choose a model or initiate the model call.
+
+The supplied Node and Go model clients use **OpenAI's Decisions API** with
+**GPT-6 Luna**. Your application supplies its own OpenAI API key and uses its own
+provider account. This check does not automatically reuse your agent's model or
+its credentials. Another provider needs an extractor implementation and
+validation; changing the model name alone does not connect it.
+
+The server records the model identifier, settings fingerprint and reading
+instructions version, along with source identity, answer type and freshness
+limits. The application supplies the actual question and matching model
+settings to the SDK. The fingerprint binds that setup to the reviewed source.
+Creating a source in the workspace alone does not install or run the extractor
+in your application.
+
+In the tenant workspace, open **Rails → Create Rail → Data Rail → Continue**.
+Under **Connect a source**, choose **AI context**. The source form includes
+**Required AI reading configuration** for the model and settings information.
+Configure this in your organisation's workspace.
 
 ## Add a credentials-request check to a support reply
 
@@ -39,12 +77,20 @@ material cannot be shared safely, do not send it.
 
 ### 2. Review the source setup with the rule
 
-Record the source, the expected answer, the model and instructions, the required
-confidence, and what should happen if the answer cannot be obtained. AuthRail
-saves the reviewed setup as a **Context Source Version**. The rule selects that
-saved version so the application uses the setup that was reviewed.
+Agree on the question, expected answer, model, confidence requirement and what
+should happen if the answer cannot be obtained. The application supplies the
+question and confidence setting to the SDK. Use
+`openAIDecisionsConfigSha256` in Node, or `OpenAIDecisionsConfigSHA256` in Go,
+to calculate the settings fingerprint for that exact question.
 
-<ProductShot src="/screenshots/contextual-ai-rail.jpg" alt="AuthRail Data Rail defining a Yes/No question about a customer message requesting secret credentials" caption="This Data Rail defines the question. The application's model check supplies the answer, and a Policy Rail uses it to decide whether review is needed." />
+In the source form, record that fingerprint, model identifier and instructions
+version along with the source and freshness settings. Save and review it as a
+**Context Source Version**, then select that version for the Data Rail. This
+binds the application's model setup to the source that was reviewed; it does
+not supply the application with the question text. Keep the question in the
+application's reviewed configuration.
+
+<ProductShot src="/screenshots/contextual-ai-rail.jpg" alt="AuthRail Data Rail for checking whether a customer message requests secret credentials" caption="A Data Rail for a contextual credentials check. The application supplies the model's answer, and a Policy Rail uses it to decide whether review is needed." />
 
 ### 3. Connect the application's fact reader
 
@@ -57,6 +103,13 @@ than the selected raw text.
 Your application owns the model credential and the choice of source fields.
 The agent must not choose another provider URL, switch accounts or supply its
 own credential for this check.
+
+For Node, create the model helper with `newOpenAIDecisionsExtractor`, then call
+`extractContextFact` with the selected bytes and reviewed source. Supply the
+returned resolution in the operation's `factResolutions` before its SDK check.
+The <a href={AUTHRAIL.repositories.node + '/blob/main/README.md'}>Node SDK README</a>
+and <a href={AUTHRAIL.repositories.go + '/blob/main/README.md'}>Go SDK README</a>
+show the matching source types and helper usage.
 
 ### 4. Compare ordinary and sensitive requests
 

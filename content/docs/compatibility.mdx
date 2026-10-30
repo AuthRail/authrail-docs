@@ -4,6 +4,8 @@ description: "Choose an SDK and sidecar that work together, then check which act
 icon: InfoIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 Your application uses an SDK to talk to its sidecar. Those two components need
 to work together. You also need to know **which tools actually use them**.
 
@@ -29,8 +31,14 @@ Run the sidecar with [Docker](/docs/docker), the recommended setup, or use a
 
 ## Record the components you will run
 
-Keep the SDK package version or source revision and the sidecar image digest or
-native archive version with your deployment notes. An image **digest** identifies
+The installation guides use SDK **{AUTHRAIL.releases.sdkVersion}** from
+<a href={AUTHRAIL.packages.node}>npm</a>, <a href={AUTHRAIL.packages.python}>PyPI</a>
+or <a href={AUTHRAIL.packages.go}>Go package documentation</a>. The sidecar has
+<a href={`${AUTHRAIL.repositories.sidecar}/releases/tag/v${AUTHRAIL.releases.sidecarVersion}`}>native release {AUTHRAIL.releases.sidecarVersion}</a>.
+The Docker guide builds its image from source.
+
+Keep the installed SDK version and the sidecar archive version, or the source
+commit and image digest when building it, with your deployment notes. An image **digest** identifies
 the exact container image, rather than a tag that can later point elsewhere.
 
 Use a combination verified together. Review changes before upgrading either
@@ -68,8 +76,10 @@ The signed bundle and local evaluation use `formatVersion: 1`. This names a
 message format. It does not by itself establish compatible recovery behavior
 or coverage of every tool.
 
-The sidecar's packaged `COMPATIBILITY.md` describes source combinations and
-checks. Its shared `conformance/v1` examples check that implementations encode
+The sidecar's packaged `COMPATIBILITY.md` records its protocol requirements and
+source-level verification history. Use the installation guides for published
+package versions; a historical source check does not prove an independently
+upgraded combination works. Its shared `conformance/v1` examples check that implementations encode
 signed requests and interpret decisions consistently. Keep those references,
 the server contract and any OpenShell artifacts with the deployment review.
 Use the supported SDKs rather than rebuilding their signing and recovery logic.

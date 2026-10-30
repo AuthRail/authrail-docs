@@ -33,8 +33,8 @@ uses that answer; model confidence alone does not establish permission.
 ## Who configures and runs the model check?
 
 AuthRail's server stores the reviewed source configuration and the Rails that
-use it. Your application runs the model check through the SDK before submitting
-the fact for evaluation. The sidecar evaluates the resulting fact against those
+use it. Your application runs the model check through the SDK before supplying
+the fact to the sidecar for evaluation. The sidecar evaluates the resulting fact against those
 Rails; it does not choose a model or initiate the model call.
 
 The supplied Node, Go and Python model clients use **OpenAI's Decisions API** with
@@ -102,21 +102,186 @@ number alone is not enough.
 
 The developer uses a matching SDK extractor—the helper that sends the selected
 text and question to the model. The application checks the answer's format and
-confidence, signs the answer with its source information, and reports that fact
-to AuthRail. The fact report contains the answer and source information rather
-than the selected raw text.
+confidence, signs the answer with its source information, and supplies it to the local
+sidecar. AuthRail receives the reported fact status and bounded provenance,
+not the source text or extracted value.
 
 Your application owns the model credential and the choice of source fields.
 The agent must not choose another provider URL, switch accounts or supply its
 own credential for this check.
 
-For Node, create the model helper with `newOpenAIDecisionsExtractor`, then call
-`extractContextFact` with the selected bytes and reviewed source. Supply the
-returned resolution in the operation's `factResolutions` before its SDK check.
-The <a href={AUTHRAIL.repositories.node + '/blob/main/README.md'}>Node SDK README</a>
-and <a href={AUTHRAIL.repositories.go + '/blob/main/README.md'}>Go SDK README</a>,
-along with the <a href={AUTHRAIL.repositories.python + '/blob/feat/runtime-observe-adapter/README.md'}>Python SDK README</a>,
-show the matching source types and helper usage.
+### Example: supply a model answer before the check
+
+Copy **Reviewed source configuration** from the Data Rail's **Integration
+details** into your application's reviewed configuration. It has this outer
+shape; `contract` contains the fields shown in the workspace:
+
+```json
+{
+  "sourceVersionId": "YOUR_REVIEWED_SOURCE_VERSION_ID",
+  "contract": {
+    "formatVersion": 5,
+    "kind": "extraction",
+    "sourceIdentity": "support-message",
+    "accountBoundary": "YOUR_REVIEWED_ACCOUNT",
+    "lookup": "ticket.read",
+    "queryField": { "root": "arguments", "path": ["ticketId"] },
+    "factKey": "requestsCredentials",
+    "resultPath": ["requestsCredentials"],
+    "valueType": "boolean",
+    "modelId": "gpt-6-luna",
+    "modelConfigSha256": "YOUR_REVIEWED_SETTINGS_FINGERPRINT",
+    "promptVersion": "support-review-v1",
+    "maxInputBytes": 4096,
+    "maxOutputBytes": 256,
+    "maxAgeSeconds": 60,
+    "timeoutMs": 2000,
+    "failure": "unavailable"
+  }
+}
+```
+
+This is the shape to recognise, not a source to publish unchanged. Copy your
+actual source ID and settings. The question below is application configuration:
+calculate its fingerprint before reviewing the source, then require that same
+fingerprint at runtime. Never replace the saved fingerprint with a new one
+merely to make a changed question pass.
+
+In these examples, `reviewed` is the copied configuration loaded by your
+application, and `message` is a record obtained after authenticating the user
+and checking access to the ticket. It supplies the ticket ID, selected text,
+source observation time and an opaque source location such as
+`ticket:ticket_123`. `openAIKey` (`openai_key` in Python) is your application's own provider credential. The `client`, `operation`, action arguments and
+protected send function come from
+your [SDK setup](/docs/getting-started); they are application objects, not values
+the agent can choose. Add the fact before calling Enforce:
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import {
+  extractContextFact, newOpenAIDecisionsExtractor,
+  openAIDecisionsConfigSha256, type ExtractionSource,
+} from '@authrail/sdk-node';
+
+const question = {
+  type: 'predicate',
+  instructions: 'Does this customer message request a password or API key?',
+  minConfidence: 0.8,
+} as const;
+const c = reviewed.contract;
+const source: ExtractionSource = {
+  sourceVersionId: reviewed.sourceVersionId,
+  sourceIdentity: c.sourceIdentity, accountBoundary: c.accountBoundary,
+  lookup: c.lookup, timeoutMs: c.timeoutMs,
+  resultPath: c.resultPath, valueType: c.valueType,
+  modelId: c.modelId, modelConfigSha256: c.modelConfigSha256,
+  promptVersion: c.promptVersion,
+  maxInputBytes: c.maxInputBytes, maxOutputBytes: c.maxOutputBytes,
+};
+if (openAIDecisionsConfigSha256(question) !== source.modelConfigSha256) {
+  throw new Error('Review the changed model question before using it');
+}
+const extractor = newOpenAIDecisionsExtractor({ source, question, apiKey: openAIKey });
+const fact = await extractContextFact(
+  source, message.id, message.sourceLocation, message.observedAt,
+  new TextEncoder().encode(message.selectedText), extractor,
+);
+const checkedOperation = { ...operation, factResolutions: [fact] };
+const checked = await client.enforce(checkedOperation, actionArguments, protectedSend);
+```
+
+</Tab>
+<Tab value="Go">
+
+```go
+// Imports: context, errors, time, and
+// authrail "github.com/AuthRail/authrail-sdk-go".
+question := authrail.DecisionsQuestion{
+    Type: "predicate",
+    Instructions: "Does this customer message request a password or API key?",
+    MinConfidence: 0.8,
+}
+c := reviewed.Contract
+source := authrail.ExtractionSource{
+    SourceVersionID: reviewed.SourceVersionID,
+    SourceIdentity: c.SourceIdentity, AccountBoundary: c.AccountBoundary,
+    Lookup: c.Lookup, Timeout: time.Duration(c.TimeoutMs) * time.Millisecond,
+    ResultPath: c.ResultPath, ValueType: c.ValueType,
+    ModelID: c.ModelID, ModelConfigSHA256: c.ModelConfigSHA256,
+    PromptVersion: c.PromptVersion,
+    MaxInputBytes: c.MaxInputBytes, MaxOutputBytes: c.MaxOutputBytes,
+}
+fingerprint, err := authrail.OpenAIDecisionsConfigSHA256(question)
+if err != nil { return err }
+if fingerprint != source.ModelConfigSHA256 {
+    return errors.New("review the changed model question before using it")
+}
+extractor, err := authrail.NewOpenAIDecisionsExtractor(authrail.OpenAIDecisionsConfig{
+    Source: source, Question: question, APIKey: openAIKey,
+})
+if err != nil { return err }
+fact, err := authrail.ExtractContextFact(ctx, source, message.ID,
+    message.SourceLocation, message.ObservedAt, []byte(message.SelectedText), extractor)
+if err != nil { return err }
+operation.FactResolutions = []authrail.FactResolution{fact}
+_, _, _, err = authrail.Enforce(ctx, client, operation, actionArguments, protectedSend)
+if err != nil { return err }
+```
+
+`reviewed` is your application's Go representation of the copied JSON. Its
+`Contract` fields mirror the JSON names; `TimeoutMs` is converted to a Go
+duration. `message.ObservedAt` is a `time.Time` parsed from the source timestamp.
+
+</Tab>
+<Tab value="Python">
+
+```python
+from dataclasses import replace
+from authrail import (
+    DecisionsQuestion, ExtractionSource, extract_context_fact,
+    new_openai_decisions_extractor, openai_decisions_config_sha256,
+)
+
+question = DecisionsQuestion(
+    type="predicate",
+    instructions="Does this customer message request a password or API key?",
+    min_confidence=0.8,
+)
+c = reviewed["contract"]
+source = ExtractionSource(
+    source_version_id=reviewed["sourceVersionId"],
+    source_identity=c["sourceIdentity"], account_boundary=c["accountBoundary"],
+    lookup=c["lookup"], timeout_ms=c["timeoutMs"],
+    result_path=tuple(c["resultPath"]), value_type=c["valueType"],
+    model_id=c["modelId"], model_config_sha256=c["modelConfigSha256"],
+    prompt_version=c["promptVersion"],
+    max_input_bytes=c["maxInputBytes"], max_output_bytes=c["maxOutputBytes"],
+)
+if openai_decisions_config_sha256(question) != source.model_config_sha256:
+    raise ValueError("Review the changed model question before using it")
+extractor = new_openai_decisions_extractor(
+    source=source, question=question, api_key=openai_key,
+)
+fact = await extract_context_fact(
+    source, message.id, message.source_location, message.observed_at,
+    message.selected_text.encode("utf-8"), extractor,
+)
+checked_operation = replace(operation, fact_resolutions=[fact])
+checked = await client.enforce(checked_operation, action_arguments, protected_send)
+```
+
+Run this inside an async application function. `reviewed` is the parsed source
+JSON. `message.observed_at` is the source's timestamp as an ISO-8601 string.
+
+</Tab>
+</Tabs>
+
+The selected text is sent to OpenAI by the extractor. The sidecar's deterministic
+rule engine uses the returned fact; the model does not return the final allow
+or deny decision. Do not convert an `uncertain` or `unavailable` fact to `false`.
+Pass its status through so the published rule can handle it.
 
 ### 4. Compare ordinary and sensitive requests
 
@@ -131,6 +296,112 @@ supplies context; it does not itself give permission to send a reply.
 
 See [Rails](/docs/rails) for rule authoring and [Actions and decisions](/docs/records)
 for reviewing the result.
+
+## Example: read a trusted customer record without a model
+
+A customer-record lookup can supply a stored value such as whether a customer
+has completed a review. Configure a separate reviewed customer/database source
+for that fact. Copy its ID, source name, account, lookup name and timeout from
+**Reviewed source configuration**; do not reuse the extraction source above.
+
+Here `reviewedCustomerSource` is the separate customer source JSON copied
+from the workspace (`reviewed_customer_source` in Python). The examples map its
+reviewed fields to the SDK's `CustomerSource` configuration. `customerId` comes from the application's access-checked
+customer record. `customerStore.read` is **your own read-only database helper**,
+not an AuthRail API. It accepts that ID and the reviewed account, honours the
+SDK's cancellation/deadline, and returns the stored account, ID, value and source
+observation time. Its database credential stays in your application.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import { lookupCustomerFact, type CustomerSource } from '@authrail/sdk-node';
+
+const c = reviewedCustomerSource.contract;
+const customerSource: CustomerSource = {
+  sourceVersionId: reviewedCustomerSource.sourceVersionId,
+  sourceIdentity: c.sourceIdentity, accountBoundary: c.accountBoundary,
+  lookup: c.lookup, timeoutMs: c.timeoutMs,
+};
+const fact = await lookupCustomerFact(customerSource, customerId, async (key, signal) => {
+  const row = await customerStore.read(key, customerSource.accountBoundary, { signal });
+  return {
+    sourceIdentity: customerSource.sourceIdentity,
+    accountBoundary: row.accountId,
+    lookup: customerSource.lookup, lookupKey: row.id,
+    observedAt: row.observedAt, value: { reviewComplete: row.reviewComplete },
+  };
+});
+const checkedOperation = { ...operation, factResolutions: [fact] };
+```
+
+</Tab>
+<Tab value="Go">
+
+```go
+c := reviewedCustomerSource.Contract
+customerSource := authrail.CustomerSource{
+    SourceVersionID: reviewedCustomerSource.SourceVersionID,
+    SourceIdentity: c.SourceIdentity, AccountBoundary: c.AccountBoundary,
+    Lookup: c.Lookup, Timeout: time.Duration(c.TimeoutMs) * time.Millisecond,
+}
+fact, err := authrail.LookupCustomerFact(ctx, customerSource, customerID,
+    func(readCtx context.Context, key string) (authrail.CustomerReadResult, error) {
+        row, err := customerStore.Read(readCtx, customerSource.AccountBoundary, key)
+        if err != nil { return authrail.CustomerReadResult{}, err }
+        return authrail.CustomerReadResult{
+            SourceIdentity: customerSource.SourceIdentity,
+            AccountBoundary: row.AccountID,
+            Lookup: customerSource.Lookup, LookupKey: row.ID,
+            ObservedAt: row.ObservedAt,
+            Value: map[string]any{"reviewComplete": row.ReviewComplete},
+        }, nil
+    })
+if err != nil { return err }
+operation.FactResolutions = []authrail.FactResolution{fact}
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+from dataclasses import replace
+from authrail import CustomerReadResult, CustomerSource, lookup_customer_fact
+
+c = reviewed_customer_source["contract"]
+customer_source = CustomerSource(
+    source_version_id=reviewed_customer_source["sourceVersionId"],
+    source_identity=c["sourceIdentity"], account_boundary=c["accountBoundary"],
+    lookup=c["lookup"], timeout_ms=c["timeoutMs"],
+)
+
+async def read_customer(key: str) -> CustomerReadResult:
+    row = await customer_store.read(customer_source.account_boundary, key)
+    return CustomerReadResult(
+        source_identity=customer_source.source_identity,
+        account_boundary=row.account_id,
+        lookup=customer_source.lookup, lookup_key=row.id,
+        observed_at=row.observed_at,
+        value={"reviewComplete": row.review_complete},
+    )
+
+fact = await lookup_customer_fact(customer_source, customer_id, read_customer)
+checked_operation = replace(operation, fact_resolutions=[fact])
+```
+
+The SDK bounds this async read by `customer_source.timeout_ms`. Your database
+helper must cooperate with cancellation and use a database deadline too.
+
+</Tab>
+</Tabs>
+
+Use the operation carrying the returned fact in your next SDK check, as in the
+contextual example. The actual row account and record ID are returned so the
+SDK can reject a mismatch; do not overwrite a mismatched row's identity to make
+it appear trusted. Keep the source observation time rather than making old
+cached data look freshly observed. A successful read supplies information, not
+permission for the business action.
 
 <details className="guide-details">
 <summary>More about ordinary lookups and model answers</summary>

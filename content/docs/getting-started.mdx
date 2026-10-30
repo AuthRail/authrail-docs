@@ -91,6 +91,36 @@ Complete these guides in order:
    application already uses. The SDK asks the sidecar to check the call and
    the returned result.
 
+Once the sidecar is ready, install the SDK from your application's directory.
+Choose your language; each linked SDK guide continues from this command with
+its connection settings and first function check.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+<CommandBlock lang="bash" code={`npm install @authrail/sdk-node@${AUTHRAIL.releases.sdkVersion}`} />
+
+Continue with [Connect a Node application](/docs/node).
+
+</Tab>
+<Tab value="Go">
+
+<CommandBlock lang="bash" code={`go get github.com/AuthRail/authrail-sdk-go@v${AUTHRAIL.releases.sdkVersion}`} />
+
+Run this inside your Go module. Continue with [Connect a Go application](/docs/go).
+
+</Tab>
+<Tab value="Python">
+
+<CommandBlock lang="bash" code={`python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install authrail==${AUTHRAIL.releases.sdkVersion}`} />
+
+Use Python 3.11 or newer. Continue with [Connect a Python application](/docs/python).
+
+</Tab>
+</Tabs>
+
 Your application keeps its business logic and provider credentials. Keep those
 credentials and the connection secrets outside the AI agent's reach.
 

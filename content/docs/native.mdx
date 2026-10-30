@@ -1,31 +1,102 @@
 ---
 title: "Run a native sidecar"
-description: "Build the executable, run it beside your application, and check that it has loaded your rules."
+description: "Download the sidecar, run it beside your application, and check that it has loaded your rules."
 icon: TerminalIcon
 ---
 
 import { AUTHRAIL } from '@/lib/constants';
 
 A native sidecar runs directly on your computer or server as a separate
-program. Choose it when your protected Node or Go application also runs on that
+program. Choose it when your protected Node, Go or Python application also runs on that
 host. It checks the same rules as the [Docker installation](/docs/docker).
 
-You will build the executable, give it your deployment settings, then leave it
-running while the application makes checks. You need Git and Go 1.26 or newer.
+Download the executable for your computer, give it your deployment settings,
+then leave it running while the application makes checks. You do not need Go
+to use a release download. The commands below use a macOS or Linux terminal,
+`curl` and `tar`.
+
 First complete [the dashboard setup](/docs/getting-started) and
 [connection details](/docs/identity), including the registered public key and
-private token files.
+private token files. If you are replacing a running installation, follow the
+upgrade instructions at the end of this page before replacing its executable.
 
-## 1. Build the executable
+## 1. Download the sidecar
 
-Get the <a href={AUTHRAIL.repositories.sidecar}>sidecar source</a> and compile it:
+Choose your operating system and processor. On a Mac, **About This Mac** shows
+an Apple chip or an Intel processor. On Linux, `uname -m` prints `aarch64` for
+arm64 or `x86_64` for amd64.
 
-<CommandBlock lang="bash" code={`git clone --branch main ${AUTHRAIL.repositories.sidecar}.git
+The commands download the release archive and its checksum, check that the
+archive matches, then unpack it. Stop if the checksum check fails.
+
+<Tabs items={['macOS Apple silicon', 'macOS Intel', 'Linux arm64', 'Linux amd64']} groupId="sidecar-platform" persist>
+<Tab value="macOS Apple silicon">
+
+<CommandBlock lang="bash" code={`mkdir -p "$HOME/Downloads/authrail-sidecar" &&
+cd "$HOME/Downloads/authrail-sidecar" &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-arm64.tar.gz &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-arm64.tar.gz.sha256 &&
+shasum -a 256 -c authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-arm64.tar.gz.sha256 &&
+tar -xzf authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-arm64.tar.gz &&
+cd authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-arm64 &&
+./authrail-sidecar --version`} />
+
+</Tab>
+<Tab value="macOS Intel">
+
+<CommandBlock lang="bash" code={`mkdir -p "$HOME/Downloads/authrail-sidecar" &&
+cd "$HOME/Downloads/authrail-sidecar" &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-amd64.tar.gz &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-amd64.tar.gz.sha256 &&
+shasum -a 256 -c authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-amd64.tar.gz.sha256 &&
+tar -xzf authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-amd64.tar.gz &&
+cd authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-darwin-amd64 &&
+./authrail-sidecar --version`} />
+
+</Tab>
+<Tab value="Linux arm64">
+
+<CommandBlock lang="bash" code={`mkdir -p "$HOME/Downloads/authrail-sidecar" &&
+cd "$HOME/Downloads/authrail-sidecar" &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-arm64.tar.gz &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-arm64.tar.gz.sha256 &&
+sha256sum -c authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-arm64.tar.gz.sha256 &&
+tar -xzf authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-arm64.tar.gz &&
+cd authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-arm64 &&
+./authrail-sidecar --version`} />
+
+</Tab>
+<Tab value="Linux amd64">
+
+<CommandBlock lang="bash" code={`mkdir -p "$HOME/Downloads/authrail-sidecar" &&
+cd "$HOME/Downloads/authrail-sidecar" &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-amd64.tar.gz &&
+curl --fail --location --remote-name ${AUTHRAIL.releases.sidecarDownloads}/authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-amd64.tar.gz.sha256 &&
+sha256sum -c authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-amd64.tar.gz.sha256 &&
+tar -xzf authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-amd64.tar.gz &&
+cd authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-amd64 &&
+./authrail-sidecar --version`} />
+
+</Tab>
+</Tabs>
+
+The final command prints the version and build revision, then exits. It does
+not start the sidecar. Keep this terminal in the extracted directory for the
+next steps. The download also contains the licence and implementation guides.
+
+<details className="guide-details">
+<summary>Build from source when contributing</summary>
+
+With Git and Go 1.26 or newer:
+
+<CommandBlock lang="bash" code={`git clone --branch v${AUTHRAIL.releases.sidecarVersion} ${AUTHRAIL.repositories.sidecar}.git
 cd authrail-sidecar
 go build -o authrail-sidecar ./cmd/authrail-sidecar`} />
 
-A successful build returns to the shell and creates `authrail-sidecar` in the
-checkout. It has not started the sidecar yet.
+This compiles an executable in the checkout. It has not started the sidecar.
+Use the source checkout as your working directory for the commands below.
+
+</details>
 
 ## 2. Give it the deployment settings
 
@@ -79,7 +150,7 @@ Connection health** should also show a recent update after the sidecar connects.
 
 ## 4. Connect the SDK
 
-Follow the [Node](/docs/node) or [Go](/docs/go) guide in your protected application.
+Follow the [Node](/docs/node), [Go](/docs/go) or [Python](/docs/python) guide in your protected application.
 Use `http://127.0.0.1:7078` as its sidecar URL, the same adapter token, and the
 application's private key. These processes must run on the same host; keep the
 sidecar listener private.

@@ -66,6 +66,135 @@ The expected result is a tested, published rule selected for the intended
 application. Confirm its behaviour through real safe application requests in
 [Observe](/docs/modes) before relying on Enforce protection.
 
+## Example: register processing for one text field
+
+A Guard can require a trusted function to process a string before the call or
+result check. For example, a demo application may remove the literal marker
+`DEMO_SECRET` from a draft comment. This example removes **only that marker**;
+it is not a general detector or remover of sensitive information.
+
+In the Guard editor, open **Developer configuration · required processing**
+and select **Reviewed string field**, such as `arguments.message`. Use **Registered handler ID** `remove_demo_marker`, **Processing**
+`sanitize`, and its version to the reviewed implementation's 64-character
+lowercase SHA-256 fingerprint. The developer registers the same ID, kind and
+fingerprint in the protected application. If the code changes, review its new
+fingerprint and update the Guard before using it.
+
+Here `config` is the private sidecar connection configuration from your SDK
+guide, including its signing key. `reviewedHandlerSha256` is the fingerprint
+you reviewed for this code, not a hash of a user's message. `operation` is the
+reviewed comment action with application-authenticated identity and a stable
+business key. `saveComment` is your existing protected application function;
+it must use the **checked** arguments the SDK gives it and the execution's
+provider idempotency key when recording its effect.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import { EnforceClient, type GuardHandler } from '@authrail/sdk-node';
+
+const removeDemoMarker: GuardHandler = {
+  id: 'remove_demo_marker', version: reviewedHandlerSha256, kind: 'sanitize',
+  process(value) {
+    if (Buffer.byteLength(value, 'utf8') > 4096) {
+      throw new Error('Comment is too large for this handler');
+    }
+    return value.replaceAll('DEMO_SECRET', '[removed]');
+  },
+};
+const client = new EnforceClient({ ...config, guardHandlers: [removeDemoMarker] });
+const checked = await client.enforce(
+  operation, { message: 'Please remove DEMO_SECRET from this demo.' },
+  (checkedArguments, execution) => {
+    if (typeof checkedArguments.message !== 'string') {
+      throw new Error('Expected a checked comment string');
+    }
+    return saveComment(checkedArguments.message, {
+      idempotencyKey: execution.providerIdempotencyKey,
+    });
+  },
+);
+```
+
+</Tab>
+<Tab value="Go">
+
+```go
+// Imports: context, errors, strings, and
+// authrail "github.com/AuthRail/authrail-sdk-go".
+config.GuardHandlers = []authrail.GuardHandler{{
+    ID: "remove_demo_marker", Version: reviewedHandlerSHA256, Kind: "sanitize",
+    Process: func(ctx context.Context, value string) (string, error) {
+        if err := ctx.Err(); err != nil { return "", err }
+        if len(value) > 4096 { return "", errors.New("comment is too large") }
+        return strings.ReplaceAll(value, "DEMO_SECRET", "[removed]"), nil
+    },
+}}
+client, err := authrail.NewClient(config)
+if err != nil { return err }
+type CommentArguments struct { Message string `json:"message"` }
+_, _, _, err = authrail.Enforce(ctx, client, operation,
+    CommentArguments{Message: "Please remove DEMO_SECRET from this demo."},
+    func(callCtx context.Context, checked CommentArguments, execution authrail.ExecutionContext) (map[string]any, error) {
+        return saveComment(callCtx, checked.Message, execution.ProviderIdempotencyKey)
+    })
+if err != nil { return err }
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+from authrail import AsyncEnforceClient, ExecutionContext, GuardHandler, JSONObject
+
+
+def remove_demo_marker(value: str) -> str:
+    if len(value.encode("utf-8")) > 4096:
+        raise ValueError("Comment is too large for this handler")
+    return value.replace("DEMO_SECRET", "[removed]")
+
+
+handler = GuardHandler(
+    id="remove_demo_marker", version=reviewed_handler_sha256,
+    kind="sanitize", process=remove_demo_marker,
+)
+
+async def save_checked_comment(
+    checked_arguments: JSONObject, execution: ExecutionContext,
+) -> JSONObject:
+    message = checked_arguments["message"]
+    if not isinstance(message, str):
+        raise ValueError("Expected a checked comment string")
+    return await save_comment(
+        message,
+        idempotency_key=execution.provider_idempotency_key,
+    )
+
+async with AsyncEnforceClient(**config, guard_handlers=[handler]) as client:
+    checked = await client.enforce(
+        operation, {"message": "Please remove DEMO_SECRET from this demo."},
+        save_checked_comment,
+    )
+```
+
+</Tab>
+</Tabs>
+
+When the published Guard requires this handler for `arguments.message`, the SDK
+processes that string before its final call check. If the call is permitted,
+`saveComment` receives the processed value, such as
+`Please remove [removed] from this demo.` A rule targeting `result.message`
+instead processes that returned field before checking what may reach the agent.
+Do not call the processor manually and assume that fulfills a Guard: the
+adapter obtains the reviewed processing plan and records its signed evidence.
+
+The handler only changes its selected string; it must not post a comment or
+perform another business effect. The SDK checks required processing and the
+resulting values. A missing or failed handler stops Enforce. Observe does not
+run these handlers, and processing does not override a denial or missing
+approval.
+
 <details className="guide-details">
 <summary>More about versions and later changes</summary>
 

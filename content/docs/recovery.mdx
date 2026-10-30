@@ -42,6 +42,140 @@ enough to establish that nothing happened.
 **Expected result:** the same Action has an established outcome or remains
 explicitly unknown. The investigation itself does not repeat the payment.
 
+## Save the attempt and report what you establish
+
+The code below continues the Enforce setup in the SDK guide. `client`,
+`operation` and `payment` come from your protected application. The operation
+keeps the original reviewed version, authenticated identity and stable business
+Action key. Run reconciliation in a worker that exclusively claims that task.
+
+`recoveryStore` / `recovery_store` is an application-owned helper: encrypt and
+persist the recovery context, binding it to the original organisation, user,
+deployment and task. Its load function must check the same binding. Save the
+context **before** calling the provider. Keep the original payment arguments
+and business request with it; do not reconstruct them from agent messages.
+
+`provider.pay` / `Pay` performs your actual protected operation using the SDK's
+idempotency key. `lookupOriginal` / `LookupOriginal` / `lookup_original` must
+query that same trusted provider account and original request. It returns a
+validated state (`succeeded`, `failed` or `unknown`) and a bounded provider
+reference. Here `failed` means the lookup **confirmed no effect**, not a timeout.
+These provider and storage methods are your code, not AuthRail SDK APIs.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import { EnforceOutcomeUnknownError, type ExecutionContext } from '@authrail/sdk-node';
+
+async function executePayment() {
+  try {
+    return await client.enforce(operation, payment, async (checked, execution) => {
+      await recoveryStore.saveEncrypted(binding, JSON.stringify(execution));
+      return provider.pay(checked, execution.providerIdempotencyKey);
+    });
+  } catch (error) {
+    if (error instanceof EnforceOutcomeUnknownError && error.recovery) {
+      try {
+        await recoveryStore.saveEncrypted(binding, JSON.stringify(error.recovery));
+      } catch {
+        console.error('Recovery storage unavailable; keep this task unresolved');
+      }
+    }
+    throw error; // Keep the task unresolved; do not pay again here.
+  }
+}
+
+async function reconcilePayment() {
+  const recovery: ExecutionContext = JSON.parse(await recoveryStore.loadEncrypted(binding));
+  const found = await provider.lookupOriginal(recovery.providerIdempotencyKey);
+  if (found.state === 'unknown') return; // Leave the saved task for investigation.
+  await client.reconcile({ ...recovery,
+    providerReference: found.reference, outcome: found.state });
+}
+```
+
+</Tab>
+<Tab value="Go">
+
+```go
+// Imports: context, encoding/json, errors, and authrail "github.com/AuthRail/authrail-sdk-go".
+
+func executePayment(ctx context.Context) error {
+    _, _, _, err := authrail.Enforce(ctx, client, operation, payment,
+        func(ctx context.Context, checked map[string]any, execution authrail.ExecutionContext) (map[string]any, error) {
+            encoded, err := json.Marshal(execution)
+            if err != nil { return nil, err }
+            if err := recoveryStore.SaveEncrypted(ctx, binding, encoded); err != nil { return nil, err }
+            return provider.Pay(ctx, checked, execution.ProviderIdempotencyKey)
+        })
+    var unknown *authrail.OutcomeUnknownError
+    if errors.As(err, &unknown) {
+        encoded, saveErr := json.Marshal(unknown.Recovery)
+        if saveErr != nil { return errors.Join(err, saveErr) }
+        if saveErr := recoveryStore.SaveEncrypted(ctx, binding, encoded); saveErr != nil {
+            return errors.Join(err, saveErr)
+        }
+    }
+    return err // Keep an unknown task unresolved; do not pay again here.
+}
+
+func reconcilePayment(ctx context.Context) error {
+    encoded, err := recoveryStore.LoadEncrypted(ctx, binding)
+    if err != nil { return err }
+    var recovery authrail.Recovery
+    if err := json.Unmarshal(encoded, &recovery); err != nil { return err }
+    found, err := provider.LookupOriginal(ctx, recovery.ProviderIdempotencyKey)
+    if err != nil { return err }
+    if found.State == "unknown" { return nil } // Keep the saved task unresolved.
+    _, err = client.Reconcile(ctx, recovery, found.Reference, found.State)
+    return err
+}
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import json
+from authrail import EnforceOutcomeUnknownError, ExecutionContext
+
+async def execute_payment():
+    async def pay(checked, execution):
+        await recovery_store.save_encrypted(binding, json.dumps(execution.as_dict()))
+        return await provider.pay(checked, execution.provider_idempotency_key)
+
+    try:
+        return await client.enforce(operation, payment, pay)
+    except EnforceOutcomeUnknownError as unknown:
+        try:
+            await recovery_store.save_encrypted(binding, json.dumps(unknown.recovery.as_dict()))
+        except Exception as storage_error:
+            raise unknown from storage_error
+        raise  # Keep the task unresolved; do not pay again here.
+
+
+async def reconcile_payment():
+    saved = await recovery_store.load_encrypted(binding)
+    recovery = ExecutionContext.from_dict(json.loads(saved))
+    found = await provider.lookup_original(recovery.provider_idempotency_key)
+    if found.state == "unknown":
+        return  # Keep the saved task for investigation.
+    await client.reconcile(recovery, found.state, found.reference)
+```
+
+</Tab>
+</Tabs>
+
+A recovery-storage failure must also keep the task held for investigation,
+not mark it failed or authorize another attempt.
+
+A returned reconciliation receipt updates the original attempt; it does not
+repeat the payment. Update your task after checking that response. An unknown
+lookup stays unresolved, even though the example worker returns without error.
+A result-blocking error can also mean an effect exists: inspect and reconcile
+that original effect instead of treating every SDK error as a failed payment.
+
 ## Retry only after confirming no effect
 
 A confirmed no-effect reconciliation can allow another execution attempt. The
@@ -72,7 +206,7 @@ any approval permit reference. The Enforce callback receives a provider key
 of the form `ar-<Action ID>`. Use the recovery context supplied by your adapter,
 rather than reconstructing a different attempt after a crash.
 
-Node's `reconcile` and Go's `Reconcile` report an outcome established by the
+Node's `reconcile`, Go's `Reconcile` and Python's `reconcile` report an outcome established by the
 protected application's lookup. They accept recovery context, a provider
 reference and a known outcome. The resulting receipt is
 `reconciled_succeeded` or `reconciled_failed`. Neither method automatically

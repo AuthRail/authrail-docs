@@ -48,7 +48,96 @@ Enforce rules before relying on protection.
 Changing a dashboard mode does not turn code using an Observe adapter into a
 protected function. The application integration and deployment mode must agree.
 
-### 4. Verify both an allowed and a denied request
+## Apply Enforce in application code
+
+Create the client using the private connection settings from your
+[Node](/docs/node), [Go](/docs/go) or [Python](/docs/python) setup. These examples
+belong inside your existing request handler. `operation` contains the reviewed
+Operation Version ID, stable business Action key and authenticated caller and
+resource identities. `invoiceService` is your application's invoice reader.
+
+Use this wrapper **instead of** an unprotected call to that function. A denied
+call raises or returns an error; it must not fall through to a direct call.
+The result is released only after its result check passes.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import { EnforceClient } from '@authrail/sdk-node';
+
+const client = new EnforceClient(privateClientConfig);
+const checked = await client.enforce(
+  operation,
+  { invoiceId: invoice.id },
+  (arguments_) => {
+    if (typeof arguments_.invoiceId !== 'string') {
+      throw new Error('invoiceId must be text');
+    }
+    return invoiceService.read(arguments_.invoiceId);
+  },
+);
+return checked.result;
+```
+
+`privateClientConfig` is the same protected connection configuration used in
+the Node guide. Handle approval waits and unknown outcomes as described below;
+do not catch an error by running `invoiceService.read` directly.
+
+</Tab>
+<Tab value="Go">
+
+```go
+result, _, _, err := authrail.Enforce(
+    ctx, client, operation,
+    map[string]string{"invoiceId": invoiceID},
+    func(ctx context.Context, args map[string]string,
+        execution authrail.ExecutionContext) (map[string]string, error) {
+        return invoiceService.Read(ctx, args["invoiceId"])
+    },
+)
+if err != nil {
+    return nil, err
+}
+return result, nil
+```
+
+Use `context` and `authrail "github.com/AuthRail/authrail-sdk-go"` imports.
+`client` is the configured Go SDK client. Here `invoiceService.Read` returns
+an invoice as `map[string]string`; use your own reviewed JSON result type.
+
+</Tab>
+<Tab value="Python">
+
+```python
+from authrail import ExecutionContext, JSONObject
+
+async def read_checked_invoice(arguments: JSONObject,
+                               execution: ExecutionContext) -> JSONObject:
+    invoice_id = arguments["invoiceId"]
+    if not isinstance(invoice_id, str):
+        raise ValueError("invoiceId must be text")
+    return await invoice_service.read(invoice_id)
+
+# client is an AsyncEnforceClient configured as in the Python guide.
+checked = await client.enforce(
+    operation, {"invoiceId": invoice_id}, read_checked_invoice
+)
+return checked.result
+```
+
+Put the call inside your async request handler. The example uses your existing
+`invoice_service`; the SDK does not supply a provider connection.
+
+</Tab>
+</Tabs>
+
+For actions that change data, save the callback's execution context and pass
+its provider idempotency key to your provider. See [recovery](/docs/recovery).
+For an approval-required error, save the waiting work and use the
+[approval continuation](/docs/approvals#save-and-resume-the-applications-work).
+
+## Verify both an allowed and a denied request
 
 Run the allowed request and inspect its call decision, execution reports and
 result check. Run a denied request and verify that the protected function did

@@ -16,7 +16,7 @@ permission for that request; it does not make the payment or prove that it ran.
 
 ### 1. Open the request assigned to you
 
-In AuthRail, open **Rails → Approvals for you** using an account named by the
+In AuthRail, open **Runtime → Approvals** using an account named by the
 approval rule. Choose the waiting request. If you are not an eligible reviewer,
 ask the person responsible for that action's approval setup to check the
 reviewer list.
@@ -90,12 +90,126 @@ For a workflow that must survive a restart:
    the function and checks its result. Your application then updates its task
    and continues the conversation or workflow.
 
-Node provides `resumeApprovalFrom(continuation, callback)`; Go provides
-`ResumeApprovalFrom`; Python provides `resume_approval_from`. The SDK does not
-persist or schedule this work for you.
-Keep the original payment arguments and business idempotency key. If a payment
-may already have happened, use [execution recovery](/docs/recovery) before
-attempting it again.
+### Save the checked call, then resume it
+
+These snippets continue the [Node](/docs/node), [Go](/docs/go) or
+[Python](/docs/python) setup using an Enforce client. `operation` is your reviewed
+Operation with authenticated identity, a stable business Action key and a safe
+review summary. `payment` is the original application-validated input.
+`payInvoice` / `pay_invoice` is your protected business function.
+
+`tasks` is **your application's storage**, not an SDK API. Its save/load helpers
+must encrypt the continuation in persistent private storage and check `binding`
+against the original organisation, authenticated user, deployment and task ID.
+A resume worker must claim that task exclusively before loading it. Never accept
+a continuation or replacement arguments from the browser or agent.
+
+The submit and resume blocks are separate invocations: after saving a wait,
+return from the submit handler. Run the resume block only after the required
+review; keep the original client identity and protected callback.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import { EnforceBlockedError } from '@authrail/sdk-node';
+
+async function submitPayment() {
+  try {
+    await client.enforce(operation, payment, payInvoice);
+  } catch (error) {
+    if (!(error instanceof EnforceBlockedError) ||
+        error.phase !== 'tool_call' || error.effectMayHaveOccurred ||
+        !error.approvalContinuation) throw error;
+    await tasks.saveEncrypted(binding, JSON.stringify(error.approvalContinuation));
+    // Return "Awaiting approval" to the caller; do not hold the HTTP request open.
+  }
+
+}
+
+async function resumePayment() {
+  // Claim the saved task exclusively before calling this function.
+  const saved = await tasks.loadEncrypted(binding);
+  await client.resumeApprovalFrom(JSON.parse(saved), payInvoice);
+}
+```
+
+</Tab>
+<Tab value="Go">
+
+```go
+// Imports: context, encoding/json, errors, and authrail "github.com/AuthRail/authrail-sdk-go".
+
+func submitPayment(ctx context.Context) error {
+    _, _, _, err := authrail.Enforce(ctx, client, operation, payment, payInvoice)
+    if err == nil { return nil }
+    var pending *authrail.ApprovalRequired
+    if !errors.As(err, &pending) { return err }
+    continuation, err := pending.Continuation()
+    if err != nil { return err }
+    encoded, err := json.Marshal(continuation)
+    if err != nil { return err }
+    // The store records this task as awaiting approval.
+    return tasks.SaveEncrypted(ctx, binding, encoded)
+}
+
+func resumePayment(ctx context.Context) error {
+    encoded, err := tasks.LoadEncrypted(ctx, binding)
+    if err != nil { return err }
+    var continuation authrail.ApprovalContinuation
+    if err := json.Unmarshal(encoded, &continuation); err != nil { return err }
+    _, _, err = authrail.ResumeApprovalFrom(ctx, client, continuation, payInvoice)
+    return err
+}
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import json
+from authrail import ApprovalContinuation, EnforceBlockedError
+
+async def submit_payment():
+    try:
+        await client.enforce(operation, payment, pay_invoice)
+    except EnforceBlockedError as blocked:
+        if (blocked.phase != "tool_call" or blocked.effect_may_have_occurred
+                or blocked.approval_continuation is None):
+            raise
+        await tasks.save_encrypted(
+            binding, json.dumps(blocked.approval_continuation.as_dict())
+        )
+        # Return "Awaiting approval"; resume in a later worker invocation.
+
+
+
+async def resume_payment():
+    saved = await tasks.load_encrypted(binding)
+    continuation = ApprovalContinuation.from_dict(json.loads(saved))
+    await client.resume_approval_from(continuation, pay_invoice)
+```
+
+</Tab>
+</Tabs>
+
+The SDK still checks the saved request and claims permission before execution.
+A not-yet-approved, rejected, expired or replayed request must remain stopped.
+If resume fails, keep the saved task for inspection; do not mark it completed or
+start another payment. The result check can withhold a response after an effect.
+Use [execution recovery](/docs/recovery) when an effect may have happened.
+
+### How reviewers are notified
+
+AuthRail creates an in-app notice for the active named reviewers when a request
+is ready for approval. Runtime notification preferences control delivery.
+Email is opt-in and requires a verified address; enable Runtime email in your
+notification settings if you want these messages. A queued email is not proof
+that it arrived, and a notification is not approval.
+
+The notice opens **Runtime → Approvals**. Select the correct organisation, then
+inspect the waiting request. Notifications keep request values out of email;
+the authenticated review screen contains the details needed to decide.
 
 <details className="guide-details">
 <summary>Approval expiry and the execution permit are different deadlines</summary>

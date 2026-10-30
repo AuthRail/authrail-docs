@@ -139,5 +139,7 @@ setup, dependencies, AuthRail connection, safe scenarios and troubleshooting.
 The founder approved the simple Authlier-style landing and asked work to begin.
 Implement and inspect that first slice before expanding the documentation. Update this brief and canonical root MD files with the
 agreed decisions. Then implement and visually inspect the site slice by slice.
-Do not return to Python before this docs pass. Do not deploy or publish the
+The Python adapter is released alongside Node and Go. Shared implementation
+tasks use persistent Node.js, Go and Python tabs with working SDK examples;
+UI-only governance tasks keep their screenshots and steps. Do not deploy or publish the
 rejected draft merely because its source is committed on main.

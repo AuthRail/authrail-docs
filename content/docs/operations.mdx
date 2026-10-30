@@ -154,6 +154,19 @@ To enable it:
    configuration.
 3. Check the receiving monitoring service for traces and metrics.
 
+For a native sidecar launched from a terminal, add this to its settings before
+starting it. Replace the example address with your team's Collector base URL:
+
+```sh
+export AUTHRAIL_OTLP_ENDPOINT="https://collector.example.com:4318"
+./authrail-sidecar
+```
+
+The sidecar adds `/v1/traces` and `/v1/metrics` itself. For Docker, put the same
+setting under the sidecar service's `environment` in your private Compose
+configuration, then apply it through your normal restart process. This address
+belongs to your monitoring system; do not use the AuthRail API address here.
+
 Leave the setting unset if you do not use a Collector. The exporter does not
 forward the sidecar's process log lines. A telemetry failure does not change a
 Rail decision; investigate Action reporting separately.

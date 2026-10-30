@@ -53,6 +53,89 @@ stopped it, who reviewed it and what the application reported. The
 [Runtime walkthrough](/docs/application-example) shows this alongside the sample
 application and sidecar.
 
+## Keep the Action reference with your application task
+
+The SDK returns the decision alongside its check. Save its Action ID with your
+application task so an operator can find the same request in AuthRail. The
+helpers below print only decision metadata; do not print the input, result or
+entire continuation. Identifiers belong in private diagnostic fields, not
+metric labels.
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+<Tab value="Node.js">
+
+```ts
+import type { ObserveDecision } from '@authrail/sdk-node';
+
+function logDecision(decision: ObserveDecision | null | undefined) {
+  if (!decision) return;
+  console.log(JSON.stringify({
+    actionId: decision.actionId,
+    certificateId: decision.certificateId,
+    outcome: decision.outcome,
+    recordingStatus: decision.recordingStatus,
+  }));
+}
+```
+
+Pass `checked.callDecision` and `checked.resultDecision` after Enforce, or
+`checks.callDecision` and `checks.resultDecision` after awaiting an Observe
+run's `observation`. Handle the separate check errors when a decision is absent.
+
+</Tab>
+<Tab value="Go">
+
+```go
+import (
+    "log"
+    authrail "github.com/AuthRail/authrail-sdk-go"
+)
+
+func logDecision(decision *authrail.Decision) {
+    if decision == nil { return }
+    log.Printf("actionId=%s certificateId=%s outcome=%s recordingStatus=%s",
+        decision.ActionID, decision.CertificateID,
+        decision.Outcome, decision.RecordingStatus)
+}
+```
+
+Pass the call and result decisions returned by `authrail.Enforce`. With
+Observe, receive its observation channel first, then use `CallDecision` and
+`ResultDecision`. A missing decision needs investigation of its separate error.
+
+</Tab>
+<Tab value="Python">
+
+```python
+import json
+from authrail import Decision
+
+
+def log_decision(decision: Decision | None) -> None:
+    if decision is None:
+        return
+    metadata = decision.as_dict()
+    print(json.dumps({
+        "actionId": decision.action_id,
+        "certificateId": metadata.get("certificateId"),
+        "outcome": decision.outcome,
+        "recordingStatus": decision.recording_status,
+    }))
+```
+
+Pass `checked.call_decision` and `checked.result_decision` after Enforce, or
+the same fields from `await run.observation` in Observe. Inspect `call_error`
+and `result_error` separately if the checks could not finish.
+
+</Tab>
+</Tabs>
+
+`retained` means AuthRail acknowledged the record. `queued` means delivery is
+still pending in the local sidecar; do not display it as already saved in the
+workspace. These helpers log metadata, rather than proving provider completion.
+The [SDK guides](/docs/getting-started#5-connect-the-application) show where the
+returned decisions fit into a connected function.
+
 <details className="guide-details">
 <summary>More about the different records</summary>
 

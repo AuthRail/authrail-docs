@@ -20,18 +20,35 @@ workspace administrator for the access needed for your task.
 New to the product? Begin with the [introduction](/docs). Ready to connect code?
 Follow [your first application](/docs/getting-started).
 
-## Choose the code you need
+## Install an SDK
+
+The SDKs are published as version **{AUTHRAIL.releases.sdkVersion}**. Use the
+installation guide for your language, then keep that version in your
+application's dependency files.
+
+| Your application | Published package | Setup guide |
+| --- | --- | --- |
+| JavaScript or TypeScript | <a href={AUTHRAIL.packages.node}>@authrail/sdk-node on npm</a> | [Node setup](/docs/node) |
+| Go | <a href={AUTHRAIL.packages.go}>authrail-sdk-go on pkg.go.dev</a> | [Go setup](/docs/go) |
+| Python | <a href={AUTHRAIL.packages.python}>authrail on PyPI</a> | [Python setup](/docs/python) |
+
+## Get the sidecar and source code
+
+The sidecar is a separate service, not part of the SDK package. Use the
+[Docker guide](/docs/docker) to build and run a container, or the
+[native guide](/docs/native) for a downloaded executable. Native archives and
+checksums are available from the <a href={`${AUTHRAIL.repositories.sidecar}/releases/tag/v${AUTHRAIL.releases.sidecarVersion}`}>sidecar release</a>.
 
 | Repository | Use it to… |
 | --- | --- |
-| <a href={AUTHRAIL.repositories.sidecar}>AuthRail Sidecar</a> | Run the local service that checks your application's Rails. Includes Docker, native setup and the OpenShell example. |
-| <a href={AUTHRAIL.repositories.node}>Node SDK</a> | Connect a JavaScript or TypeScript application. |
-| <a href={AUTHRAIL.repositories.go}>Go SDK</a> | Connect a Go application. |
-| <a href={AUTHRAIL.repositories.python}>Python SDK</a> | Connect an asyncio application or a Python script. |
+| <a href={AUTHRAIL.repositories.sidecar}>AuthRail Sidecar</a> | Inspect the local rule checker, Docker configuration and OpenShell example. |
+| <a href={AUTHRAIL.repositories.node}>Node SDK</a> | Read the JavaScript and TypeScript adapter source and examples. |
+| <a href={AUTHRAIL.repositories.go}>Go SDK</a> | Read the Go adapter source and examples. |
+| <a href={AUTHRAIL.repositories.python}>Python SDK</a> | Read the Python adapter source and examples. |
 | <a href={AUTHRAIL.repositories.docs}>Documentation</a> | Read this site's source or report a documentation issue. |
 
-Start with the chosen repository's README. The [compatibility
-guide](/docs/compatibility) explains how to use matching sidecar and SDK revisions.
+The [compatibility guide](/docs/compatibility) explains how to record the SDK
+and sidecar versions you run and check the paths your application protects.
 
 ## NVIDIA OpenShell
 

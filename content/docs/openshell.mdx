@@ -59,14 +59,15 @@ npm ci
 cp operator-settings.example.json operator-settings.json
 ```
 
-These commands build the SDK, install the example and make a private settings
-file for you to fill in. Reuse your existing checkouts if you followed the
+This example uses a sibling SDK checkout through its local package dependency.
+These commands build that checkout, install the example and make a settings
+file for you to fill in. Keep the settings and referenced secret files private. Reuse your existing checkouts if you followed the
 [sidecar setup](/docs/docker).
 
 Open `operator-settings.json`. Add your AuthRail organisation, deployment and
 reviewed action IDs. Point it to the private key and token files from your
-[connection setup](/docs/identity). The example also needs an HTTPS certificate
-and a private key for saving recovery information. Its
+[connection setup](/docs/identity). The example also needs an HTTPS certificate and its private key, plus a
+separate encryption key for saving recovery information. Its
 <a href={`${AUTHRAIL.repositories.sidecar}/tree/main/integrations/openshell#prepare-the-protected-application`}>setup instructions</a>
 explain those files and every settings field.
 
@@ -113,9 +114,19 @@ From `integrations/openshell`, start the configured example:
 node start.mjs ./example-config.mjs
 ```
 
-Use the example's request instructions to ask it to record a sample amount of
-`80` from inside the sandbox. Give the request its own stable key, such as
-`sample-invoice-001`. Keep that key if you need to recover the same request.
+From inside the sandbox, send an authenticated `POST /execute` request to the
+reviewed HTTPS application address with `Content-Type: application/json` and
+this body:
+
+```json
+{"requestKey":"sample-invoice-001","arguments":{"amount":80}}
+```
+
+Use the sandbox's separate request token in the `Authorization: Bearer …`
+header. It is not the adapter token or a provider credential. The
+<a href={`${AUTHRAIL.repositories.sidecar}/tree/main/integrations/openshell#run-and-call-the-executor`}>example request instructions</a>
+show how this route authenticates the sandbox. Keep the request key when
+recovering the same business intent; a different key starts a different request.
 
 Then open **Actions & decisions** in AuthRail. You should see the request
 check, the result check and the application's execution report. Compare an

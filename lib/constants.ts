@@ -12,6 +12,7 @@ export const AUTHRAIL = {
   releases: {
     sdkVersion: '0.1.1',
     sidecarVersion: '0.1.0',
+    sidecarDownloads: 'https://github.com/AuthRail/authrail-sidecar/releases/download/v0.1.0',
   },
   packages: {
     node: 'https://www.npmjs.com/package/@authrail/sdk-node',

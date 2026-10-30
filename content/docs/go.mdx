@@ -21,15 +21,26 @@ adapter-token file and private-key file available to your application.
 
 ## 1. Add the SDK to your module
 
-From your existing application's Go module directory:
+From your application's module directory, install the
+<a href={AUTHRAIL.packages.go}>versioned Go module</a>:
 
-```sh
-go get github.com/AuthRail/authrail-sdk-go@main
-```
+<CommandBlock lang="bash" code={`go get github.com/AuthRail/authrail-sdk-go@v${AUTHRAIL.releases.sdkVersion}`} />
 
-For a new application, create its directory and run `go mod init` with your module path first. `go get` resolves the main branch revision into `go.mod` and `go.sum`; it does not start a service. Replace `main` with a reviewed commit SHA when pinning a deployment. This guide does not assume a stable tagged release.
+For a new application, create its directory and run `go mod init` with your
+module path first. `go get` records the SDK version in `go.mod` and `go.sum`;
+it does not start the sidecar or your application.
 
-The <a href={AUTHRAIL.repositories.go}>SDK repository</a> also supports source checks: clone `main`, then run `go build ./...` to compile or `go test ./...` to run its tests. Building does not start the sidecar or your application.
+<details>
+<summary>Build from source when contributing</summary>
+
+<CommandBlock lang="bash" code={`git clone ${AUTHRAIL.repositories.go}.git
+cd authrail-sdk-go
+go build ./...`} />
+
+The <a href={AUTHRAIL.repositories.go}>SDK repository</a> describes its tests.
+A successful build exits without starting a service.
+
+</details>
 
 ## 2. Connect to the sidecar
 

@@ -20,22 +20,28 @@ Complete [the dashboard setup](/docs/getting-started) and
 ID, reviewed Operation Version ID, adapter-token file and private-key file
 available to the protected server application.
 
-## 1. Install from source
+## 1. Install the SDK
 
-Get the <a href={AUTHRAIL.repositories.node}>Node SDK source</a> and compile it:
+From your application's directory, install the <a href={AUTHRAIL.packages.node}>npm package</a>:
 
-<CommandBlock lang="bash" code={`git clone --branch main ${AUTHRAIL.repositories.node}.git
+<CommandBlock lang="bash" code={`npm install @authrail/sdk-node@${AUTHRAIL.releases.sdkVersion}`} />
+
+Keep the package version and your lockfile in source control for repeatable
+installs. Installing the SDK does not start your application or the sidecar.
+
+<details>
+<summary>Build from source when contributing</summary>
+
+<CommandBlock lang="bash" code={`git clone ${AUTHRAIL.repositories.node}.git
 cd authrail-sdk-node
 npm ci
 npm run build`} />
 
-This creates JavaScript and TypeScript declarations in `dist/`. It does not start your application. From your own application's directory, which has a `package.json`, install that built checkout:
+This compiles JavaScript and TypeScript declarations into `dist/`. To try your
+changes in another application, run `npm install /absolute/path/to/authrail-sdk-node`
+from that application's directory. Use its actual checkout path.
 
-```sh
-npm install /absolute/path/to/authrail-sdk-node
-```
-
-Use the actual absolute checkout path. Pin a reviewed commit and keep your lockfile for repeatable builds.
+</details>
 
 ## 2. Connect to the sidecar
 

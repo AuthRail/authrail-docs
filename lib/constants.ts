@@ -9,6 +9,15 @@ export const AUTHRAIL = {
     openshell: 'https://docs.nvidia.com/openshell/latest/',
     openshellRepository: 'https://github.com/NVIDIA/OpenShell',
   },
+  releases: {
+    sdkVersion: '0.1.1',
+    sidecarVersion: '0.1.0',
+  },
+  packages: {
+    node: 'https://www.npmjs.com/package/@authrail/sdk-node',
+    python: 'https://pypi.org/project/authrail/',
+    go: 'https://pkg.go.dev/github.com/AuthRail/authrail-sdk-go',
+  },
   repositories: {
     docs: 'https://github.com/AuthRail/authrail-docs',
     sidecar: 'https://github.com/AuthRail/authrail-sidecar',

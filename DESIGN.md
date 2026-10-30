@@ -2,8 +2,8 @@
 
 This brief records the founder's agreed direction for the public documentation.
 The current lead owns the docs pass, with independent reviews for clarity and
-setup accuracy. Python follows documentation, then coordinated SDK release
-planning. Passing a build does not substitute for founder review.
+setup accuracy. Node, Go and Python installation guides use the verified
+published SDK versions. Passing a build does not substitute for founder review.
 
 ## Reference and visual direction
 
@@ -44,7 +44,7 @@ Start with Introduction. Teach Governance through dedicated Frameworks,
 Policies and Controls, Tests and Evidence, and Readiness pages. Then explain
 Runtime, Rails, modes, contextual facts, approvals and records. Only after those
 foundations introduce Connect your first application, identity and installation,
-the Node/Go adapters and NVIDIA OpenShell. Operation/recovery and detailed references follow.
+the Node/Go/Python adapters and NVIDIA OpenShell. Operation/recovery and detailed references follow.
 The introduction links into this sequence, rather than sending a beginner
 straight to installation. Use concrete examples and cross-links for defined
 terms; avoid a dense glossary squeezed into one introduction.
@@ -68,7 +68,7 @@ Do not lead with the rejected refund/approval demo card, slogans such as
 jargon or a public "Current delivery status" section. The introductory docs pages must make the product understandable to someone
 who has never used AuthRail.
 
-Public integration guides use the supported Node and Go adapters. Do not publish
+Public integration guides use the supported Node, Go and Python adapters. Do not publish
 a DIY HTTP implementation guide or present a custom adapter as an equivalent
 customer path. The underlying wire contract stays with the source implementation.
 Do not claim a latency figure without a representative measurement. Explain the

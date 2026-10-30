@@ -18,19 +18,30 @@ Complete [your first application](/docs/getting-started) and the
 
 ## 1. Install the SDK
 
-Get the <a href={AUTHRAIL.repositories.python}>Python SDK source</a> and install it
-in an isolated Python environment:
+Create a virtual environment in your application directory and install the
+<a href={AUTHRAIL.packages.python}>PyPI package</a>:
 
-<CommandBlock lang="bash" code={`git clone --branch feat/runtime-observe-adapter ${AUTHRAIL.repositories.python}.git
-cd authrail-sdk-python
-python3 -m venv .venv
+<CommandBlock lang="bash" code={`python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install .`} />
+python -m pip install authrail==${AUTHRAIL.releases.sdkVersion}`} />
 
 Run `python --version` and confirm it is at least 3.11. If your machine has
 several interpreters, create the environment with the intended one, such as
-`python3.11 -m venv .venv`. These commands install the checkout; they do not
-assume a published PyPI package.
+`python3.11 -m venv .venv`. Installing the SDK does not start the sidecar.
+
+<details>
+<summary>Install from source when contributing</summary>
+
+<CommandBlock lang="bash" code={`git clone ${AUTHRAIL.repositories.python}.git
+cd authrail-sdk-python
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'`} />
+
+The <a href={AUTHRAIL.repositories.python}>SDK repository</a> explains how to run
+its checks before submitting changes.
+
+</details>
 
 Use the [native sidecar](/docs/native) if Python runs directly on your host. If
 Python runs in Docker, follow the [shared network setup](/docs/docker#4-connect-your-application-container).

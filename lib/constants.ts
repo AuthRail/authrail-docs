@@ -2,6 +2,12 @@ export const AUTHRAIL = {
   name: 'AuthRail',
   description: 'Govern how your organisation uses AI: understand its activity, control actions, review sensitive decisions and connect oversight to compliance requirements.',
   docsOrigin: 'https://docs.authrail.io',
+  socialImage: {
+    url: '/images/authrail-social-preview.png',
+    width: 2940,
+    height: 1506,
+    alt: 'AuthRail — AI governance for your organisation',
+  },
   apiOrigin: 'https://api-staging.authrail.io',
   workspaceOrigin: 'https://app-staging.authrail.io',
   references: {

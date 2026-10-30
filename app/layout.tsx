@@ -16,8 +16,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: AUTHRAIL.name, description: AUTHRAIL.description,
     siteName: AUTHRAIL.name, type: 'website', locale: 'en_US', url: '/',
+    images: [AUTHRAIL.socialImage],
   },
-  twitter: { card: 'summary_large_image', title: AUTHRAIL.name, description: AUTHRAIL.description },
+  twitter: { card: 'summary_large_image', title: AUTHRAIL.name, description: AUTHRAIL.description, images: [AUTHRAIL.socialImage] },
   robots: { index: true, follow: true },
 };
 

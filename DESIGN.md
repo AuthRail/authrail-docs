@@ -1,7 +1,7 @@
 # AuthRail documentation design brief
 
 This brief records the founder's agreed direction for the public documentation.
-The current lead owns the docs pass, with independent reviews for clarity and
+The lead owns the docs pass, with independent reviews for clarity and
 setup accuracy. Node, Go and Python installation guides use the verified
 published SDK versions. Passing a build does not substitute for founder review.
 
@@ -40,33 +40,54 @@ product, a fabricated GitHub star count or a link to the private reference app.
 
 ## Navigation and learning order
 
-Start with Introduction. Teach Governance through dedicated Frameworks,
-Policies and Controls, Tests and Evidence, and Readiness pages. Then explain
-Runtime, Rails, modes, contextual facts, approvals and records. Only after those
-foundations introduce Connect your first application, identity and installation,
-the Node/Go/Python adapters and NVIDIA OpenShell. Operation/recovery and detailed references follow.
-The introduction links into this sequence, rather than sending a beginner
-straight to installation. Use concrete examples and cross-links for defined
-terms; avoid a dense glossary squeezed into one introduction.
+The November 2 founder direction supersedes the earlier Framework-first order.
+Lead with what AuthRail does for agent authority and behaviour, then a useful
+first result. The primary path is:
 
-The landing paragraph explains the purpose: AuthRail helps organisations govern
-AI use, understand activity, control actions, review sensitive decisions and
-connect that oversight to organisational policies and compliance requirements.
-Keep feature names for their proper explanations inside the docs.
+1. A short introduction to AuthRail, coverage and the meaning of its records.
+2. A quickstart using verified released setup artifacts and a safe example.
+3. MCP/agent setup: sign-in, permissions, preparing configuration and exact
+   human confirmation, alongside how the real business tool is protected.
+4. Runtime, Rails, Observe/Enforce, usable Guards, Data sources and contextual AI.
+5. Approvals/resume, records, diagnostics, recovery and useful operating insights.
+6. Connected governance: Policies, Controls, Frameworks, Tests/Evidence, readiness
+   and remediation, with their exact proof semantics intact.
+7. Detailed SDK, deployment, compatibility, security and configuration references.
 
-## Docs pages: explain the product before installation
+Readers should not have to learn Framework scope or create a compliance programme
+before trying one Runtime action. Keep governance fully explained in its own
+path; do not make an audience chooser the substitute for a clear main journey.
+The compact landing composition, approved typography/brand and visual rules stay
+in place. Its copy should explain control of agent actions and understanding
+outcomes plainly, without implying complete coverage of every company activity.
 
-Begin with the AI governance problem in plain language: organisations need to
-understand AI activity, set boundaries, review decisions and retain useful proof.
-Explain what AuthRail is and how it helps. Introduce Frameworks, Policies and
-Controls before Runtime. Explain how they relate without a large GRC glossary.
-Then teach Runtime visibility and protection at the customer's actual tool and
-result boundaries, with concrete examples and expected outcomes.
+## Quickstart and first useful result
 
-Do not lead with the rejected refund/approval demo card, slogans such as
-"Set the boundaries. Keep the proof.", an audience chooser, internal architecture
-jargon or a public "Current delivery status" section. The introductory docs pages must make the product understandable to someone
-who has never used AuthRail.
+The acceptance target is a measured fifteen-minute first result on a documented
+clean environment. Record prerequisites and time the actual steps before making
+that public promise. Use a verified prebuilt sidecar image and supported SDK;
+the normal Docker guide must not require Go or building source. Present only a
+real released installer/command. The approved entry is `authrail-sidecar setup`
+in the existing Go executable. Browser connection and key registration alone do
+not establish the full installer; validate private credential provisioning,
+startup and recovery before presenting it as the normal public setup path.
+
+The first task should connect one safe operation and show its decision and
+record. A complete walkthrough then shows allow, deny, saved human review/resume
+and result checking. Make the developer's remaining job explicit: wrap the real
+function and bind trusted caller/resource/credential context. Guided setup can
+handle mechanical key/credential/configuration work, but cannot automatically
+secure arbitrary uninstrumented tools or network bypasses.
+
+Explain hosted MCP management and customer tool enforcement separately and show
+how they join. Connecting AuthRail MCP does not wrap another assistant's Stripe,
+browser or shell tool. One-time sign-in/consent and exact human confirmation
+remain necessary even when users work through their assistant.
+
+Every introduction should explain one concept and familiar example before the
+instructions, while letting the quickstart reach a result before deep internals.
+No refund/approval feature card, slogan, internal architecture tour or public
+progress/status commentary belongs on the landing or beginner entry.
 
 Public integration guides use the supported Node, Go and Python adapters. Do not publish
 a DIY HTTP implementation guide or present a custom adapter as an equivalent
@@ -107,22 +128,60 @@ Existing screenshots are in public/screenshots; assess framing, accuracy and
 sensitive information before reuse. Show examples and visual evidence rather
 than long pages of abstract text. Do not invent successful product states.
 
-Explain contextual AI explicitly: current extractors send selected source text
-to the configured model; typed facts/provenance are sent to AuthRail. Source
+Explain contextual AI explicitly: an approved provider client receives selected
+material, returns a typed fact and the deterministic rule uses it to decide.
+The source and question are reviewed in AuthRail; the SDK should consume that
+configuration without developers recreating prompts or hashes. The target is
+provider-agnostic, with an accurately declared, qualified provider/model matrix.
+OpenAI is one client, not the definition of contextual AI. Public pages must
+describe the implementation that actually ships; an interface alone does not
+establish multi-provider support. Typed facts/provenance are sent to AuthRail. Source
 text staying behind the executor does not mean it is withheld from that model.
 Do not promise generic pre-provider redaction/minimisation that is not
 implemented. Keep configured models, contextual fact-reading models and actual
 agent execution identity distinct. Permission, reported execution, independently
 verified effects and Framework-qualified proof have different meanings.
 
+## Teach usable contextual AI, Guards and Data Rails
+
+Use the detailed product contract in AUTHRAIL_PRODUCT_STORY.md rather than
+maintaining another catalogue of promised provider support in this file.
+The docs must let a beginner answer:
+
+- Contextual AI: where do I set the question, choose the approved provider/model,
+  bind credentials privately, select permitted source material and inspect an
+  uncertain/failed answer? Show a document or code example as well as business
+  text. A model supplies a fact; it never grants final permission.
+- Guard Rails: which ready-made protection can I select, what boundary does it
+  check, what does it block/change and how can I test its limits? A literal demo
+  marker or custom callback is not a general credential or injection detector.
+- Data Rails: which supported source/value can I select, which account/resource
+  supplies it, how fresh is it and what happens if the lookup fails? The SDK
+  should handle the supported reader once the customer binds trusted identity
+  and credentials. A collection Connection does not automatically grant Runtime
+  source or business-write access.
+
+Use one joined example where local disclosure filtering runs before the model,
+a trusted lookup supplies a value and a deterministic rule evaluates the facts.
+Never claim that a model can prevent disclosure of text already sent to it.
+Unknown/unsupported providers or detectors, low confidence, malformed values,
+timeouts, stale facts and missing capabilities do not become successful checks.
+Explain actual data recipients and retained metadata, without promising the
+entire control-plane ledger is customer-hosted or that every source stays local.
+
 ## URLs, metadata and repositories
 
 Use one constants module for public URLs and links. The first slice replaced lib/site.ts's
 AUTHRAIL_DOCS_URL environment-variable/localhost fallback; do not introduce
 public endpoint env configuration. The docs origin is https://docs.authrail.io;
-the API staging origin verified in source is https://api-staging.authrail.io.
-The tenant staging origin verified in Caddy source is https://app-staging.authrail.io. Secrets belong in
-private storage/Secrets Manager, never constants or public examples.
+other public origins must be verified against the approved deployed targets.
+The November 2 direction moves deployment workflows to main and removes staging
+as the deployment branch. Do not retain staging API/workspace links as unlabeled
+public setup defaults. Do not invent replacement production hosts or treat a
+branch change as proof they exist. Secrets belong in private storage/Secrets
+Manager, never constants or public examples. Hosted MCP/server runtime deployment
+configuration still uses environment settings/koanf as requested; this is separate
+from the documentation website's constants module.
 
 Add proper title/description metadata, canonical URLs, Open Graph/social tags,
 real favicon and robots/sitemap behavior. Link verified public SDK/sidecar and
@@ -143,3 +202,27 @@ The Python adapter is released alongside Node and Go. Shared implementation
 tasks use persistent Node.js, Go and Python tabs with working SDK examples;
 UI-only governance tasks keep their screenshots and steps. Do not deploy or publish the
 rejected draft merely because its source is committed on main.
+
+## First-class MCP documentation
+
+The founder prioritised the public Go AuthRail MCP service before the chat-first
+reference-app revamp. Give supported MCP workflows dedicated introduction and
+connection guides alongside the SDK integrations, with practical examples of
+sign-in/consent, organisation permissions, available tools, governance work,
+Runtime management, human confirmations, saved work, failures and troubleshooting.
+
+Explain that the hosted MCP calls AuthRail server APIs on behalf of the user.
+The server retains its domain checks and history. Customer tools still need
+the protected SDK/sidecar boundary; connecting MCP alone does not install that
+protection. Public instructions follow implemented tools and a verified hosted
+endpoint; repository preparation alone does not justify live setup instructions.
+
+The retained MCP work packages and the new setup/usable-Rails priority sequence
+are in the workspace's plan.md. Write
+usable documentation alongside each implemented slice, then complete the full
+MCP onboarding and workflow review in the retained documentation package. The final documentation slice
+does not defer setup or permission explanations needed to use earlier slices.
+Use real supported-client examples and screenshots. Teach how a person signs
+in, chooses an organisation, grants/revokes access, reviews an exact proposed
+change and handles a failed or interrupted request. Keep secrets and private
+continuations out of model-visible examples and results.

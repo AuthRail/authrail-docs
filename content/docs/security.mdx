@@ -81,11 +81,12 @@ Result checks can stop sensitive output from reaching the agent. They happen
 after the business function, so they cannot undo an earlier provider operation
 or model call.
 
-AuthRail's contextual AI feature sends selected material to the configured
-model provider so it can answer the reviewed question. Choose the permitted
-fields and perform any required removal or redaction in trusted application
-code **before** that call. The [contextual AI guide](/docs/facts) explains who
-receives the text and what AuthRail retains.
+AuthRail Contextual AI sends only the Rail's permitted material to AuthRail for
+interpretation. Review those fields when publishing the Rail. Required local
+filtering must complete **before** the contextual call, including when a result
+check reuses request fields. Selected text is processed transiently and is not
+added to normal logs, traces or retained Actions. The [contextual AI guide](/docs/facts)
+explains the request and its bounded finding.
 
 ## Add a sandbox where your application needs one
 

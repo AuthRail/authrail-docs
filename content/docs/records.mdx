@@ -165,11 +165,11 @@ did not perform the operation.
 An Action can show the inventory name and provider/model configuration saved
 with it. Later inventory edits do not replace that historical context.
 
-A contextual fact can also identify its source, account, resource, extraction
-model, settings and timestamps. Those details explain how the fact was obtained;
-they do not establish that the same model generated the agent's request. Treat
-execution identity as unreported when it was not reported rather than inferring
-it from configuration.
+For AuthRail Contextual AI, the decision's assessment identity, status and signed
+finding explain which contextual answer the rule used. The selected source text
+is not part of that retained finding. These details do not establish which model
+generated the agent's request. Treat execution identity as unreported when it
+was not reported rather than inferring it from configuration.
 
 Access remains limited by organisation and permissions. An internal support
 role does not automatically grant access to all tenant payloads.

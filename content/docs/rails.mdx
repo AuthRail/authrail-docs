@@ -28,7 +28,7 @@ writing the condition.
 | Kind | What it supplies |
 | --- | --- |
 | Guard Rail | A boundary on input, results or information flow, with supported processing where needed. |
-| Data Rail | A reviewed source of business context, such as an invoice balance or a model's answer about a message. |
+| Data Rail | A reviewed source of business context, such as an invoice balance. |
 | Policy Rail | A rule drawn from a published organisational Policy. |
 
 Choose a **Policy Rail** for this payment expectation and select the published
@@ -45,7 +45,14 @@ another record.
 
 If the decision needs information not supplied by the requested arguments,
 choose the reviewed fact source. [Facts and contextual AI](/docs/facts) explains
-how the application supplies that information.
+how trusted lookups supply stored values and how AuthRail Contextual AI interprets selected material.
+
+If the rule needs to understand meaning, enable **AuthRail Contextual AI** on
+this Rail and describe what it should assess. AuthRail prepares the question,
+permitted fields and typed answer for your review. The local sidecar uses that
+answer as input to your rule; the interpretation does not grant permission.
+You do not need a model key or extractor. Follow [Contextual AI](/docs/facts)
+for the full flow and disclosure review.
 
 ### 3. Try examples before publication
 

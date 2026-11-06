@@ -1,459 +1,175 @@
 ---
 title: "Facts and contextual AI"
-description: "Give a rule the business information it needs, including an answer read from selected text."
+description: "Give a rule trusted business data or use AuthRail Contextual AI to understand selected material."
 icon: FileTextIcon
 ---
 
-import { AUTHRAIL } from '@/lib/constants';
+**AuthRail Contextual AI** helps a rule understand meaning. For example, a rule
+can stop a code change that weakens authentication, send a confidential export
+for review, or check whether a proposed response discloses private information.
 
-**AuthRail's contextual AI** helps a rule use information that needs to be read
-from text. Your application uses AuthRail's SDK to ask a configured model a
-reviewed question, check the answer and supply it to the rule.
+You enable it on the Rail that needs that understanding and describe the rule.
+AuthRail prepares the assessment for you to review. Your application sends only
+the permitted fields to AuthRail; AuthRail returns a bounded answer, and the
+local sidecar applies your published rule. You do not configure a model, supply
+a model API key or write an extractor.
 
-An amount or account ID may be enough to check a simple payment limit. Other
-rules need to understand a document, a reason for a payment, the content of a
-proposed export or the description of a production change. A model can read
-that selected material and return a specific answer. That answer is a **fact**:
-information the rule uses when deciding whether the action may continue.
+A model answer supplies information. It cannot approve an action, override a
+denial or replace a person's required approval.
 
-Some facts do not need a model. An application can read an invoice balance
-from a trusted system. Use contextual AI when the answer requires interpreting
-selected material, and a normal lookup when the source already stores the value.
+## Decide whether the rule needs interpretation
 
-| Before this action | A contextual question could ask | Your rule could require |
-| --- | --- | --- |
-| Export a document | Does it contain confidential business information? | Review before export when the answer is yes. |
-| Pay an invoice | Which approved purpose best describes the payment justification? | Review when no permitted purpose matches. |
-| Run a production change | Does the change plan describe deleting stored data? | Approval before a destructive change. |
+Use a trusted lookup for a value already stored in a business system. Use
+Contextual AI when the rule needs to understand selected text.
 
-These are questions you can define, rather than preconfigured checks.
-Contextual AI returns a Yes/No answer, category or score. Your published rule
-uses that answer; model confidence alone does not establish permission.
+| What the rule needs | How to obtain it |
+| --- | --- |
+| An invoice's remaining balance | Read the exact invoice from a trusted account. |
+| Whether a proposed code change weakens authentication | Ask AuthRail Contextual AI to assess the selected diff. |
+| Whether an export contains confidential business information | Assess the permitted document fields before exporting. |
+| The purpose expressed in a payment justification | Classify the selected justification into the reviewed categories. |
 
-## Who configures and runs the model check?
+A missing balance, unknown caller or expired approval is not a question for
+Contextual AI to guess. Those checks keep their own failure behaviour.
 
-AuthRail's server stores the reviewed source configuration and the Rails that
-use it. Your application runs the model check through the SDK before supplying
-the fact to the sidecar for evaluation. The sidecar evaluates the resulting fact against those
-Rails; it does not choose a model or initiate the model call.
+## Prepare a contextual Rail
 
-The supplied Node, Go and Python model clients use **OpenAI's Decisions API** with
-**GPT-6 Luna**. Your application supplies its own OpenAI API key and uses its own
-provider account. This check does not automatically reuse your agent's model or
-its credentials. Another provider needs an extractor implementation and
-validation; changing the model name alone does not connect it.
+Suppose your application has a protected function that applies a code change.
+Its reviewed action includes a text input named `diff`. You want to block a
+change that removes authentication checks.
 
-The server records the model identifier, settings fingerprint and reading
-instructions version, along with source identity, answer type and freshness
-limits. The application supplies the actual question and matching model
-settings to the SDK. The fingerprint binds that setup to the reviewed source.
-Creating a source in the workspace alone does not install or run the extractor
-in your application.
+1. Open the action's Guard Rail draft. Turn on **AuthRail Contextual AI**.
+2. Describe the boundary, for example: “Block code changes that remove or weaken
+   authentication checks.” Choose **Prepare contextual checks**.
+3. Review the proposed assessment and rule. Check what it asks, which input or
+   result fields may be sent to AuthRail, and how its answer affects the rule.
+4. Add examples with a usable answer and with a missing or uncertain answer.
+   Test the draft and review the results before publishing the exact version.
+5. Select that published version for the application's deployment, following
+   [Rails](/docs/rails).
 
-In the tenant workspace, open **Rails → Create Rail → Data Rail → Continue**.
-Under **Connect a source**, choose **AI context**. The source form includes
-**Required AI reading configuration** for the model and settings information.
-Configure this in your organisation's workspace.
+For this example, an assessment might ask whether the selected diff weakens
+authentication. A Yes answer matches the denial rule. A No answer clears that
+check; the other selected rules still have to permit the operation. An uncertain
+answer does not clear it.
 
-## Add a credentials-request check to a support reply
+Choose a **Policy Rail** when the rule comes from a published organisational
+Policy, including a rule that requires human approval. Its contextual setting
+uses the same review of the question and permitted fields. Changing the toggle
+or assessment changes the draft; the revised version must be tested and published.
 
-This setup involves the person reviewing the rule and the developer connecting
-the application. The reviewer decides what question is appropriate; the
-developer controls the source text and the model call.
+<details className="guide-details">
+<summary>Prepare the same draft through an assistant</summary>
 
-### 1. Choose the question and the text it needs
+With **Rail draft preparation** access granted to AuthRail MCP, ask:
 
-Use a question with an answer the rule can check, such as a Yes/No answer to
-whether the customer message requests credentials. Select the customer message
-needed for that question, rather than sending an entire ticket and every
-attachment.
+> Prepare a Guard Rail for our reviewed code-change action. Enable AuthRail
+> Contextual AI to block diffs that weaken authentication. Show me the assessment
+> and exactly which fields would be sent before saving it.
 
-**The selected text goes to the configured model provider.** Decide which
-fields may leave the application and which provider and account may receive
-them. Remove unnecessary fields and redact protected values in trusted
-application code before the model call where your disclosure policy requires it.
-The extractor does not automatically remove every protected value. If the
-material cannot be shared safely, do not send it.
+The assistant finds the reviewed action, prepares the assessment, and can save
+and test the draft using your workspace permissions. It reads the exact revision
+before making changes. A person still reviews publication in AuthRail; an agent
+cannot confirm publication on your behalf. Existing assistant connections need
+explicit consent for Rail draft preparation.
 
-### 2. Review the source setup with the rule
+</details>
 
-Agree on the question, expected answer, model, confidence requirement and what
-should happen if the answer cannot be obtained. The application supplies the
-question and confidence setting to the SDK. Use
-`openAIDecisionsConfigSha256` in Node, `OpenAIDecisionsConfigSHA256` in Go, or
-`openai_decisions_config_sha256` in Python,
-to calculate the settings fingerprint for that exact question.
+## What your application does
 
-In the source form, record that fingerprint, model identifier and instructions
-version along with the source and freshness settings. Save and review it as a
-**Context Source Version**, then select that version for the Data Rail. This
-binds the application's model setup to the source that was reviewed; it does
-not supply the application with the question text. Keep the question in the
-application's reviewed configuration.
+Keep the SDK around the function that actually owns the operation, as shown in
+the [Node.js](/docs/node), [Go](/docs/go) or [Python](/docs/python) guide. The SDK
+obtains the selected Rail's requirements from the sidecar and handles the
+contextual request. Your application supplies the reviewed input and trusted
+caller/resource identity. It keeps its business credentials.
 
-Open the published Data Rail's **Integration details** to copy its **Reviewed
-source version ID** and source configuration. In the editor, use **Source
-details for developers**. The SDK needs this exact ID; the displayed version
-number alone is not enough.
-
-<ProductShot src="/screenshots/contextual-ai-rail.jpg" alt="AuthRail Data Rail for checking whether a customer message requests secret credentials" caption="A Data Rail for a contextual credentials check. The application supplies the model's answer, and a Policy Rail uses it to decide whether review is needed." />
-
-### 3. Connect the application's fact reader
-
-The developer uses a matching SDK extractor—the helper that sends the selected
-text and question to the model. The application checks the answer's format and
-confidence, signs the answer with its source information, and supplies it to the local
-sidecar. AuthRail receives the reported fact status and bounded provenance,
-not the source text or extracted value.
-
-Your application owns the model credential and the choice of source fields.
-The agent must not choose another provider URL, switch accounts or supply its
-own credential for this check.
-
-### Example: supply a model answer before the check
-
-Copy **Reviewed source configuration** from the Data Rail's **Integration
-details** into your application's reviewed configuration. It has this outer
-shape; `contract` contains the fields shown in the workspace:
-
-```json
-{
-  "sourceVersionId": "YOUR_REVIEWED_SOURCE_VERSION_ID",
-  "contract": {
-    "formatVersion": 5,
-    "kind": "extraction",
-    "sourceIdentity": "support-message",
-    "accountBoundary": "YOUR_REVIEWED_ACCOUNT",
-    "lookup": "ticket.read",
-    "queryField": { "root": "arguments", "path": ["ticketId"] },
-    "factKey": "requestsCredentials",
-    "resultPath": ["requestsCredentials"],
-    "valueType": "boolean",
-    "modelId": "gpt-6-luna",
-    "modelConfigSha256": "YOUR_REVIEWED_SETTINGS_FINGERPRINT",
-    "promptVersion": "support-review-v1",
-    "maxInputBytes": 4096,
-    "maxOutputBytes": 256,
-    "maxAgeSeconds": 60,
-    "timeoutMs": 2000,
-    "failure": "unavailable"
-  }
-}
-```
-
-This is the shape to recognise, not a source to publish unchanged. Copy your
-actual source ID and settings. The question below is application configuration:
-calculate its fingerprint before reviewing the source, then require that same
-fingerprint at runtime. Never replace the saved fingerprint with a new one
-merely to make a changed question pass.
-
-In these examples, `reviewed` is the copied configuration loaded by your
-application, and `message` is a record obtained after authenticating the user
-and checking access to the ticket. It supplies the ticket ID, selected text,
-source observation time and an opaque source location such as
-`ticket:ticket_123`. `openAIKey` (`openai_key` in Python) is your application's own provider credential. The `client`, `operation`, action arguments and
-protected send function come from
-your [SDK setup](/docs/getting-started); they are application objects, not values
-the agent can choose. Add the fact before calling Enforce:
+There is no separate contextual model client to initialise. These excerpts use
+an already configured SDK client and reviewed `operation`. The change service
+and recovery journal are application code: the journal saves execution context,
+and the service uses the SDK's stable idempotency key to prevent duplicate effects.
+Handle blocked requests and uncertain outcomes using [recovery](/docs/recovery).
 
 <Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
 <Tab value="Node.js">
 
 ```ts
-import {
-  extractContextFact, newOpenAIDecisionsExtractor,
-  openAIDecisionsConfigSha256, type ExtractionSource,
-} from '@authrail/sdk-node';
-
-const question = {
-  type: 'predicate',
-  instructions: 'Does this customer message request a password or API key?',
-  minConfidence: 0.8,
-} as const;
-const c = reviewed.contract;
-const source: ExtractionSource = {
-  sourceVersionId: reviewed.sourceVersionId,
-  sourceIdentity: c.sourceIdentity, accountBoundary: c.accountBoundary,
-  lookup: c.lookup, timeoutMs: c.timeoutMs,
-  resultPath: c.resultPath, valueType: c.valueType,
-  modelId: c.modelId, modelConfigSha256: c.modelConfigSha256,
-  promptVersion: c.promptVersion,
-  maxInputBytes: c.maxInputBytes, maxOutputBytes: c.maxOutputBytes,
-};
-if (openAIDecisionsConfigSha256(question) !== source.modelConfigSha256) {
-  throw new Error('Review the changed model question before using it');
-}
-const extractor = newOpenAIDecisionsExtractor({ source, question, apiKey: openAIKey });
-const fact = await extractContextFact(
-  source, message.id, message.sourceLocation, message.observedAt,
-  new TextEncoder().encode(message.selectedText), extractor,
-);
-const checkedOperation = { ...operation, factResolutions: [fact] };
-const checked = await client.enforce(checkedOperation, actionArguments, protectedSend);
+const checked = await client.enforce(operation, { diff },
+  async (input, execution) => {
+    await journal.saveRecovery(execution);
+    return changes.apply(input, {
+      idempotencyKey: execution.providerIdempotencyKey,
+    });
+  });
 ```
 
 </Tab>
 <Tab value="Go">
 
 ```go
-// Imports: context, errors, time, and
-// authrail "github.com/AuthRail/authrail-sdk-go".
-question := authrail.DecisionsQuestion{
-    Type: "predicate",
-    Instructions: "Does this customer message request a password or API key?",
-    MinConfidence: 0.8,
-}
-c := reviewed.Contract
-source := authrail.ExtractionSource{
-    SourceVersionID: reviewed.SourceVersionID,
-    SourceIdentity: c.SourceIdentity, AccountBoundary: c.AccountBoundary,
-    Lookup: c.Lookup, Timeout: time.Duration(c.TimeoutMs) * time.Millisecond,
-    ResultPath: c.ResultPath, ValueType: c.ValueType,
-    ModelID: c.ModelID, ModelConfigSHA256: c.ModelConfigSHA256,
-    PromptVersion: c.PromptVersion,
-    MaxInputBytes: c.MaxInputBytes, MaxOutputBytes: c.MaxOutputBytes,
-}
-fingerprint, err := authrail.OpenAIDecisionsConfigSHA256(question)
-if err != nil { return err }
-if fingerprint != source.ModelConfigSHA256 {
-    return errors.New("review the changed model question before using it")
-}
-extractor, err := authrail.NewOpenAIDecisionsExtractor(authrail.OpenAIDecisionsConfig{
-    Source: source, Question: question, APIKey: openAIKey,
-})
-if err != nil { return err }
-fact, err := authrail.ExtractContextFact(ctx, source, message.ID,
-    message.SourceLocation, message.ObservedAt, []byte(message.SelectedText), extractor)
-if err != nil { return err }
-operation.FactResolutions = []authrail.FactResolution{fact}
-_, _, _, err = authrail.Enforce(ctx, client, operation, actionArguments, protectedSend)
-if err != nil { return err }
-```
+type Change struct { Diff string `json:"diff"` }
+type ChangeResult struct { Applied bool `json:"applied"` }
 
-`reviewed` is your application's Go representation of the copied JSON. Its
-`Contract` fields mirror the JSON names; `TimeoutMs` is converted to a Go
-duration. `message.ObservedAt` is a `time.Time` parsed from the source timestamp.
-
-</Tab>
-<Tab value="Python">
-
-```python
-from dataclasses import replace
-from authrail import (
-    DecisionsQuestion, ExtractionSource, extract_context_fact,
-    new_openai_decisions_extractor, openai_decisions_config_sha256,
-)
-
-question = DecisionsQuestion(
-    type="predicate",
-    instructions="Does this customer message request a password or API key?",
-    min_confidence=0.8,
-)
-c = reviewed["contract"]
-source = ExtractionSource(
-    source_version_id=reviewed["sourceVersionId"],
-    source_identity=c["sourceIdentity"], account_boundary=c["accountBoundary"],
-    lookup=c["lookup"], timeout_ms=c["timeoutMs"],
-    result_path=tuple(c["resultPath"]), value_type=c["valueType"],
-    model_id=c["modelId"], model_config_sha256=c["modelConfigSha256"],
-    prompt_version=c["promptVersion"],
-    max_input_bytes=c["maxInputBytes"], max_output_bytes=c["maxOutputBytes"],
-)
-if openai_decisions_config_sha256(question) != source.model_config_sha256:
-    raise ValueError("Review the changed model question before using it")
-extractor = new_openai_decisions_extractor(
-    source=source, question=question, api_key=openai_key,
-)
-fact = await extract_context_fact(
-    source, message.id, message.source_location, message.observed_at,
-    message.selected_text.encode("utf-8"), extractor,
-)
-checked_operation = replace(operation, fact_resolutions=[fact])
-checked = await client.enforce(checked_operation, action_arguments, protected_send)
-```
-
-Run this inside an async application function. `reviewed` is the parsed source
-JSON. `message.observed_at` is the source's timestamp as an ISO-8601 string.
-
-</Tab>
-</Tabs>
-
-The selected text is sent to OpenAI by the extractor. The sidecar's deterministic
-rule engine uses the returned fact; the model does not return the final allow
-or deny decision. Do not convert an `uncertain` or `unavailable` fact to `false`.
-Pass its status through so the published rule can handle it.
-
-### 4. Compare ordinary and sensitive requests
-
-Connect the fact to the rule that requires review, then try an ordinary customer
-message and one asking for credentials. Also test an unavailable or uncertain
-answer. Inspect the Action's decision and source status.
-
-The expected result is a typed answer the rule can use, with enough source
-information to explain where it came from. A positive credentials answer can
-require review before the protected send function runs. The model's answer
-supplies context; it does not itself give permission to send a reply.
-
-See [Rails](/docs/rails) for rule authoring and [Actions and decisions](/docs/records)
-for reviewing the result.
-
-## Example: read a trusted customer record without a model
-
-A customer-record lookup can supply a stored value such as whether a customer
-has completed a review. Configure a separate reviewed customer/database source
-for that fact. Copy its ID, source name, account, lookup name and timeout from
-**Reviewed source configuration**; do not reuse the extraction source above.
-
-Here `reviewedCustomerSource` is the separate customer source JSON copied
-from the workspace (`reviewed_customer_source` in Python). The examples map its
-reviewed fields to the SDK's `CustomerSource` configuration. `customerId` comes from the application's access-checked
-customer record. `customerStore.read` is **your own read-only database helper**,
-not an AuthRail API. It accepts that ID and the reviewed account, honours the
-SDK's cancellation/deadline, and returns the stored account, ID, value and source
-observation time. Its database credential stays in your application.
-
-<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
-<Tab value="Node.js">
-
-```ts
-import { lookupCustomerFact, type CustomerSource } from '@authrail/sdk-node';
-
-const c = reviewedCustomerSource.contract;
-const customerSource: CustomerSource = {
-  sourceVersionId: reviewedCustomerSource.sourceVersionId,
-  sourceIdentity: c.sourceIdentity, accountBoundary: c.accountBoundary,
-  lookup: c.lookup, timeoutMs: c.timeoutMs,
-};
-const fact = await lookupCustomerFact(customerSource, customerId, async (key, signal) => {
-  const row = await customerStore.read(key, customerSource.accountBoundary, { signal });
-  return {
-    sourceIdentity: customerSource.sourceIdentity,
-    accountBoundary: row.accountId,
-    lookup: customerSource.lookup, lookupKey: row.id,
-    observedAt: row.observedAt, value: { reviewComplete: row.reviewComplete },
-  };
-});
-const checkedOperation = { ...operation, factResolutions: [fact] };
-```
-
-</Tab>
-<Tab value="Go">
-
-```go
-c := reviewedCustomerSource.Contract
-customerSource := authrail.CustomerSource{
-    SourceVersionID: reviewedCustomerSource.SourceVersionID,
-    SourceIdentity: c.SourceIdentity, AccountBoundary: c.AccountBoundary,
-    Lookup: c.Lookup, Timeout: time.Duration(c.TimeoutMs) * time.Millisecond,
-}
-fact, err := authrail.LookupCustomerFact(ctx, customerSource, customerID,
-    func(readCtx context.Context, key string) (authrail.CustomerReadResult, error) {
-        row, err := customerStore.Read(readCtx, customerSource.AccountBoundary, key)
-        if err != nil { return authrail.CustomerReadResult{}, err }
-        return authrail.CustomerReadResult{
-            SourceIdentity: customerSource.SourceIdentity,
-            AccountBoundary: row.AccountID,
-            Lookup: customerSource.Lookup, LookupKey: row.ID,
-            ObservedAt: row.ObservedAt,
-            Value: map[string]any{"reviewComplete": row.ReviewComplete},
-        }, nil
+result, callCheck, resultCheck, err := authrail.Enforce(ctx, client,
+    operation, Change{Diff: diff},
+    func(ctx context.Context, input Change,
+        execution authrail.ExecutionContext) (ChangeResult, error) {
+        if err := journal.SaveRecovery(ctx, execution); err != nil {
+            return ChangeResult{}, err
+        }
+        return changes.Apply(ctx, input, execution.ProviderIdempotencyKey)
     })
-if err != nil { return err }
-operation.FactResolutions = []authrail.FactResolution{fact}
 ```
 
 </Tab>
 <Tab value="Python">
 
 ```python
-from dataclasses import replace
-from authrail import CustomerReadResult, CustomerSource, lookup_customer_fact
-
-c = reviewed_customer_source["contract"]
-customer_source = CustomerSource(
-    source_version_id=reviewed_customer_source["sourceVersionId"],
-    source_identity=c["sourceIdentity"], account_boundary=c["accountBoundary"],
-    lookup=c["lookup"], timeout_ms=c["timeoutMs"],
-)
-
-async def read_customer(key: str) -> CustomerReadResult:
-    row = await customer_store.read(customer_source.account_boundary, key)
-    return CustomerReadResult(
-        source_identity=customer_source.source_identity,
-        account_boundary=row.account_id,
-        lookup=customer_source.lookup, lookup_key=row.id,
-        observed_at=row.observed_at,
-        value={"reviewComplete": row.review_complete},
+async def apply_change(checked, execution):
+    await journal.save_recovery(execution)
+    return await changes.apply(
+        checked, idempotency_key=execution.provider_idempotency_key
     )
 
-fact = await lookup_customer_fact(customer_source, customer_id, read_customer)
-checked_operation = replace(operation, fact_resolutions=[fact])
+checked = await client.enforce(operation, {"diff": diff}, apply_change)
 ```
-
-The SDK bounds this async read by `customer_source.timeout_ms`. Your database
-helper must cooperate with cancellation and use a database deadline too.
 
 </Tab>
 </Tabs>
 
-Use the operation carrying the returned fact in your next SDK check, as in the
-contextual example. The actual row account and record ID are returned so the
-SDK can reject a mismatch; do not overwrite a mismatched row's identity to make
-it appear trusted. Keep the source observation time rather than making old
-cached data look freshly observed. A successful read supplies information, not
-permission for the business action.
+In Enforce, the function does not run until the SDK establishes permission and
+records its start. A result-time contextual check happens after the function;
+it can withhold the result but cannot undo the effect.
 
-<details className="guide-details">
-<summary>More about ordinary lookups and model answers</summary>
+## Follow the request
 
-| Question | Source | Example answer |
-| --- | --- | --- |
-| What is the invoice's remaining balance? | Reviewed QuickBooks invoice lookup | A number such as `80`. Currency needs its own reviewed source. |
-| What is the invoice's status? | Reviewed Stripe invoice lookup | The status from the selected invoice and account. |
-| Does the customer message ask for credentials? | A configured model reading that message | `true` or `false`, with the required confidence. |
+1. The sidecar identifies the assessment required by the selected published Rail.
+2. The SDK selects only its permitted fields and checks any required local
+   processing before sending them through the sidecar to AuthRail.
+3. AuthRail interprets that material and returns a signed Yes/No answer, category
+   or score, or reports that it could not obtain a usable answer.
+4. The sidecar verifies that the finding belongs to this exact request, caller,
+   input, phase and Rail version, then applies the deterministic rule.
+5. The SDK applies the decision at the protected function or result boundary.
 
-Other model questions can return a category or a score. The returned value must
-match the shape expected by the rule; a free-form explanation cannot replace
-its required Yes/No answer.
+When Contextual AI is off for a Rail, that Rail causes no contextual request.
+A timeout, refusal or uncertain answer never becomes a made-up No answer. The
+rule cannot rely on a missing finding as if the check passed. Repair the cause
+or obtain a fresh check; do not weaken the rule simply to make it proceed.
 
-A fact reader performs a read. It must not execute the payment or message being
-checked. Provider credentials, OAuth consent, refresh and revocation belong to
-the application. A compliance Connection does not grant Runtime permission to
-change provider records.
+## Know what leaves your application
 
-</details>
+**AuthRail receives the selected contextual material.** Review that disclosure
+when publishing the Rail. Select only the fields needed for the question and
+apply required filtering before the contextual call. A later answer or result
+check cannot undo information already sent.
 
-<details className="guide-details">
-<summary>More about source trust and missing answers</summary>
+Selected text is processed for the assessment; it is not added to normal logs,
+traces or retained Actions. The retained decision includes the assessment's
+identity, status and bounded finding. Keep raw text and credentials out of your
+application's diagnostic logs too.
 
-A Context Source Version also records the provider account and resource, the
-expected value type, how long the answer remains fresh and how failures are
-handled. If the source or model setup changes, review and publish a new version.
-Use that version's account and resource lookup in application code.
-
-A timeout or unavailable provider means the fact is unavailable. A wrong
-account, wrong resource or invalid value is untrusted. Neither is a passing
-answer. Do not replace an unread balance with zero or an uncertain sensitivity
-answer with false. Follow the configured denial or review behaviour while
-repairing the source.
-
-A refusal or insufficient model confidence leaves an uncertain answer. A later
-check of the answer cannot undo source text already disclosed to the provider.
-Keeping text out of AuthRail's fact report does not keep it out of that model.
-
-</details>
-
-<details className="guide-details">
-<summary>More about model identity and earlier actions</summary>
-
-The fact's source details identify the model used to read the text. That model
-can differ from the model configured in AI Inventory and from the model that
-produced the agent's request. Configuration alone does not prove which model
-ran the agent.
-
-Rules that depend on earlier actions need history from the application's
-trusted saved session state. An agent's claim that someone approved an action
-previously cannot replace an authenticated approval record. Keep raw provider
-bodies, credentials and source text out of diagnostic logs.
-
-</details>
+Contextual AI interprets material through AuthRail's service. It does not prove
+that an answer is correct, identify which model generated the original agent
+request, or provide universal protection against sensitive-data disclosure.
+Inspect the resulting [Action and decisions](/docs/records) alongside your
+application's own effect and recovery records.

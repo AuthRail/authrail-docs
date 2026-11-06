@@ -128,19 +128,22 @@ Existing screenshots are in public/screenshots; assess framing, accuracy and
 sensitive information before reuse. Show examples and visual evidence rather
 than long pages of abstract text. Do not invent successful product states.
 
-Explain contextual AI explicitly: an approved provider client receives selected
-material, returns a typed fact and the deterministic rule uses it to decide.
-The source and question are reviewed in AuthRail; the SDK should consume that
-configuration without developers recreating prompts or hashes. The target is
-provider-agnostic, with an accurately declared, qualified provider/model matrix.
-OpenAI is one client, not the definition of contextual AI. Public pages must
-describe the implementation that actually ships; an interface alone does not
-establish multi-provider support. Typed facts/provenance are sent to AuthRail. Source
-text staying behind the executor does not mean it is withheld from that model.
-Do not promise generic pre-provider redaction/minimisation that is not
-implemented. Keep configured models, contextual fact-reading models and actual
-agent execution identity distinct. Permission, reported execution, independently
-verified effects and Framework-qualified proof have different meanings.
+Explain Contextual AI as an AuthRail-operated service enabled on the Rail that
+needs interpretation. The user describes the business rule; AuthRail prepares
+the assessment. The published version fixes its question, permitted fields and
+typed answer. The SDK selects those fields after required local processing and
+sends them through the sidecar to AuthRail. AuthRail returns a signed bounded
+finding, and the local deterministic sidecar applies the rule. Interpretation
+is not permission.
+
+Do not name the private provider/model, ask customers for model credentials,
+expose prompts/settings hashes or publish a provider catalogue for this flow.
+AuthRail receives selected contextual material; do not repeat the old claim that
+raw text stays out of AuthRail. Explain transient processing, retained bounded
+findings, uncertainty and the disclosure review. Required local filtering must
+happen before sending text; a later check cannot undo disclosure. A Rail with
+Contextual AI off causes no contextual request. Missing identities, failed
+lookups and expired approvals keep their ordinary failure handling.
 
 ## Teach usable contextual AI, Guards and Data Rails
 
@@ -148,10 +151,11 @@ Use the detailed product contract in AUTHRAIL_PRODUCT_STORY.md rather than
 maintaining another catalogue of promised provider support in this file.
 The docs must let a beginner answer:
 
-- Contextual AI: where do I set the question, choose the approved provider/model,
-  bind credentials privately, select permitted source material and inspect an
-  uncertain/failed answer? Show a document or code example as well as business
-  text. A model supplies a fact; it never grants final permission.
+- Contextual AI: where do I enable it on a Rail, describe the intended rule,
+  review the prepared assessment and permitted material, test uncertain/missing
+  answers and inspect the decision? Show code/diff and document examples as
+  well as business text. MCP prepares the same draft under actual permissions;
+  exact publication remains a person's decision. No separate model setup.
 - Guard Rails: which ready-made protection can I select, what boundary does it
   check, what does it block/change and how can I test its limits? A literal demo
   marker or custom callback is not a general credential or injection detector.

@@ -1,0 +1,466 @@
+---
+title: "Building your own application"
+description: "Understand how AuthRail fits between an agent's request and the business functions in your application."
+icon: CodeIcon
+---
+
+An agent application combines language understanding with functions that do
+work. The model helps a person express what they want and chooses a tool to
+request it; the application connects that request to its users, accounts,
+data and business services. AuthRail adds the authorization check around those
+functions, so your organisation's rules can govern what the agent does.
+
+You might be building an engineering agent that changes code and prepares
+releases, a customer platform whose assistant manages account access, or an
+internal application that exports business data and performs financial tasks.
+In each case, design the functions the agent may request alongside the authority
+they require: who can use them, which resources they may affect, what information
+they may disclose and which decisions belong to a person.
+
+For a release assistant, the model may propose a change while the application
+supplies the authenticated requester, intended environment and change material.
+Runtime can then apply the organisation's release rules before the function
+performs the work. You provide that function and its provider integration;
+AuthRail's role is to check and record the connected operation.
+
+The [quickstart](/docs/getting-started) uses a small read-only example to teach
+the SDK without making an external change. This guide explains the surrounding
+application design so that you can extend that integration to more consequential
+work. The invoice-shaped request below illustrates the tool-call format; the
+same pattern applies to your reviewed release, access-change or export function.
+
+## Following a request through the application
+
+```text
+Person's message
+  → model proposes a tool and its arguments
+  → application validates the request and identifies the caller and resource
+  → SDK and sidecar check the call
+  → application performs the permitted operation
+  → SDK and sidecar check the result
+  → assistant receives the released output and prepares a reply
+```
+
+This flow can sit inside your existing agent loop, background worker or business
+workflow. You do not need a particular chat interface, and a function can use
+Runtime even when it is called without a model. When a rule requires approval,
+the application saves its work and returns to it after review rather than
+leaving the original network request open.
+
+## Turning a message into a tool request
+
+Give the model a named tool with an input schema that describes the operation.
+An invoice reader, for instance, might accept an `invoiceId`. After interpreting
+the person's message, the model could propose:
+
+```json
+{"tool":"read_invoice","arguments":{"invoiceId":"invoice_123"}}
+```
+
+This is an example of your application's tool request, not an AuthRail HTTP
+request. Several sentences can lead to the same proposal because the model
+handles the wording. It may also misunderstand the person or choose an
+inappropriate tool, so your application should validate the proposal and ask
+for clarification when the intended action is ambiguous.
+
+Runtime becomes involved when the proposal reaches a connected function.
+Ordinary conversation does not automatically create an Action, and a reply
+that sounds successful does not establish that a tool was called. In the
+reference application, sign-in authenticates the person before they use chat,
+while the business workflows invoke the SDK when the assistant requests an
+operation. Those are separate responsibilities.
+
+## Supplying the information the model cannot establish
+
+Your application needs to resolve the caller and target through its own trusted
+code. An invoice identifier from the model describes what it is asking to read;
+your server still checks whether the signed-in person may access that invoice
+and which provider account contains it.
+
+The deployment, Operation Version and credentials also come from application
+configuration. They should not be selectable through model-written arguments.
+A useful way to review the integration is to follow where each value originates:
+
+| Information | Source |
+| --- | --- |
+| Requested action and fields | The model's proposal, validated as application input. |
+| Caller and session | Your application authentication. |
+| Permitted resource and provider account | Your application's lookup and private configuration. |
+| Published rules | The deployment's selection in AuthRail. |
+| Live business values | A configured reader with account, resource and freshness checks. |
+| Provider credential | The application function that performs the operation. |
+
+The SDK signs the application's assertions so Runtime can check their origin.
+That signature identifies the registered application key; the correctness of
+its user authentication and resource lookup remains your application's
+responsibility. [Identity and deployment](/docs/identity) explains the connection
+files and how those bindings are established.
+
+## Connecting the function that does the work
+
+Use the [Node.js](/docs/node), [Go](/docs/go) or [Python](/docs/python) SDK around
+the function that reads the invoice or performs the business write. The SDK
+communicates with a sidecar running beside the application and applies the
+returned decision before allowing the function to proceed in Enforce mode.
+Provider credentials stay with that function, outside the model's access.
+
+Begin with safe requests in Observe so you can inspect the decisions while
+introducing the integration. Before switching to Enforce, review other routes
+to the same operation, including direct tools, shell access and credential
+files. If the agent can use one of those routes without the SDK, the connected
+function's protection does not cover that alternative. The [mode guide](/docs/modes)
+explains the transition and [execution security](/docs/security) covers this
+review in more detail.
+
+For a write, assign a durable business request key and keep it with your saved
+workflow. Retrying the same request uses that key, whereas changing the input
+under the same key creates a conflict. Before calling a provider, save the
+SDK's recovery context and use its provider idempotency key where the service
+supports one. This gives the application the information it needs to investigate
+an interrupted attempt without accidentally repeating its effect.
+
+The [compatibility reference](/docs/compatibility) identifies the released SDK
+and Runtime capabilities. SDK0.1.1 supports the basic wrappers and recovery APIs,
+but does not include the newer automatic Data reader bindings, expanded Guard
+processors or Rail-owned Contextual AI flow.
+
+## Connect a real tool handler
+
+The complete [Node.js](/docs/node), [Go](/docs/go) and [Python](/docs/python)
+programs take the invoice application through Enforce, denial and saved approval.
+In an existing application, the same SDK call belongs in the handler that your
+agent loop dispatches. The handler below shows that boundary in each language:
+it validates the proposed tool, checks the caller's ownership, creates the
+Operation from application context and returns only the checked result.
+
+Your authentication middleware supplies `session`; your workflow loads `task`
+from private storage. Neither object belongs in the model's tool schema. The
+model supplies only the tool name and `invoiceId`. For example, these values
+might already exist inside the application when it dispatches the tool:
+
+| Application context | Example | Who establishes it |
+| --- | --- | --- |
+| Session organisation | Your configured organisation ID. | Login and organisation membership checks. |
+| Session user and session ID | `staff_123`, `session_123`. | Your authentication middleware. |
+| Task owner and organisation | The same user and organisation. | Your saved task lookup and access check. |
+| Task request key | `read-request-001`. | Your workflow when creating the business request. |
+| Task invoice | `invoice_123`. | The validated request saved with that task. |
+| Operation Version | Your reviewed invoice-read version. | Private application configuration. |
+
+The examples use an application-owned invoice catalogue. Each row has
+`organisationId`, `ownerId`, `invoiceId` and `status`, so ownership can be checked
+without trusting the model. In Go, the corresponding struct fields use exported
+names. Keep this catalogue private and immutable during a request; replace its
+lookup with your account-scoped database or provider reader in a real service.
+Recheck access when performing the read, as the examples do.
+
+The handler hashes the organisation, user and task key into a bounded Action key,
+so a long request key still fits the SDK's limit. The same saved task yields the
+same Action key across languages. Use a new task key for genuinely new work.
+
+Create the client using the connection settings from your language guide, then
+bind it and the configured Operation Version to this handler. The Node and
+Python factories return a function taking the authenticated session, saved task
+and proposal. Go's `Handle` takes that same context and the proposal as JSON,
+rejecting unknown fields. Download the modules if you want to keep them beside
+your own server code:
+[Node.js module](/examples/sdk/invoice-tool.mjs),
+[Go module](/examples/sdk/invoice-tool.go),
+[Python module](/examples/sdk/invoice_tool.py).
+
+<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+
+<Tab value="Node.js">
+
+```js
+import { createHash } from 'node:crypto';
+
+/** Run inside your application, after its own authentication and task lookup. */
+export function createInvoiceTool({ client, organisationId, operationVersionId, invoices }) {
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  return async function handleInvoiceTool(session, task, proposal) {
+    if (!session || session.organisationId !== organisationId ||
+        !session.userId || !session.sessionId || !task ||
+        task.organisationId !== organisationId || task.userId !== session.userId ||
+        typeof task.requestKey !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(task.requestKey)) {
+      throw new Error('Authenticated task context required');
+    }
+    if (!object(proposal) || Object.keys(proposal).sort().join(',') !== 'arguments,tool' ||
+        proposal.tool !== 'read_invoice' || !object(proposal.arguments) ||
+        Object.keys(proposal.arguments).join(',') !== 'invoiceId' ||
+        typeof proposal.arguments.invoiceId !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,96}$/.test(proposal.arguments.invoiceId)) {
+      throw new Error('Invalid invoice tool request');
+    }
+    const invoiceId = proposal.arguments.invoiceId;
+    if (task.invoiceId !== invoiceId) throw new Error('Request does not match the saved task');
+    // Snapshot trusted identity before awaiting the SDK; arguments cannot select it.
+    const userId = session.userId;
+    const sessionId = session.sessionId;
+    const requestKey = task.requestKey;
+    const actionKey = `invoice:${createHash('sha256')
+      .update([organisationId, userId, requestKey].join('\0')).digest('hex')}`;
+    const readOwnedInvoice = () => {
+      const row = invoices.get(invoiceId);
+      if (!row || row.organisationId !== organisationId || row.ownerId !== userId ||
+          row.invoiceId !== invoiceId || typeof row.status !== 'string') {
+        throw new Error('Invoice unavailable to this caller');
+      }
+      return { invoiceId: row.invoiceId, status: row.status };
+    };
+    readOwnedInvoice(); // Ownership lookup is application authorization, before Runtime.
+    const checked = await client.enforce({
+      operationVersionId,
+      actionKey,
+      principalId: userId,
+      sessionId,
+      principalSource: 'application_session',
+      resourceId: invoiceId,
+      resourceSource: 'application_lookup',
+    }, { invoiceId }, async checkedArgs => {
+      if (checkedArgs.invoiceId !== invoiceId) throw new Error('Invoice binding changed');
+      // Recheck access at execution and return only the declared public fields.
+      return readOwnedInvoice();
+    });
+    return { status: 'completed', actionId: checked.callDecision.actionId, invoice: checked.result };
+  };
+}
+```
+
+</Tab>
+
+<Tab value="Go">
+
+```go
+package invoicetool
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"regexp"
+
+	authrail "github.com/AuthRail/authrail-sdk-go"
+)
+
+type Session struct{ OrganisationID, UserID, SessionID string }
+type Task struct{ OrganisationID, UserID, RequestKey, InvoiceID string }
+type Invoice struct{ OrganisationID, OwnerID, InvoiceID, Status string }
+type Config struct{ OrganisationID, OperationVersionID string }
+type ToolCall struct {
+	Tool      string `json:"tool"`
+	Arguments struct {
+		InvoiceID string `json:"invoiceId"`
+	} `json:"arguments"`
+}
+
+var safeKey = regexp.MustCompile(`^[A-Za-z0-9_-]{1,96}$`)
+
+// Handle runs after the application's authentication and saved-task lookup.
+func Handle(ctx context.Context, client *authrail.Client, config Config, session Session,
+	task Task, proposalJSON []byte, invoices map[string]Invoice) (map[string]any, error) {
+	if session.OrganisationID != config.OrganisationID || session.UserID == "" || session.SessionID == "" ||
+		task.OrganisationID != config.OrganisationID || task.UserID != session.UserID || !safeKey.MatchString(task.RequestKey) {
+		return nil, errors.New("authenticated task context required")
+	}
+	var proposal ToolCall
+	decoder := json.NewDecoder(bytes.NewReader(proposalJSON))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&proposal); err != nil {
+		return nil, errors.New("invalid invoice tool request")
+	}
+	var extra any
+	if decoder.Decode(&extra) != io.EOF || proposal.Tool != "read_invoice" ||
+		!safeKey.MatchString(proposal.Arguments.InvoiceID) || task.InvoiceID != proposal.Arguments.InvoiceID {
+		return nil, errors.New("request does not match the saved task")
+	}
+	invoiceID := proposal.Arguments.InvoiceID
+	digest := sha256.Sum256([]byte(config.OrganisationID + "\x00" + session.UserID + "\x00" + task.RequestKey))
+	actionKey := fmt.Sprintf("invoice:%x", digest)
+	readOwnedInvoice := func() (map[string]any, error) {
+		row, exists := invoices[invoiceID]
+		if !exists || row.OrganisationID != config.OrganisationID || row.OwnerID != session.UserID ||
+			row.InvoiceID != invoiceID || row.Status == "" {
+			return nil, errors.New("invoice unavailable to this caller")
+		}
+		return map[string]any{"invoiceId": row.InvoiceID, "status": row.Status}, nil
+	}
+	if _, err := readOwnedInvoice(); err != nil {
+		return nil, err
+	}
+	invoice, call, _, err := authrail.Enforce(ctx, client, authrail.Operation{
+		VersionID:   config.OperationVersionID,
+		ActionKey:   actionKey,
+		PrincipalID: session.UserID, SessionID: session.SessionID,
+		PrincipalSource: "application_session", ResourceID: invoiceID, ResourceSource: "application_lookup",
+	}, map[string]any{"invoiceId": invoiceID},
+		func(ctx context.Context, checked map[string]any, execution authrail.ExecutionContext) (map[string]any, error) {
+			if checked["invoiceId"] != invoiceID {
+				return nil, errors.New("invoice binding changed")
+			}
+			return readOwnedInvoice()
+		})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"status": "completed", "actionId": call.ActionID, "invoice": invoice}, nil
+}
+```
+
+</Tab>
+
+<Tab value="Python">
+
+```python
+import hashlib
+import re
+
+from authrail import Operation
+
+
+def create_invoice_tool(client, organisation_id, operation_version_id, invoices):
+    """Invoke only with server-authenticated context and an application-owned task."""
+    async def handle(session, task, proposal):
+        if (not isinstance(session, dict) or not isinstance(task, dict)
+                or session.get("organisationId") != organisation_id
+                or not session.get("userId") or not session.get("sessionId")
+                or task.get("organisationId") != organisation_id
+                or task.get("userId") != session["userId"]):
+            raise ValueError("Authenticated task context required")
+        request_key = task.get("requestKey")
+        if not isinstance(request_key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,96}", request_key):
+            raise ValueError("Invalid saved task key")
+        if (not isinstance(proposal, dict) or set(proposal) != {"tool", "arguments"}
+                or proposal["tool"] != "read_invoice"
+                or not isinstance(proposal["arguments"], dict)
+                or set(proposal["arguments"]) != {"invoiceId"}):
+            raise ValueError("Invalid invoice tool request")
+        invoice_id = proposal["arguments"]["invoiceId"]
+        if (not isinstance(invoice_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,96}", invoice_id)
+                or task.get("invoiceId") != invoice_id):
+            raise ValueError("Request does not match the saved task")
+        user_id, session_id = session["userId"], session["sessionId"]
+        action_key = "invoice:" + hashlib.sha256(
+            "\0".join((organisation_id, user_id, request_key)).encode("utf-8")
+        ).hexdigest()
+
+        def read_owned_invoice():
+            row = invoices.get(invoice_id)
+            if (not isinstance(row, dict) or row.get("organisationId") != organisation_id
+                    or row.get("ownerId") != user_id or row.get("invoiceId") != invoice_id
+                    or not isinstance(row.get("status"), str)):
+                raise ValueError("Invoice unavailable to this caller")
+            return {"invoiceId": row["invoiceId"], "status": row["status"]}
+
+        read_owned_invoice()
+        operation = Operation(
+            version_id=operation_version_id,
+            action_key=action_key,
+            principal_id=user_id, session_id=session_id,
+            principal_source="application_session",
+            resource_id=invoice_id, resource_source="application_lookup",
+        )
+
+        async def read(checked, execution):
+            if checked["invoiceId"] != invoice_id:
+                raise ValueError("Invoice binding changed")
+            return read_owned_invoice()
+
+        checked = await client.enforce(operation, {"invoiceId": invoice_id}, read)
+        return {"status": "completed", "actionId": checked.call_decision.action_id,
+                "invoice": checked.result}
+    return handle
+```
+
+</Tab>
+
+</Tabs>
+
+An allowed `invoice_123` request returns `status: "completed"`, its Action ID
+and the checked invoice fields. The ownership fields are never included in that
+result. A request for another user's invoice fails at the application's access
+check before reaching AuthRail; it is not an AuthRail denial and creates no
+Runtime Action. A caller-owned `invoice_456` can reach Runtime and then be denied
+by the quickstart's Policy. This distinction helps you test the two boundaries
+without confusing them.
+
+The handler deliberately propagates SDK errors to your private workflow layer.
+It must not send an exception, continuation or execution context straight to the
+model. When approval is required, save the continuation with the same task and
+return an awaiting-review message. On a denied call, return a blocked message;
+on an unknown outcome, keep the task unresolved for investigation. The complete
+SDK programs implement encrypted local task storage and exclusive resumption,
+and [approvals](/docs/approvals) and [recovery](/docs/recovery) explain adapting
+that lifecycle to your workflow store. A held call is not a completed read.
+
+For a write, extend the callback to save its execution context before contacting
+the provider, using its provider idempotency key. The handler here performs only
+a read; it does not stand in for a payment provider, a production login system
+or a durable task queue. Your existing application supplies those services,
+while the SDK applies AuthRail at the connected operation.
+
+## Applying the organisation's rules
+
+The deterministic engine evaluates the operation's structured values against
+the selected published rules. For a payout, it can compare the requested amount
+with freshly verified available funds in the same currency; for a refund, it
+needs the chosen payment's remaining refundable amount. It does not need to
+interpret the original chat sentence again, and the model's description of a
+balance is not a substitute for the provider reading.
+
+Guard, Data and Policy Rails contribute different parts of that decision. A
+Guard constrains input or result release, a Data Rail supplies a trusted fact,
+and a Policy Rail expresses business authority. The applicable rules depend
+on the operation and the deployment's selection; they are not three language
+interpreters through which every message passes.
+
+When the rule needs to understand meaning, such as whether release notes weaken
+authentication, [AuthRail Contextual AI](/docs/facts) can provide an interpretation.
+The Rail defines the permitted material and assessment, required local filtering
+happens before that material is sent to AuthRail, and the resulting finding is
+used by the deterministic engine. An uncertain or missing finding cannot satisfy
+a required check, and interpretation itself does not grant permission.
+
+## Handling the result, approval and recovery
+
+After permission is established, the application performs the operation and
+reports its attempt and outcome. The SDK also checks the returned result before
+releasing it to the assistant. Give the model that checked output rather than
+a second channel containing the raw response or credentials.
+
+A result may be withheld after a write has completed, and a provider can reject
+a request that AuthRail allowed. The assistant's reply should therefore reflect
+the tool's reported state instead of turning every permission decision into a
+success claim. [Actions and records](/docs/records) explains how to inspect the
+decision and outcome together.
+
+Approval introduces a saved wait. Store the SDK continuation privately with the
+original user, organisation, input and task, then continue that work through the
+SDK after the named person decides. The model cannot cast the person's approval
+or replace the approved input. [Human approvals](/docs/approvals) covers the
+application integration and continuation APIs.
+
+For an uncertain write, keep the original attempt and investigate it using the
+provider's authoritative record. A new chat or request key does not make a repeat
+safe. A genuinely different request from the person should receive its own
+check, however; an earlier denial does not prohibit all later work. The
+[recovery guide](/docs/recovery) explains how to distinguish these cases.
+
+## Checking your integration
+
+Language understanding and authorization need different kinds of validation.
+Flexible phrasing shows whether the model can form the intended tool request;
+authorization depends on your rules, identity bindings, trusted facts, failure
+handling and coverage of the real function. Given the same valid inputs, rule
+versions and evaluation context, the deterministic check should produce the same
+result. A changed business fact or expired approval can appropriately change it.
+
+Exercise allowed, denied, approval-required and missing-context requests in a
+safe installation, and check result withholding and unknown-effect recovery as
+well. Compare the saved Action with the application's own record and inspect
+possible bypass routes. This establishes what the integration covers more
+reliably than a convincing chat answer or a passing rule example alone.

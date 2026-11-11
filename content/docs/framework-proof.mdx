@@ -1,114 +1,126 @@
 ---
 title: "Use Runtime records in a Control"
-description: "Use saved AI action records to check whether a Control worked during a review period."
+description: "Define what an application's saved requests should demonstrate during a Control review."
 icon: ClipboardTextIcon
 ---
 
-Suppose your organisation has a Control that stops an AI application from
-paying an invoice outside its permitted account. Runtime records can help the
-Control owner check whether those requests were denied before execution.
+Runtime records can help you check whether a Control worked in a connected
+application. Suppose a Control prevents an assistant from paying an invoice
+outside its permitted account. An **AI actions Test** can inspect saved requests
+for that operation and check whether they were denied before execution.
 
-The records need a question and a review period. One successful request cannot
-answer whether the Control worked throughout a month, and an empty history
-cannot show that it was exercised at all.
+The Test gives the records a question and a period. One allowed request cannot
+establish how the Control worked throughout a month, and an empty history
+cannot show that it was exercised. If your application has not produced any
+records yet, start with [the quickstart](/docs/getting-started).
 
-This guide shows how to add an **AI actions Test** to a Control. The Test selects
-the actions to inspect and the outcome they must have. You then review the
-matching records and save the result.
+## Open the Control that addresses the duty
 
-## Start from the mapped Control
+Open the active Framework and find the applicable duty under **Obligations**.
+Read its coverage and open the mapped Control's **Tests and Evidence** area.
+This keeps the check associated with the practice and version your organisation
+has agreed to rely on.
 
-In a Framework, an **Obligation** describes something your organisation must
-address. A **Control** describes the measure it uses to address it. A
-**mapping** connects that Control to the Obligation.
+<ProductShot src="/screenshots/framework-obligations.jpg" alt="Framework Obligations with applicability, coverage and View coverage actions" caption="Start with the duty and follow its coverage to the Control you want to check." />
 
-1. Open **Frameworks** and the activated Framework Version you are reviewing.
-2. Under **Obligations**, find the applicable Obligation and its mapped Control.
-3. Open that Control's **Tests and Evidence** area.
+If that relationship has not been established, follow
+[Frameworks and scope](/docs/frameworks) and
+[Policies and Controls](/docs/policies-controls) first. You can reuse the same
+organisation Control where it supports several Frameworks.
 
-If the mapping has not been reviewed, complete that work first using
-[Frameworks and scope](/docs/frameworks) and [Policies and Controls](/docs/policies-controls).
-Reuse the organisation's Control where it addresses multiple Frameworks.
+## Describe which requests to check
 
-<ProductShot src="/screenshots/framework-obligations.jpg" alt="A Framework workspace showing its Obligations tab, applicability and coverage filters" caption="Choose the applicable Obligation and the Control that addresses it in this Framework Version." />
+In the Control draft, choose **Add test**, then **AI actions**. Select the
+**AI system**, its **Enforce deployment** and the **Action to check**. For the
+out-of-account payment example, set **Required outcome** to **Denied before
+execution**. A Test checking completed work can instead use **Completed
+execution**, which refers to the application's completion report.
 
-## Define what the AI actions Test should check
+Set **Minimum Actions** to the number of matching records the check needs.
+This prevents an empty or insufficient set from satisfying the Test. Continue
+to **Passing criteria**, give the Test a name and explain what the records must
+demonstrate. Under **Schedule**, choose the cadence and how long each result
+remains current. Select **Add Test** and complete the Control's approval process
+before recording results against it.
 
-Select **Add test**, then choose **AI actions**. Work through the form:
+<ProductShot src="/screenshots/framework-tests-evidence.jpg" alt="A Control's Tests and Evidence area with a quarterly check and its result history" caption="The approved Test describes the check. Its results record what was found in each review period." />
 
-1. Select the **AI system** whose records should be reviewed.
-2. Select its **Enforce deployment**—the configured installation that protects
-   the operation.
-3. Choose the **Action to check**.
-4. Choose **Required outcome**. For the out-of-account payment example, use
-   **Denied before execution**. Use **Completed execution** for a Test whose
-   expectation is a reported completed operation.
-5. Set **Minimum Actions**, the number of matching records needed for the
-   check. This prevents an empty or insufficient set from satisfying the Test.
-6. Select **Continue** to open **Passing criteria**. Name the Test and describe
-   what must be true for it to pass.
-7. Continue to **Schedule** and choose how often to check it. The freshness
-   setting controls how long a saved result remains usable. Select **Add Test**,
-   then complete the Control's authorised review flow.
+### Work through a retained-record check
 
-**Expected result:** an approved Test states which records will be checked and
-what they need to demonstrate. Observe records show advisory decisions; they
-cannot establish that an operation was stopped by Enforce.
+Northstar's [account-change review](/docs/tests-evidence) needs more than a
+terminal execution state: a person must reconcile the application history and
+inspect approval timing. Keep that human check. An **AI actions** Test can add a
+separate, narrower check of requests that a rule must block, such as attempts to
+change an account outside the application's permitted boundary.
 
-<ProductShot src="/screenshots/framework-tests-evidence.jpg" alt="A mapped Control's Tests and Evidence area showing a quarterly Test, freshness and record-result action" caption="The mapped Control keeps its Tests and Evidence together. Record a result for a review period, then use History to inspect earlier results." />
+In a Control draft, configure that narrower Test as follows:
 
-## Review and save the result
+| Choice | Example selection and reason |
+| --- | --- |
+| AI system | The confirmed support assistant in AI Inventory. |
+| Enforce deployment | The installation that actually protects the support application's function. |
+| Action to check | Its reviewed out-of-account access-change operation, whose selected Rail must deny these requests. |
+| Required outcome | **Denied before execution**. |
+| Minimum Actions | `2`, because this check requires at least two retained matching requests. |
+| Procedure | Inspect every matching retained request in the completed period; require denial without execution, and compare the application's account-change history for bypasses. |
+| Schedule | Repeat every `30` days; results stay current for `45` days in this example. |
 
-Once the Test is approved:
+Use an operation/deployment selection that represents the denied behaviour you
+intend to test. The check evaluates all matching retained Actions in that period,
+not a hand-picked pair: a selection containing ordinary successful changes would
+not satisfy an expectation that all were denied. If your current operation
+selection mixes different intended outcomes, use the person-led Test to assess
+them rather than describing an unsupported input filter.
 
-1. Select **Record Test result** and enter the completed **Review period**.
-2. Inspect **Retained Runtime Actions**. These are the matching action records
-   AuthRail has saved for that period. Open them to review the decisions and
-   execution reports.
-3. Record what you reviewed and choose the result.
-4. Select **Save Test result**, or the combined Evidence submission action when
-   the Test requires it. Open **History** to inspect the saved result.
+Approve the Control Version containing this definition and review any Mapping
+replacement needed to use that version. Then choose a completed period containing
+the two requests. Both need a retained denied call or rejected approval and no
+executor receipt. One missing record does not meet a minimum of two; an Observe
+denial does not establish that the function was stopped. The selected period
+must contain the first reported call of each qualifying Action, so a later result
+arriving within the period does not move an older request into it.
 
-AuthRail checks the records against the Test's configured expectation. Selecting
-a passing label cannot replace those checks. Missing records, unknown outcomes
-and reporting gaps need to remain visible. Resolve the gap or record the
-appropriate result; an error is not a pass.
+## Review the period and save your conclusion
 
-If the Control requires proof of human approval, inspect the approval and its
-relationship to the execution. An **Allowed** label alone does not establish
-that a reviewer approved the request. A **Completed execution** result describes
-the application's reported completion; inspect the provider when independent
-verification is needed.
+Choose **Record Test result** and enter the completed **Review period**. Inspect
+**Retained Runtime Actions**, the matching records AuthRail has saved for that
+period, and open their decisions and execution reports. Record what you
+reviewed and choose the outcome, then select **Save Test result** or the combined
+Evidence submission action when required. **History** shows the saved result.
 
-## Return to Framework readiness
+AuthRail checks those records against the Test's expectation; selecting a
+passing label does not replace the check. If records are missing or an outcome
+is unknown, investigate the gap or record the appropriate result. Observe
+records show what rules would decide and cannot demonstrate that Enforce
+stopped an operation.
 
-Open the Framework's **Readiness** or overview. Follow an affected Obligation to
-its Test or Evidence to understand what still needs work.
+When the Control requires human review, inspect the approval and the request it
+authorised. **Allowed** alone establishes neither that a person approved the
+request nor that the operation ran. **Completed execution** describes what the
+application reported. For independent confirmation of an external effect,
+inspect the matching provider record. A signed Decision Certificate or
+attestation helps establish the integrity of its record rather than proving the
+provider effect.
 
-<ProductShot src="/screenshots/framework-readiness.jpg" alt="A sample Framework overview showing one of 217 Obligations ready and a Not ready status" caption="Readiness points to the reviewed work and proof for each Obligation. This sample has one of 217 Obligations ready." />
+A saved Runtime-linked Test result preserves the record references used for the
+conclusion. It does not automatically satisfy every Evidence requirement on the
+Control. If a requirement expects this Test result, select it through **Select
+Test result**, submit the correct completed period and finish the requirement's
+acceptance flow. A requirement expecting the October review file must instead
+receive that file package. Changing source type to avoid the required material
+would change the definition of the check.
 
-**Expected result:** the saved Test result can support readiness when it meets
-the expectations of the accepted Control mapping. Readiness is calculated from that reviewed work. It cannot be
-set by attaching an Action link or editing a score, and it is not legal
-certification.
+## Follow the result into the assessment
 
-<details className="guide-details">
-<summary>More about evidence, findings and readiness</summary>
+Return to the Framework's **Readiness** and open the affected duty. The Test
+result can contribute when it satisfies the accepted Mapping's expectations;
+the Control may also require other proof. Follow
+[Tests and Evidence](/docs/tests-evidence) to submit a document, provider record
+or other source for the appropriate requirement and review.
 
-A Control can require additional Evidence, such as a reviewed document or
-provider record. Collect and review it through that Control's Evidence flow,
-keeping its source, exact version, period and acceptance outcome. Manual proof
-is supported. An automatic Observation or AI summary does not create a passing
-Test by itself.
+<ProductShot src="/screenshots/framework-readiness.jpg" alt="A sample Framework showing one ready obligation out of 217 and a Not ready assessment" caption="Readiness uses the qualifying proof for each duty, so one successful check does not make the whole Framework ready." />
 
-Only qualifying proof for the accepted mapping contributes to the Obligation.
-An overall Control Health rollup cannot replace what that particular mapping
-requires. Expired results are no longer fresh, and insufficient qualifying
-records do not establish that the Control worked.
-
-A Finding records a gap. A Task organises the work to fix it. An Exception is a
-narrow, time-limited accepted deviation. Finishing a Task or approving an
-Exception does not rewrite the original Finding. See
-[readiness and remediation](/docs/readiness) to continue that work.
-
-</details>
+Attaching an Action link does not replace that proof relationship or let you
+set the readiness score. For a missing or failed check,
+[readiness and remediation](/docs/readiness) explains how to follow the problem
+through Findings, Tasks and any eligible Exception while preserving its history.

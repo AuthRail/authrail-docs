@@ -1,244 +1,285 @@
 ---
 title: "Rails"
-description: "Create a rule for an application's action and check how it handles representative requests."
+description: "Turn your organisation's rules into checks at an application's tools and results."
 icon: StackIcon
 ---
 
-A **Rail** is a rule AuthRail checks for an action your application can perform.
-For example, a payment rule may allow small payments and require a person's
-approval above a limit. Another rule may keep a code-review comment internal.
+A **Rail** tells AuthRail how to handle an action your application can perform.
+A support agent might be allowed to refund a payment only up to its remaining
+refundable amount, while another request needs a person's approval. Rails make
+those expectations part of the tool call, so the application can act on the
+decision before it runs the function or returns its result.
 
-Use Rails when an organisational expectation needs to be checked at the actual
-application call or result. The application adapter applies the decision at the
-protected function; publishing a document alone does not add that check.
+Your team writes and tests the rule in AuthRail, then selects a published
+version for the application's **deployment**, the installation whose identity
+and rules you manage in AI Inventory. The sidecar evaluates it, and the SDK applies the
+answer at the function you connected. The [quickstart](/docs/getting-started)
+shows how to connect that first function.
 
-## Add a payment-review rule
+## How the three kinds work together
 
-For this example, suppose a published Policy requires approval for payments
-above the organisation's automatic limit. The payment action must already be
-reviewed in AuthRail. Its saved description, called an **Operation**, defines
-the information the application supplies and the result it returns.
+| Kind | Its responsibility | Example |
+| --- | --- | --- |
+| Guard Rail | Control tool use, information sent into a call or information returned to the agent. | Remove a private field from a support response. |
+| Data Rail | Obtain a business fact that a rule needs. | Read an invoice's status from the account that owns it. |
+| Policy Rail | Decide what the organisation permits, based on a published Policy. | Require a named reviewer before creating an estimate. |
 
-### 1. Open the action's rule setup
+These responsibilities stay separate even when one request uses all three.
+A Data Rail reads information; it does not pay the invoice. A Guard that finds
+no disclosure problem leaves the business permission to the Policy Rail.
+The Policy Rail records which Policy Version supplied its authority, so a
+later Policy revision needs a deliberate Rail update.
 
-Open **Rails** and choose **Create Rail**. Select the kind of Rail and the
-reviewed payment action. Read its amount, account and target fields before
-writing the condition.
+## Create a rule that requires review
 
-| Kind | What it supplies |
-| --- | --- |
-| Guard Rail | A boundary on input, results or information flow, with supported processing where needed. |
-| Data Rail | A reviewed source of business context, such as an invoice balance. |
-| Policy Rail | A rule drawn from a published organisational Policy. |
+Suppose your sales team lets an agent create small estimates, asks a reviewer
+to approve larger ones and only permits USD estimates in this application.
+This is your team's example policy, rather than an AuthRail-wide financial limit.
+Start with a published Policy and a connected estimate-creation function. AuthRail calls the
+function's saved description its **Operation Version**: it describes the
+arguments, target, business effect and returned information the rules can use.
 
-Choose a **Policy Rail** for this payment expectation and select the published
-Policy version that supplies it.
+### 1. Choose the Policy and action
 
-<ProductShot src="/screenshots/rails-catalogue.jpg" alt="Rails catalogue listing Guard, Data and Policy Rails" caption="The catalogue keeps different rule types together. An application's deployment selects the published Rails it will use." />
+In **Rails → Create Rail**, choose **Policy Rail**, then the published
+**Policy to follow**. Choose **Write rules** or **Suggest with AI**, and select
+estimate creation under **Actions registered by your connected applications**.
+If it is missing, work with the application's developer through **Connect an
+action**, check the proposed fields and effects, and choose **Confirm action**.
+This saves the action's description; the developer still connects the real
+function and its provider access.
 
-### 2. Describe the condition and outcome
+### 2. Describe when approval is needed
 
-Set the payment condition and the required outcome. For example, an amount
-above the reviewed limit requires human approval. Keep the allowed account and
-invoice boundaries clear so approval of an amount does not grant access to
-another record.
+For this example, the reviewed action accepts a numeric `amount` and a text
+`currency`. The result is an estimate reference. If your application's action
+uses different names or represents amounts in minor currency units, use those
+reviewed fields and units throughout; do not copy a threshold into a different
+amount representation.
 
-If the decision needs information not supplied by the requested arguments,
-choose the reviewed fact source. [Facts and contextual AI](/docs/facts) explains
-how trusted lookups supply stored values and how AuthRail Contextual AI interprets selected material.
+The published Policy should contain the passages you intend to implement:
 
-If the rule needs to understand meaning, enable **AuthRail Contextual AI** on
-this Rail and describe what it should assess. AuthRail prepares the question,
-permitted fields and typed answer for your review. The local sidecar uses that
-answer as input to your rule; the interpretation does not grant permission.
-You do not need a model key or extractor. Follow [Contextual AI](/docs/facts)
-for the full flow and disclosure review.
+> Estimates must have a positive amount and use USD. Estimates of at most
+> 250 USD may be created without further approval. Estimates above 250 USD
+> require approval from the named sales reviewer.
 
-### 3. Try examples before publication
+Name the Rail **Estimate creation**, choose **Continue to rules**, then use
+**Add rule** under **Conditions and outcomes**. Set up these four rules:
 
-Add a normal allowed request, a request outside the boundary and a request that
-needs approval. Include a missing-context case if the rule uses facts. Run Rail
-validation and read the outcome and reasons for each example.
+| Rule | Field and comparison | Outcome | Reason |
+| --- | --- | --- | --- |
+| Unsupported currency | `currency` **Is not** the fixed text value `USD`. | **Deny** | This application creates USD estimates only. |
+| Invalid amount | `amount` **At most** the fixed numeric value `0`. | **Deny** | An estimate needs a positive amount. |
+| Ordinary estimate | An **All conditions in this group** group: `currency` **Is** `USD`; `amount` **Greater than** `0`; `amount` **At most** `250`. | **Allow** | The estimate is within the team's ordinary authority. |
+| Larger estimate | An **All conditions in this group** group: `currency` **Is** `USD`; `amount` **Greater than** `250`. | **Require approval** | A larger estimate needs the sales reviewer's decision. |
 
-Validation checks the rule against the examples. It does not pay an invoice or
-send a message. Revise the draft if it does not express the intended expectation.
+For each comparison, choose **A fixed value** under **Compare with**. Enter
+numeric amounts as numbers, not quoted text. Cite the corresponding passage
+from the selected Policy Version for each rule. The reason is what another
+person will use to understand the decision later, so describe the business
+expectation rather than repeating an internal rule ID.
 
-### 4. Publish and select the rule
+If you asked AI to suggest these rules, compare the suggestion with this table
+and the cited Policy. The suggestion remains a draft; it cannot decide which
+exceptions your organisation intended to allow.
 
-Publish the reviewed Rail, then select that version for the application's
-deployment. A deployment is the configured installation of an application with
-its own identity and selected rules.
+Condition groups let you express alternatives without losing their meaning.
+For example, “the invoice is in scope AND (the amount is small OR the customer
+is eligible)” differs from three unrelated conditions. Choose **All conditions
+in this group** for AND, **Any condition in this group** for OR, and **Must not
+match** to negate a condition or group. The fields and values need compatible
+types before you can save and test the rule.
 
-The expected result is a tested, published rule selected for the intended
-application. Confirm its behaviour through real safe application requests in
-[Observe](/docs/modes) before relying on Enforce protection.
+When the rule needs information held elsewhere, choose a published Data Rail
+for the same action under **Facts for these rules**. When it needs to interpret
+text, enable **AuthRail Contextual AI** on the Guard or Policy Rail. The
+[Data and Contextual AI guide](/docs/facts) explains how to choose the source,
+question and material the assessment may use.
 
-## Example: register processing for one text field
+### 3. Try the cases your team will encounter
 
-A Guard can require a trusted function to process a string before the call or
-result check. For example, a demo application may remove the literal marker
-`DEMO_SECRET` from a draft comment. This example removes **only that marker**;
-it is not a general detector or remover of sensitive information.
+Under **Examples**, add these inputs and expected outcomes. Use the action's
+input fields under `arguments`, rather than entering the whole chat message:
 
-In the Guard editor, open **Developer configuration · required processing**
-and select **Reviewed string field**, such as `arguments.message`. Use **Registered handler ID** `remove_demo_marker`, **Processing**
-`sanitize`, and its version to the reviewed implementation's 64-character
-lowercase SHA-256 fingerprint. The developer registers the same ID, kind and
-fingerprint in the protected application. If the code changes, review its new
-fingerprint and update the Guard before using it.
+| Example | Amount | Currency | Expected outcome | Why |
+| --- | --- | --- | --- | --- |
+| Ordinary estimate | `80` | `USD` | `allow` | All ordinary-estimate conditions match. |
+| Boundary value | `250` | `USD` | `allow` | “At most” includes 250. |
+| Needs review | `251` | `USD` | `approval_required` | The larger-estimate rule matches. |
+| Unsupported currency | `80` | `EUR` | `deny` | The application is not authorised for that currency. |
+| Invalid amount | `0` | `USD` | `deny` | The estimate must be positive. |
 
-Here `config` is the private sidecar connection configuration from your SDK
-guide, including its signing key. `reviewedHandlerSha256` is the fingerprint
-you reviewed for this code, not a hash of a user's message. `operation` is the
-reviewed comment action with application-authenticated identity and a stable
-business key. `saveComment` is your existing protected application function;
-it must use the **checked** arguments the SDK gives it and the execution's
-provider idempotency key when recording its effect.
+For example, the first case uses:
 
-<Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
-<Tab value="Node.js">
-
-```ts
-import { EnforceClient, type GuardHandler } from '@authrail/sdk-node';
-
-const removeDemoMarker: GuardHandler = {
-  id: 'remove_demo_marker', version: reviewedHandlerSha256, kind: 'sanitize',
-  process(value) {
-    if (Buffer.byteLength(value, 'utf8') > 4096) {
-      throw new Error('Comment is too large for this handler');
-    }
-    return value.replaceAll('DEMO_SECRET', '[removed]');
-  },
-};
-const client = new EnforceClient({ ...config, guardHandlers: [removeDemoMarker] });
-const checked = await client.enforce(
-  operation, { message: 'Please remove DEMO_SECRET from this demo.' },
-  (checkedArguments, execution) => {
-    if (typeof checkedArguments.message !== 'string') {
-      throw new Error('Expected a checked comment string');
-    }
-    return saveComment(checkedArguments.message, {
-      idempotencyKey: execution.providerIdempotencyKey,
-    });
-  },
-);
+```json
+{"arguments":{"amount":80,"currency":"USD"}}
 ```
 
-</Tab>
-<Tab value="Go">
+Also try omitting `amount`. A missing required value must remain unresolved,
+not become zero or count as an ordinary estimate. If you later add a Data Rail,
+include missing and stale readings as well. These extra cases help you find a
+rule that accidentally permits incomplete requests.
 
-```go
-// Imports: context, errors, strings, and
-// authrail "github.com/AuthRail/authrail-sdk-go".
-config.GuardHandlers = []authrail.GuardHandler{{
-    ID: "remove_demo_marker", Version: reviewedHandlerSHA256, Kind: "sanitize",
-    Process: func(ctx context.Context, value string) (string, error) {
-        if err := ctx.Err(); err != nil { return "", err }
-        if len(value) > 4096 { return "", errors.New("comment is too large") }
-        return strings.ReplaceAll(value, "DEMO_SECRET", "[removed]"), nil
-    },
-}}
-client, err := authrail.NewClient(config)
-if err != nil { return err }
-type CommentArguments struct { Message string `json:"message"` }
-_, _, _, err = authrail.Enforce(ctx, client, operation,
-    CommentArguments{Message: "Please remove DEMO_SECRET from this demo."},
-    func(callCtx context.Context, checked CommentArguments, execution authrail.ExecutionContext) (map[string]any, error) {
-        return saveComment(callCtx, checked.Message, execution.ProviderIdempotencyKey)
-    })
-if err != nil { return err }
+Choose **Save and test examples**, or **Test examples** for a draft you already
+saved. Read each expected and actual outcome and the matched rules. If an
+example fails, inspect the condition, field type, units and Policy citation
+before changing its expected answer. An unmatched set of rules does not imply
+permission; AuthRail reports that it could not decide.
+
+Examples evaluate the saved draft without calling the business tool. If you
+change it, save and test again. You will check the real integration separately
+with safe requests in [Observe](/docs/modes).
+
+### 4. Publish it and choose the reviewers
+
+An authorised person reviews the draft and its examples before publishing.
+An assistant can prepare this work, but the person confirms publication.
+Choose the published version for the deployment that will use it; publishing
+another version later leaves that selection unchanged until you update it.
+
+For an action that can require approval, open **Approval reviewers**. Under
+**Who can approve this action?**, select named active members and the required
+number of approvals, then **Save reviewers**. One person is enough when that
+is the saved requirement. A named reviewer can also be the requester where
+permitted, but still has to make the explicit approval decision. The
+[approval guide](/docs/approvals) follows the request through review and resumption.
+
+Before connecting a rule to an application, check its
+[SDK and sidecar compatibility](/docs/compatibility). SDK 0.1.1 does not include
+the automatic Data bindings, ready-made Guard processors or Rail-owned
+Contextual AI flow described here. These requirements need an adapter that
+implements them; creating the rule in the editor does not add them to an older
+installation.
+
+## Select a Guard protection
+
+A Guard draft's **Built-in protections** offer common checks for string fields.
+Choose a protection, the field and whether to apply it before the call or
+before returning the result. **Supported formats and limits** explains what
+the selection can recognise or change.
+
+| Protection | What it does | Where its coverage ends |
+| --- | --- | --- |
+| Recognised credentials | Block a matching field, or replace its entire string with `[REDACTED]`. | Recognises four PEM private-key headers, fixed-length GitHub tokens and AWS access-key IDs. Other, encoded or split secrets may be missed. |
+| Email addresses | Block or remove a field containing a common ASCII email address. | Does not cover every international or obfuscated address or every category of personal information. |
+| Payment-card number formats | Block or remove a field containing a 13–19 digit Luhn-valid format, with supported spaces or hyphens. | A matching number is not necessarily an active card and may be another identifier. |
+| Always withhold a selected field | Replace the selected string with `[WITHHELD]`, without relying on a detector. | Changes that field only. |
+| Approved destinations | Compare a call's destination with a list of allowed strings. | Does not normalise URLs, inspect DNS, validate redirects or isolate a network. |
+| Attempts to bypass instructions | Ask Contextual AI whether selected text tries to bypass instructions, approval or access restrictions. | Requires permission to send that material for assessment; uncertainty cannot clear the check. |
+| Sensitive disclosure | Ask Contextual AI about authentication secrets, private financial account details or explicitly confidential text. | Covers the selected material and question, not every sensitive category. |
+
+### Work through a result-field protection
+
+Consider a support lookup that returns `summary` and `internalNote`, both text
+fields in its reviewed result. The agent needs `summary`, while `internalNote`
+should never appear in its reply. A detector is unnecessary when the entire
+field is private: choose **Always withhold a selected field**, select **Result · Internal
+note** under **Checked field**, then choose **Add protection**. The description
+in your editor comes from your own reviewed field, so it may use different
+capitalisation.
+
+Under **Examples**, set **Boundary** to **After the tool result** and
+**Expected outcome** to **Cleared**. If you use the JSON editor, put the returned
+fields inside `result`, so they match the reviewed result field paths:
+
+```json
+{"result":{"summary":"The customer's access has been restored.","internalNote":"Internal escalation notes for the support team."}}
 ```
 
-</Tab>
-<Tab value="Python">
+The draft example runs the built-in transform before checking the Guard, so
+Cleared means its required withholding was satisfied. It does not mean the
+original private field may be released.
 
-```python
-from authrail import AsyncEnforceClient, ExecutionContext, GuardHandler, JSONObject
+With a compatible integration in Enforce, the result released by the SDK is:
 
-
-def remove_demo_marker(value: str) -> str:
-    if len(value.encode("utf-8")) > 4096:
-        raise ValueError("Comment is too large for this handler")
-    return value.replace("DEMO_SECRET", "[removed]")
-
-
-handler = GuardHandler(
-    id="remove_demo_marker", version=reviewed_handler_sha256,
-    kind="sanitize", process=remove_demo_marker,
-)
-
-async def save_checked_comment(
-    checked_arguments: JSONObject, execution: ExecutionContext,
-) -> JSONObject:
-    message = checked_arguments["message"]
-    if not isinstance(message, str):
-        raise ValueError("Expected a checked comment string")
-    return await save_comment(
-        message,
-        idempotency_key=execution.provider_idempotency_key,
-    )
-
-async with AsyncEnforceClient(**config, guard_handlers=[handler]) as client:
-    checked = await client.enforce(
-        operation, {"message": "Please remove DEMO_SECRET from this demo."},
-        save_checked_comment,
-    )
+```json
+{"summary":"The customer's access has been restored.","internalNote":"[WITHHELD]"}
 ```
 
-</Tab>
-</Tabs>
+Check that the application's reply uses that checked result. Returning the
+original object through a second channel would defeat the field protection.
+The support lookup's Policy Rail still decides whether the caller may perform
+the lookup; withholding a field does not grant that business permission.
 
-When the published Guard requires this handler for `arguments.message`, the SDK
-processes that string before its final call check. If the call is permitted,
-`saveComment` receives the processed value, such as
-`Please remove [removed] from this demo.` A rule targeting `result.message`
-instead processes that returned field before checking what may reach the agent.
-Do not call the processor manually and assume that fulfills a Guard: the
-adapter obtains the reviewed processing plan and records its signed evidence.
+Test a missing field as well as an ordinary result and inspect the reported
+reason. A missing required target or an unavailable processor must leave the
+protection unsatisfied. In Observe, compare the advisory result decision while
+remembering that the application still receives its unchanged business result.
+The always-withhold built-in needs a compatible integration; installing SDK
+0.1.1 alone does not provide that processor.
 
-The handler only changes its selected string; it must not post a comment or
-perform another business effect. The SDK checks required processing and the
-resulting values. A missing or failed handler stops Enforce. Observe does not
-run these handlers, and processing does not override a denial or missing
-approval.
+For removal, the whole selected string changes, rather than only the matched
+characters. The application must use the arguments the SDK gives its function
+and return the checked result. Similarly, a destination rule helps only when
+the function uses that destination and prevents redirects to an unchecked one.
+If a required processor is missing or fails, Enforce holds the call or result
+instead of releasing the original field.
+
+Enforce can stop a call or withhold its result. Observe leaves the business
+input and result unchanged while showing what the rules would decide. Material
+sent for contextual assessment still goes through the required local selection
+and filtering first, in either mode. A later model answer cannot undo disclosure.
 
 <details className="guide-details">
-<summary>More about versions and later changes</summary>
+<summary>Supported local detection formats</summary>
 
-A draft can change; a published Rail Version cannot be edited. Older Actions
-keep the rule version used for their decision even after you publish an
-improvement.
+The credential profile recognises the PEM opening markers `PRIVATE KEY`,
+`RSA PRIVATE KEY`, `EC PRIVATE KEY` and `OPENSSH PRIVATE KEY` in the standard
+`-----BEGIN …-----` form. It also recognises `ghp_`, `gho_`, `ghu_`, `ghs_` and
+`ghr_` followed by exactly 36 ASCII alphanumeric characters; `github_pat_`
+followed by exactly 82 ASCII alphanumeric or underscore characters; and `AKIA`
+or `ASIA` followed by exactly 16 uppercase ASCII letters or digits. A token
+embedded in a longer alphanumeric or underscore token does not match.
 
-A new publication does not silently replace a deployment's selection. Review
-and update that selection deliberately. If a decision is unexpected, inspect
-the selected version and the version saved on the Action before editing a draft.
+The email profile accepts an ASCII local part of up to 64 characters and a
+complete address of up to 254 characters, with a final alphabetic domain suffix
+of 2–63 characters. Consecutive dots and a trailing dot in the local part do
+not match. The check recognises a format; it does not validate a mailbox.
 
-Examples and historical replay are Rail-validation tools, separate from the
-two Runtime deployment modes, Observe and Enforce.
+The card profile removes ASCII spaces and hyphens from a numeric run, checks
+for 13–19 digits, rejects a run made of one repeated digit and checks the Luhn
+checksum. Always-withhold uses no detection profile and replaces the chosen
+string unconditionally in Enforce.
+
+These checks read the selected string fields. They do not automatically inspect
+attachments, images, encoded content or every nested field. Include examples
+that should and should not match your actual data. Each published version fixes
+its behaviour, so adopting another profile remains a versioned change.
 
 </details>
 
+## Understand how rules combine
+
+A denial takes priority over an allow, and required approval takes priority over
+an ordinary allow. Other compatible requirements, such as obtaining a fact or
+processing a field, apply together. When a necessary value is missing or two
+requirements conflict, AuthRail reports that problem rather than granting
+permission. The [Action](/docs/records) explains which versions and reasons
+contributed to a particular decision.
+
+For financial examples, choose the fact that matches the operation. Payouts
+must fit freshly verified available funds in the requested currency; refunds
+must fit the selected payment's remaining refundable amount. Neither example
+introduces a universal fixed amount ceiling.
+
 <details className="guide-details">
-<summary>More about processing and trusted facts</summary>
+<summary>Application-specific processing and isolation</summary>
 
-Some Guard rules require `sanitize` for content cleanup, `transform` for a value
-change or `isolate` for a supported containment step. The application registers
-the trusted code for that step, called a **handler**. The rule identifies its
-version and the field it must process; the adapter invokes only a matching
-handler and signs evidence of the processed value before the final decision.
+A custom handler is application code for a processing step the built-ins do not
+provide. Its developer registers the handler's ID, kind and code fingerprint in
+the SDK, and the Guard names the matching version and field. The adapter runs
+it and signs evidence linking the processing to the content used by the rule.
+The handler must be deterministic and free of business effects: it should not
+send a message or move money while processing text.
 
-Missing handlers, conflicting targets and unsupported isolation stop Enforce.
-Processing does not override a denial or approval requirement. Observe remains
-advisory and does not transform the real input or result.
+A missing handler, conflicting target or mismatched output leaves the Guard
+unsatisfied. Its signed report identifies the application's assertion, without
+independently establishing how good its filtering is. Replacing a literal demo
+marker, for example, demonstrates the interface rather than a secret detector.
 
-Handlers must not perform business effects such as posting a comment or moving
-money. A signed handler report does not independently establish the quality of
-redaction or isolation. See [NVIDIA OpenShell](/docs/openshell) for its supported
-containment path.
-
-The protected application performs reviewed fact lookups; the sidecar checks
-the signed answers. An imported schema does not create a provider connection
-or make a source trustworthy. A failed lookup is not a zero balance or a
-negative sensitivity answer. Configure and test the rule's unavailable behaviour.
+Text processing also cannot establish filesystem or network isolation. Where
+that is needed, use a real containment mechanism such as the optional
+[OpenShell integration](/docs/openshell), alongside the
+[execution-access review](/docs/security).
 
 </details>

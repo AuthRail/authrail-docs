@@ -1,175 +1,401 @@
 ---
-title: "Facts and contextual AI"
-description: "Give a rule trusted business data or use AuthRail Contextual AI to understand selected material."
+title: "Data and Contextual AI"
+description: "Give a rule reliable business information or help it interpret selected text."
 icon: FileTextIcon
 ---
 
-**AuthRail Contextual AI** helps a rule understand meaning. For example, a rule
-can stop a code change that weakens authentication, send a confidential export
-for review, or check whether a proposed response discloses private information.
+Some rules need a value from a business system; others need to understand what
+a piece of text means. An invoice rule can look up the remaining balance. A
+code-change rule may need to assess whether a diff weakens authentication.
+**Data Rails** supply the first kind of information, while **AuthRail Contextual
+AI** supplies an interpretation for a Guard or Policy Rail.
 
-You enable it on the Rail that needs that understanding and describe the rule.
-AuthRail prepares the assessment for you to review. Your application sends only
-the permitted fields to AuthRail; AuthRail returns a bounded answer, and the
-local sidecar applies your published rule. You do not configure a model, supply
-a model API key or write an extractor.
+The rule still decides what to allow. Neither a successful lookup nor a model's
+answer can approve an action on its own. Choosing the right source lets you
+explain both where the information came from and how it affected the decision.
 
-A model answer supplies information. It cannot approve an action, override a
-denial or replace a person's required approval.
+## Choose a lookup or an assessment
 
-## Decide whether the rule needs interpretation
-
-Use a trusted lookup for a value already stored in a business system. Use
-Contextual AI when the rule needs to understand selected text.
-
-| What the rule needs | How to obtain it |
+| The rule needs to know… | Use… |
 | --- | --- |
-| An invoice's remaining balance | Read the exact invoice from a trusted account. |
-| Whether a proposed code change weakens authentication | Ask AuthRail Contextual AI to assess the selected diff. |
-| Whether an export contains confidential business information | Assess the permitted document fields before exporting. |
-| The purpose expressed in a payment justification | Classify the selected justification into the reviewed categories. |
+| An invoice's remaining balance. | A read of that invoice in the account that owns it. |
+| Whether a code change weakens authentication. | A contextual assessment of the relevant diff. |
+| Whether selected document text contains confidential business information. | A contextual assessment of those permitted fields. |
+| Which approved category fits a payment justification. | A contextual assessment using the categories defined on the Rail. |
 
-A missing balance, unknown caller or expired approval is not a question for
-Contextual AI to guess. Those checks keep their own failure behaviour.
+Identity, missing credentials, expired approvals and failed lookups have their
+own checks. They are not questions a model should guess its way through.
 
-## Prepare a contextual Rail
+The application also needs the corresponding integration capability.
+SDK 0.1.1 includes the explicit fact readers used in the example below. It does
+not include automatic Data source bindings or the Rail-owned contextual flow.
+[Compatibility](/docs/compatibility) explains that distinction before you choose
+requirements for an installed application.
 
-Suppose your application has a protected function that applies a code change.
-Its reviewed action includes a text input named `diff`. You want to block a
-change that removes authentication checks.
+## Add a Data Rail for invoice status
 
-1. Open the action's Guard Rail draft. Turn on **AuthRail Contextual AI**.
-2. Describe the boundary, for example: “Block code changes that remove or weaken
-   authentication checks.” Choose **Prepare contextual checks**.
-3. Review the proposed assessment and rule. Check what it asks, which input or
-   result fields may be sent to AuthRail, and how its answer affects the rule.
-4. Add examples with a usable answer and with a missing or uncertain answer.
-   Test the draft and review the results before publishing the exact version.
-5. Select that published version for the application's deployment, following
-   [Rails](/docs/rails).
+Suppose your billing application should request collection only while the
+selected Stripe invoice is open. A Data Rail can supply that status, and a
+Policy Rail can allow `open` and deny other statuses. The status reader never
+collects the payment, and its answer supplies no amount or currency; a payment
+integration must still check the monetary values it needs.
 
-For this example, an assessment might ask whether the selected diff weakens
-authentication. A Yes answer matches the denial rule. A No answer clears that
-check; the other selected rules still have to permit the operation. An uncertain
-answer does not clear it.
+The worked setup below uses the Stripe invoice-status reader already available
+in SDK 0.1.1. It attaches the reading explicitly to each Operation. Automatic
+source registries in newer integrations are a separate convenience; they are
+not required to understand or reproduce this explicit path.
 
-Choose a **Policy Rail** when the rule comes from a published organisational
-Policy, including a rule that requires human approval. Its contextual setting
-uses the same review of the question and permitted fields. Changing the toggle
-or assessment changes the draft; the revised version must be tested and published.
+### 1. Choose where the information comes from
 
-<details className="guide-details">
-<summary>Prepare the same draft through an assistant</summary>
+Open **Rails → Create Rail → Data Rail** and choose **Connect a source**, or
+use an existing source. Setup takes you through **Where is the information?**,
+**Choose the account**, **Find the record**, **Choose the information**, and
+**Review and save**.
 
-With **Rail draft preparation** access granted to AuthRail MCP, ask:
+Choose the source by the value your rule needs:
 
-> Prepare a Guard Rail for our reviewed code-change action. Enable AuthRail
-> Contextual AI to block diffs that weaken authentication. Show me the assessment
-> and exactly which fields would be sent before saving it.
+| Source | What it reads | What your application supplies |
+| --- | --- | --- |
+| Stripe | One invoice's status. | The account, a private read credential and a function that identifies the invoice the caller may access. |
+| QuickBooks | One invoice's remaining balance. | The company, private token and invoice selection. Your application manages OAuth refresh; money rules also need currency information. |
+| Your API | One record through a fixed authenticated HTTPS GET. | The address, credential and account/record selection. The response contains `accountId`, `recordId`, `observedAt` and `data`; redirects are rejected. |
+| Your database | A typed value from a named read-only query. | The database driver, connection and parameterised query function. |
+| Customer MCP read tool | The result of a specified read-only tool. | The authenticated MCP transport and account/tool selection. |
+| Application function | A value returned by your existing read-only code. | The function and its authenticated account/record selection. |
 
-The assistant finds the reviewed action, prepares the assessment, and can save
-and test the draft using your workspace permissions. It reads the exact revision
-before making changes. A person still reviews publication in AuthRail; an agent
-cannot confirm publication on your behalf. Existing assistant connections need
-explicit consent for Rail draft preparation.
+Your application owns these Runtime credentials. Choosing an account shown by
+a governance Connection does not reuse that Connection's collection token.
+Likewise, connecting management MCP to AuthRail does not connect a customer MCP
+read tool. Each source needs access for its particular purpose.
 
-</details>
+### 2. Identify the record and value
 
-## What your application does
+Choose the request field containing the invoice ID, the status field to read,
+and the account to use. In application code, look up which invoice the signed-in caller may access,
+then check that it matches the requested invoice before calling the reader.
+Pass that trusted invoice ID and the private account credential to the SDK.
+The explicit SDK 0.1.1 helper receives one invoice ID; it cannot perform your
+application's access check or compare arguments it has not received. The sidecar
+then checks the attached reading against the published source and rule binding.
+This keeps an agent's argument from choosing another account or creating its
+own authority to read a record.
 
-Keep the SDK around the function that actually owns the operation, as shown in
-the [Node.js](/docs/node), [Go](/docs/go) or [Python](/docs/python) guide. The SDK
-obtains the selected Rail's requirements from the sidecar and handles the
-contextual request. Your application supplies the reviewed input and trusted
-caller/resource identity. It keeps its business credentials.
+Set how old a reading may be and how long to wait for it. These settings answer
+different questions: the freshness limit controls the age of a value, while
+the timeout controls how long this request waits for a new one. A failed read
+remains **unavailable**, rather than becoming a closed invoice or zero balance.
+Even a fresh reading describes a point in time; the provider can change afterward.
 
-There is no separate contextual model client to initialise. These excerpts use
-an already configured SDK client and reviewed `operation`. The change service
-and recovery journal are application code: the journal saves execution context,
-and the service uses the SDK's stable idempotency key to prevent duplicate effects.
-Handle blocked requests and uncertain outcomes using [recovery](/docs/recovery).
+For a concrete setup, use these choices. Your actual Stripe account and source
+version are private installation values, not values supplied by the agent:
+
+| Choice | Example value | What it means |
+| --- | --- | --- |
+| Source | Stripe invoice status. | Use the supported invoice read, rather than an arbitrary Stripe endpoint. |
+| Account | The `acct_…` account authorised for this billing application. | The reader verifies that its credential reaches this account. |
+| Action input | `invoiceId`. | This reviewed text field identifies the requested invoice. |
+| Information | Invoice `status`, a text value. | The reader returns one of Stripe's supported invoice statuses. |
+| Fact name | `invoiceStatus`. | The Policy condition refers to this fact, not to a status written by the model. |
+| Freshness | `60` seconds. | A reading older than this is stale for this example rule. |
+| Lookup timeout | `2000` milliseconds. | A read that does not finish in time is unavailable. |
+
+For a Stripe Connect account, use its actual connected-account identity and
+configure the reader's connected-account option. For an ordinary account, leave
+that option off. Selecting the wrong mode or account must not be worked around
+by changing the expected account to whatever the credential can reach.
+
+### 3. Test and publish the source and Rail
+
+Read through the source's account, lookup, result field, type, freshness and
+failure behaviour. Include examples for a valid reading, an old reading, the
+wrong account or invoice, a malformed value and an unavailable source. These
+examples exercise the source rules without contacting the provider.
+
+Save and confirm the source, choose the action it supports, and publish the
+Data Rail after reviewing its examples. In the Guard or Policy Rail that needs
+invoice status, select it under **Facts for these rules**. Published Rails
+continue using their selected source version when you later revise a source.
+
+### 4. Connect the reader and inspect a request
+
+Open the published Data Rail and copy **Reviewed source version ID** and its
+**Reviewed source configuration**. Keep that configuration in your protected
+application. The following helper functions take the source version, account,
+timeout and credential from your private configuration, then attach the source
+reading to the authenticated Operation you have already prepared.
+
+`trustedInvoiceId` comes from your application's account-scoped resource lookup
+after authentication. It must be the same invoice used in the operation's
+arguments and resource binding. An agent can propose an ID, but cannot provide
+`settings`, a Stripe key or a replacement authenticated identity.
 
 <Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+
 <Tab value="Node.js">
 
-```ts
-const checked = await client.enforce(operation, { diff },
-  async (input, execution) => {
-    await journal.saveRecovery(execution);
-    return changes.apply(input, {
-      idempotencyKey: execution.providerIdempotencyKey,
-    });
-  });
+```js
+import { lookupStripeInvoiceStatus } from '@authrail/sdk-node';
+
+export async function withInvoiceStatus(operation, trustedInvoiceId, settings, stripeKey) {
+  const reading = await lookupStripeInvoiceStatus({
+    sourceVersionId: settings.sourceVersionId,
+    providerAccountId: settings.providerAccountId,
+    connectedAccount: settings.connectedAccount,
+    timeoutMs: settings.timeoutMs,
+    secretKey: stripeKey,
+  }, trustedInvoiceId);
+  return { ...operation, factResolutions: [reading] };
+}
 ```
 
 </Tab>
+
 <Tab value="Go">
 
 ```go
-type Change struct { Diff string `json:"diff"` }
-type ChangeResult struct { Applied bool `json:"applied"` }
+package billing
 
-result, callCheck, resultCheck, err := authrail.Enforce(ctx, client,
-    operation, Change{Diff: diff},
-    func(ctx context.Context, input Change,
-        execution authrail.ExecutionContext) (ChangeResult, error) {
-        if err := journal.SaveRecovery(ctx, execution); err != nil {
-            return ChangeResult{}, err
-        }
-        return changes.Apply(ctx, input, execution.ProviderIdempotencyKey)
-    })
+import (
+    "context"
+    authrail "github.com/AuthRail/authrail-sdk-go"
+)
+
+func WithInvoiceStatus(ctx context.Context, operation authrail.Operation,
+    trustedInvoiceID string, source authrail.StripeInvoiceSource) (authrail.Operation, error) {
+    reading, err := authrail.LookupStripeInvoiceStatus(ctx, source, trustedInvoiceID)
+    if err != nil { return authrail.Operation{}, err }
+    operation.FactResolutions = []authrail.FactResolution{reading}
+    return operation, nil
+}
 ```
 
+Construct `StripeInvoiceSource` with `SourceVersionID`, `ProviderAccountID`,
+`ConnectedAccount`, `SecretKey` and a `Timeout` of `2 * time.Second` from Go's
+`time` package. The timeout must match the reviewed source configuration.
+
 </Tab>
+
 <Tab value="Python">
 
 ```python
-async def apply_change(checked, execution):
-    await journal.save_recovery(execution)
-    return await changes.apply(
-        checked, idempotency_key=execution.provider_idempotency_key
-    )
+from dataclasses import replace
+from authrail import Operation, lookup_stripe_invoice_status
 
-checked = await client.enforce(operation, {"diff": diff}, apply_change)
+
+async def with_invoice_status(operation: Operation, trusted_invoice_id: str,
+                              settings: dict, stripe_key: str) -> Operation:
+    reading = await lookup_stripe_invoice_status(
+        source_version_id=settings["sourceVersionId"],
+        provider_account_id=settings["providerAccountId"],
+        connected_account=settings["connectedAccount"],
+        timeout_ms=settings["timeoutMs"],
+        secret_key=stripe_key,
+        invoice_id=trusted_invoice_id,
+    )
+    return replace(operation, fact_resolutions=[reading])
 ```
 
 </Tab>
+
 </Tabs>
 
-In Enforce, the function does not run until the SDK establishes permission and
-records its start. A result-time contextual check happens after the function;
-it can withhold the result but cannot undo the effect.
+These are complete reader-binding helpers, not standalone billing applications.
+Call the helper in your protected request handler, then pass its returned
+Operation into the existing SDK Observe or Enforce call, using the same invoice
+ID in `arguments`. The [application guide](/docs/build-your-app) explains that
+handler's authentication and resource lookup, and the [SDK guides](/docs/node)
+show the client and business-function setup. If an operation needs several
+facts, attach all required resolutions rather than replacing them with this
+one-element example list.
 
-## Follow the request
+The Stripe credential belongs in the protected application's private credential
+store. The helper verifies the account, reads the invoice and validates the
+returned identity and status. Configuration errors should stop your handler;
+lookup failures become unavailable or untrusted readings for the sidecar to
+check. Do not catch them and manufacture a trusted `open` value. Provider
+consent, refresh and revocation remain with the application; the source
+definition carries no secret and cannot obtain access for you.
 
-1. The sidecar identifies the assessment required by the selected published Rail.
-2. The SDK selects only its permitted fields and checks any required local
-   processing before sending them through the sidecar to AuthRail.
-3. AuthRail interprets that material and returns a signed Yes/No answer, category
-   or score, or reports that it could not obtain a usable answer.
-4. The sidecar verifies that the finding belongs to this exact request, caller,
-   input, phase and Rail version, then applies the deterministic rule.
-5. The SDK applies the decision at the protected function or result boundary.
+With an ordinary account, `connectedAccount` is `false`. Set `sourceVersionId`
+to the copied published source version, `providerAccountId` to the reviewed
+account and `timeoutMs` to `2000`. These settings describe the existing Stripe
+invoice-status source contract; they are not a new automatic-registry API.
 
-When Contextual AI is off for a Rail, that Rail causes no contextual request.
-A timeout, refusal or uncertain answer never becomes a made-up No answer. The
-rule cannot rely on a missing finding as if the check passed. Repair the cause
-or obtain a fresh check; do not weaken the rule simply to make it proceed.
+After a safe request, open **Information used for the decision** on its
+[Action](/docs/records). Separate the reading's status from the Policy decision:
 
-## Know what leaves your application
+| What happened | Data result | What the example Policy can conclude |
+| --- | --- | --- |
+| Correct account and invoice, status `open`, reading within 60 seconds. | Trusted `open`. | Its open-invoice condition can match. Other permission checks still apply. |
+| Correct fresh reading, status `paid`. | Trusted `paid`. | The rule denying non-open invoices can match. |
+| Valid reading is more than 60 seconds old. | Stale. | The required status is unresolved; it cannot allow collection. |
+| Credential reaches another account, or the returned invoice identity differs. | Untrusted. | The returned value cannot satisfy the condition. |
+| Timeout, revoked credential, redirect or provider failure. | Unavailable. | Restore the read; do not substitute a status or zero balance. |
 
-**AuthRail receives the selected contextual material.** Review that disclosure
-when publishing the Rail. Select only the fields needed for the question and
-apply required filtering before the contextual call. A later answer or result
-check cannot undo information already sent.
+The source's example tests can exercise these cases without making provider
+calls. To check the integration itself, use the safe account and inspect the
+actual retained Action. A fresh reading is still a point-in-time observation;
+for a business write, your executor must also handle provider changes between
+permission and execution.
 
-Selected text is processed for the assessment; it is not added to normal logs,
-traces or retained Actions. The retained decision includes the assessment's
-identity, status and bounded finding. Keep raw text and credentials out of your
-application's diagnostic logs too.
+<details className="guide-details">
+<summary>API imports and application-provided readers</summary>
 
-Contextual AI interprets material through AuthRail's service. It does not prove
-that an answer is correct, identify which model generated the original agent
-request, or provide universal protection against sensitive-data disclosure.
-Inspect the resulting [Action and decisions](/docs/records) alongside your
-application's own effect and recovery records.
+An OpenAPI import can suggest a read operation, and a JSON Schema import can
+suggest response fields and types. The import file stays in the browser. It
+helps describe a source, but supplies neither a running reader nor permission
+to contact it.
+
+For database, customer MCP and application sources, your developer supplies the
+named read-only function. The adapter validates its answer and source binding;
+it does not supply every database driver or MCP transport. Keep addresses,
+queries, tool names and credentials in application configuration, with trusted
+parameters. Reading context must not perform the payment or other business
+action whose permission the rule is evaluating.
+
+</details>
+
+## Add Contextual AI to a code-change rule
+
+AuthRail Contextual AI interprets selected material for a Rail. You describe the
+business concern, and AuthRail prepares an assessment to review. There is no
+model client to configure, model key to supply or extractor to maintain.
+
+For example, your application might accept a `diff` and apply a code change.
+To assess whether the change weakens authentication:
+
+1. Open the action's Guard Rail draft and turn on **AuthRail Contextual AI**.
+2. Describe the concern, such as “Block code changes that remove or weaken
+   authentication checks,” and choose **Prepare contextual checks**.
+3. Read the proposed question, the input or result fields it may use, and the
+   answer that will affect your rule. **Those selected fields are sent to
+   AuthRail**, so include only material the assessment needs and may receive.
+4. Try examples with a usable finding, missing material and an uncertain answer.
+   Review the test results, then publish the version and select it for the
+   deployment as described in [Rails](/docs/rails).
+
+The assessment returns the answer shape defined on the Rail: Yes/No, a chosen
+category or a score. A Yes answer to “Does this diff weaken authentication?”
+can match a denial.
+A No answer clears that condition while leaving the other rules to decide.
+An uncertain answer cannot stand in for No. Use a **Policy Rail** when the
+condition comes from a published organisation Policy, including one that needs
+human approval. Both kinds use the same review of the assessment and disclosure.
+Changing the assessment or turning it off creates a draft change to test and
+publish.
+
+<details className="guide-details">
+<summary>Prepare the draft through an assistant</summary>
+
+With an available [AuthRail MCP connection](/docs/mcp) and **Rail draft
+preparation** access, you could ask:
+
+> Prepare a Guard Rail for our code-change action. Use AuthRail Contextual AI
+> to assess diffs that weaken authentication. Show me the question and the
+> fields it would send before saving the draft.
+
+The assistant can find the action, prepare the assessment, and save and test
+the draft with your organisation permissions. It checks the draft's revision
+before editing so it does not overwrite someone else's work. You still review
+and confirm publication yourself. Existing assistant grants need explicit
+consent for this draft-preparation capability.
+
+</details>
+
+## Keep the assessment inside the application flow
+
+Your application uses the SDK around the function that performs the change.
+With a compatible contextual integration, the SDK asks the sidecar which
+assessments the chosen Rails require. It selects their permitted fields,
+finishes any required local processing and sends the material through the
+sidecar to AuthRail. AuthRail returns a signed finding, and the sidecar checks
+that it belongs to this request, caller, input, phase and Rail Version before
+using it in the rule.
+
+### Follow one assessment through a release request
+
+Use this reviewed assessment for an application that applies a code change:
+
+| Setting | Reviewed choice |
+| --- | --- |
+| Phase | Before the action. |
+| Question | “Does this diff remove or weaken authentication checks?” |
+| Material | Only the action input `diff`. |
+| Answer | Yes or no. |
+| Guard condition | A trusted **Yes** denies the change; a trusted **No** clears this Guard condition. |
+| Failure behaviour | Missing material, uncertainty or service failure cannot clear the condition. |
+
+The published Operation must actually have that text field, and the executor
+must apply the checked diff. In particular, the model must not be allowed to
+supply a harmless diff for review and a different file or patch to the business
+function.
+
+For a request changing `requireLogin(request)` into an unconditional success,
+the SDK selects the reviewed diff after any required local filtering and sends
+that selected material to AuthRail. If the assessment returns a trusted Yes,
+the Guard denies the call and the application does not apply the change. If it
+returns a trusted No for an ordinary authentication-preserving change, that
+clears this assessment; identity, Policy, other Guards and any required approval
+still decide whether execution is permitted. Neither example assumes that a
+model's interpretation is infallible.
+
+Use separate draft examples for a Yes finding, a No finding, uncertain material
+and an unavailable assessment. These examples test how the deterministic rule
+uses each finding; they do not prove that every future diff will be interpreted
+correctly. Inspect the assessment's identity, phase, finding and Rail Version
+on a connected request's Action as well as the application's change record.
+
+A result assessment happens after the function, so it can withhold the response
+while the change already exists. See [recovery](/docs/recovery) when the outcome
+needs investigation.
+
+<details className="guide-details">
+<summary>Application integration and the published SDK boundary</summary>
+
+There is no customer model key, prompt implementation or replacement extractor
+to add to this flow. In a compatible integration, the SDK's ordinary protected
+function call obtains the assessments required by the selected Rails, filters
+and selects material, obtains the signed finding and supplies it to the
+sidecar's decision. Your application still owns the business function and saved
+workflow.
+
+The published Node, Go and Python SDKs at 0.1.1 do not implement this automatic
+Rail-owned flow. Their ordinary Enforce wrappers alone cannot enable it, and
+their older provider-specific extraction APIs are not a substitute. Continue
+using deterministic rules supported by those installed packages, or choose a
+released SDK/Runtime combination that explicitly supports this flow when one
+is available. Do not turn off a required assessment merely to make an older
+adapter report success.
+
+The SDK source repositories describe the current implementation alongside the
+[compatibility reference](/docs/compatibility). The scenario above teaches the
+reviewed assessment and decision flow; it is not an installation recipe claiming
+that SDK 0.1.1 already performs it.
+
+</details>
+
+## Understand disclosure and unavailable answers
+
+AuthRail receives the selected material and processes it transiently for the
+assessment. Normal logs, traces and Actions do not retain that text; the
+recorded decision keeps the assessment's identity, status and limited finding.
+Keep the same care in your application's diagnostics so a log does not become
+another route for the original text or credentials.
+
+Local filtering matters because an assessment cannot retract information it
+has already received. For an invoice summary with a free-text note, for example,
+the application first reads the invoice status from the permitted account and
+removes any field the assessment may not receive. It then sends the remaining
+permitted text for interpretation. The sidecar uses that finding and the
+invoice reading to apply the rules before the function runs or a result is
+released.
+
+A timeout, refusal, missing material, malformed answer or uncertain finding
+leaves a required assessment unresolved. Restore the source or service and
+obtain a usable check; it cannot be treated as an answer that clears the rule.
+A Rail with Contextual AI off makes no contextual request.
+
+Interpretation has limits even when it succeeds. It can be wrong, covers the
+question and material you chose, and does not establish which model generated
+the agent's original request. Inspect its [Action and decisions](/docs/records)
+alongside the application's own business records when explaining an outcome.

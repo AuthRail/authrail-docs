@@ -6,25 +6,37 @@ icon: CodeIcon
 
 import { AUTHRAIL } from '@/lib/constants';
 
-The Node SDK adds AuthRail checks around a function your application already
-uses. It sends the requested call and returned result to the local sidecar,
-then makes the decisions available to your application.
+The Node.js SDK connects a function in your application to AuthRail. When an
+agent requests that function, the SDK asks a nearby **sidecar** to check the
+request against your published Rails. It can also check the function's result
+before your application returns it to the agent.
 
-This guide connects one invoice-reading function in **Observe**. By the end,
-you can read both decisions and find the request in AuthRail. The invoice
-reader still runs even if a rule would deny it, so use a safe system first.
+In this guide, you will connect an invoice reader that reads a small local
+file. You will see its result alongside AuthRail's decisions, without calling
+a payment provider. The example uses **Observe** mode, which lets the function
+run while showing what your rules would decide. Even a deny decision leaves
+the function running in this mode.
 
-You need Node.js 20 or newer, an existing application, and a running sidecar.
-Complete [the dashboard setup](/docs/getting-started) and
-[connection details](/docs/identity) first. Keep the organisation ID, deployment
-ID, reviewed Operation Version ID, adapter-token file and private-key file
-available to the protected server application.
+Before you begin, complete the workspace steps in
+[your first application](/docs/getting-started) and start the sidecar using
+[native setup](/docs/native). You need Node.js 20 or newer and a new
+sample project directory. The program will read the private connection files
+created during setup.
+
+These instructions install SDK 0.1.1 and use a Policy Rail that compares the
+invoice ID. If you want to use automatic Data readers, the expanded Guard
+protections or Rail-owned Contextual AI, first check
+[which releases support them](/docs/compatibility#released-capability-boundary).
+Those features are not included in SDK 0.1.1.
 
 ## 1. Install the SDK
 
-From your application's directory, install the <a href={AUTHRAIL.packages.node}>npm package</a>:
+Create a sample project and install the <a href={AUTHRAIL.packages.node}>npm package</a>:
 
-<CommandBlock lang="bash" code={`npm install @authrail/sdk-node@${AUTHRAIL.releases.sdkVersion}`} />
+<CommandBlock lang="bash" code={`mkdir authrail-invoice-example &&
+cd authrail-invoice-example &&
+npm init -y &&
+npm install @authrail/sdk-node@${AUTHRAIL.releases.sdkVersion}`} />
 
 Keep the package version and your lockfile in source control for repeatable
 installs. Installing the SDK does not start your application or the sidecar.
@@ -43,120 +55,330 @@ from that application's directory. Use its actual checkout path.
 
 </details>
 
-## 2. Connect to the sidecar
+## 2. Prepare the invoice and connection settings
 
-Create the client once in your server application. Here `config` is your own
-configuration object: its IDs come from AuthRail, and its file paths point to
-the private files you prepared in the connection guide.
+Guided setup created a private directory for this deployment. The examples
+use `$HOME/.local/share/authrail/my-deployment`; if you chose another location,
+change the program's path to match it. Leave the generated `connection.json`,
+`adapter-token` and `executor-private.pem` in place.
 
-```ts
-import { readFileSync } from 'node:fs';
+Add a file named `example-config.json` to that directory:
+
+```json
+{"operation_version_id":"YOUR_REVIEWED_OPERATION_VERSION_ID"}
+```
+
+Replace the placeholder with the **Reviewed Operation Version ID** from your
+confirmed action, or the action version listed by setup. This tells the SDK
+which description of the function to use. Its input should be a text field
+named `invoiceId`, and its result should have text fields named `invoiceId`
+and `status`.
+
+Next, add `invoice.json` in the same directory:
+
+```json
+{"invoiceId":"invoice_123","status":"open"}
+```
+
+This file stands in for your application's invoice store. The program checks
+that it contains the expected invoice and fields before returning it. Keep
+the directory private because it also contains the application's signing key
+and connection credentials.
+
+The program below runs on the same host as the native sidecar. If your
+application runs in a container, follow
+[Docker placement](/docs/docker#3-connect-your-application-container) and use
+the path where you mounted its private files.
+
+## 3. Observe the function
+
+Save this complete program as `observe-invoice.mjs` in your application directory:
+
+```js
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { ObserveClient } from '@authrail/sdk-node';
+
+const privateDirectory = join(homedir(), '.local/share/authrail/my-deployment');
+const readPrivate = (name) => readFile(join(privateDirectory, name), 'utf8');
+const connection = JSON.parse(await readPrivate('connection.json'));
+const settings = JSON.parse(await readPrivate('example-config.json'));
 
 const client = new ObserveClient({
   sidecarUrl: 'http://127.0.0.1:7078',
-  organisationId: config.organisationId,
-  deploymentId: config.deploymentId,
-  adapterToken: readFileSync(config.adapterTokenFile, 'utf8').trim(),
-  executorPrivateKey: readFileSync(config.executorPrivateKeyFile, 'utf8'),
+  organisationId: connection.organisationId,
+  deploymentId: connection.deploymentId,
+  adapterToken: (await readPrivate('adapter-token')).trim(),
+  executorPrivateKey: await readPrivate('executor-private.pem'),
 });
-```
 
-The token file is the local `adapter-token` created during setup. The private key is `executor-private.pem`; the sidecar gets only the matching public PEM. Keep this code in the protected server application, outside the agent and browser bundle.
+async function readInvoice() {
+  const invoice = JSON.parse(await readPrivate('invoice.json'));
+  if (invoice === null || typeof invoice !== 'object' || Array.isArray(invoice) ||
+      Object.keys(invoice).length !== 2 ||
+      invoice.invoiceId !== 'invoice_123' || invoice.status !== 'open') {
+    throw new Error('Invoice fixture does not match this request');
+  }
+  return { invoiceId: invoice.invoiceId, status: invoice.status };
+}
 
-Use the [native sidecar](/docs/native) if this application runs on your host,
-or follow the [Docker application placement](/docs/docker#4-connect-your-application-container) if it runs in Docker. The local URL must reach the sidecar beside this application.
-
-## 3. Check an invoice read
-
-Suppose an authenticated staff member asks an assistant to read an invoice. The application resolves the invoice ID and uses an existing `invoiceService.read` function:
-
-```ts
 const { result, observation } = client.observe({
-  operationVersionId: config.invoiceReadOperationVersionId,
-  actionKey: request.stableBusinessKey,
-  principalId: session.staffId,
-  sessionId: session.id,
-  resourceId: invoice.id,
+  operationVersionId: settings.operation_version_id,
+  actionKey: 'invoice-read-request-001',
+  principalId: 'staff_123',
+  sessionId: 'task_123',
+  resourceId: 'invoice_123',
   principalSource: 'application_session',
   resourceSource: 'application_lookup',
-}, { invoiceId: invoice.id }, () => invoiceService.read(invoice.id));
+}, { invoiceId: 'invoice_123' }, readInvoice);
 
-const invoiceResult = await result;
+const invoice = await result;
 const checks = await observation;
-console.log(checks.callDecision?.outcome, checks.resultDecision?.outcome);
-console.log(checks.callError, checks.resultError);
+console.log('Invoice status:', invoice.status);
+function printCheck(phase, decision, error) {
+  if (error) console.log(phase, 'check unavailable:', error.message);
+  else if (decision) console.log(phase, decision.outcome, decision.recordingStatus);
+  else console.log(phase, 'check unavailable');
+}
+printCheck('call', checks.callDecision, checks.callError);
+printCheck('result', checks.resultDecision, checks.resultError);
 ```
 
-`request`, `session`, `invoice` and `invoiceService` are your application's objects. Resolve them through authenticated middleware and a protected lookup, rather than trusting IDs supplied by the model. The reviewed Operation must cover the arguments, returned JSON object and resource identity in this example. For an action without a target resource, omit `resourceId` and use `resourceSource: 'not_applicable'`.
+Run it from that directory:
 
-`result` is the function's own result or error. `observation` has separate call/result decisions or errors. A failed function has no successful result to check. In Observe, a deny decision or unavailable sidecar does **not** stop the function. Use a safe system when testing actions with effects.
+```sh
+node observe-invoice.mjs
+```
 
-## 4. Read the decisions
+The program should print `Invoice status: open`, followed by the call and
+result decisions. With the sample Rails from the quickstart, both should say
+`allow retained`: the rules allowed the read and AuthRail saved the reports.
+If it prints `check unavailable`, use the error and
+[sidecar diagnostics](/docs/operations) to investigate the connection or missing
+checks. The file read can still finish because this is Observe mode.
 
-With a healthy setup, the checks contain decisions for `tool_call` and `tool_result`. The outcome depends on your published Rails. `recordingStatus: 'retained'` means AuthRail stored that report; `'queued'` means it is saved locally for later delivery. An error is not an allow decision.
+The sample uses fixed staff, session and invoice identifiers so you can run it
+without building a login flow. When you add the wrapper to your application,
+get the caller and session from its login or service authentication, and look
+up which invoice that caller may access. The agent can ask for an invoice, but
+your application chooses the identity, account and credentials used to read it.
 
-Open the deployment's **Actions & decisions** in your workspace. Inspect the Action and both certificates. Keep `actionKey` stable across retries of the same business request; generate a different business key for a different request. Arguments and successful results must be bounded JSON objects.
+The `actionKey` identifies the business request. Reuse it when recovering the
+same request; use a new key when the user asks for different work.
 
-## Next: require permission before the function runs
+## 4. Find the request in AuthRail
 
-Observe shows how the rules apply. Once you have checked the decisions and
-[reviewed other access routes](/docs/security), use Enforce to stop the function
-unless permission is established. Read [Observe and Enforce](/docs/modes),
-[human approvals](/docs/approvals) and [recovery](/docs/recovery) before changing
-that boundary.
+Open **Actions & decisions** on the deployment and select the invoice Action.
+You can read the reasons for the call and result decisions separately. A report
+marked `retained` has reached AuthRail; `queued` means it is saved by the sidecar
+and still needs delivery. The [monitoring guide](/docs/operations) explains what
+to check if a request is missing.
 
-<details className="guide-details">
-<summary>Switch this integration to Enforce</summary>
+The invoice came from your function, while the decisions explain how the Rails
+applied to it. In a provider integration, the application's completion report
+would be another piece of information: you would check the provider's own
+record to establish the effect independently.
 
-In the deployment's **Overview → Review Enforce setup**, resolve any missing
-setup or call/result reports, confirm the protected boundary and select
-**Turn on Enforce**. Replace the Observe client and wrapper with `EnforceClient`:
+## 5. Make this same application enforce its rules
 
-```ts
-import { EnforceClient } from '@authrail/sdk-node';
+The next stage keeps the same invoice reader, connection files and reviewed
+Operation Version. You will now make the function wait for permission, then
+try a request that your rule denies. There is no provider account to create
+and no payment to make.
 
-const enforcingClient = new EnforceClient(protectedClientConfig);
-const checked = await enforcingClient.enforce(operation, args,
-  async (checkedArgs, execution) => {
-    await privateLedger.saveRecovery(execution);
-    return protectedPayments.refund(checkedArgs, {
-      idempotencyKey: execution.providerIdempotencyKey,
-    });
+First follow [Observe and Enforce](/docs/modes#move-an-application-from-observe-to-enforce):
+review the application's routes and credentials, confirm the deployment's
+Enforce setup and select **Turn on Enforce**. Keep its published invoice Rail
+selected. The sample code must use the Enforce wrapper as well as an Enforce
+deployment; changing only a dashboard setting does not replace an Observe wrapper.
+
+<a href="/examples/sdk/enforce-invoice.mjs" download>Download the complete Node.js Enforce application</a>
+and save it as `enforce-invoice.mjs` in your sample project. It uses SDK 0.1.1 and the
+connection settings already prepared above. Read the file before running it.
+All of its task storage and lookup helpers are included; the excerpt below
+shows the part around the protected function.
+
+Add a second harmless fixture, `invoice-denied.json`, in the same private
+deployment directory as `invoice.json`:
+
+```json
+{"invoiceId":"invoice_456","status":"open"}
+```
+
+The application has a fixed private catalogue mapping `invoice_123` to
+`invoice.json` and `invoice_456` to `invoice-denied.json`. It checks the requested
+identifier against that catalogue before calling the SDK, then reads the file
+only inside the protected callback. An agent-supplied identifier never becomes
+a filesystem path, deployment ID or credential choice.
+
+The program joins four responsibilities: parse the request, resolve the
+application's record, ask AuthRail for permission, then return the checked
+result. This excerpt is part of the complete downloadable program:
+
+```js
+const checked = await client.enforce(task.operation, task.input,
+  async (checkedArguments, execution) => {
+    task.status = 'started';
+    task.recovery = execution;
+    await save();
+    return lookupInvoice(checkedArguments.invoiceId);
   });
+// Only this checked result is returned to the caller.
+console.log('Invoice status:', checked.result.status);
 ```
 
-`protectedClientConfig` has the same connection and key fields as the earlier
-client. This refund example uses your own `operation`, `args`, `privateLedger`
-and `protectedPayments`; it does not supply a payment service.
+In the full program, `save` writes the application's encrypted task journal and
+`lookupInvoice` reads the selected fixture and validates
+its fields. The callback also prints **Protected reader invoked**, so you can
+see whether it was entered. The SDK saves permission and execution-start
+reports before entering it, and checks its returned result before returning
+that result to this application.
 
-The SDK requires a covered allow decision or valid approval permit, saved by
-AuthRail, and a saved execution-start report before calling this function. Use
-the checked arguments and provider idempotency key. Save recovery context
-before the provider call. A result check can withhold output after the effect;
-it cannot undo that effect.
+Run an allowed request with a new business request key. The commands below
+use a language-specific prefix so trying another SDK against the same deployment
+does not reuse this application's earlier Action:
 
-</details>
+```sh
+node enforce-invoice.mjs submit invoice_123 node-read-allowed-001
+```
+
+Under the original quickstart Policy, expect **Protected reader invoked**,
+`Invoice status: open`, and an allowed, retained result decision. Open the
+printed Action in **Actions & decisions** and compare the request decision,
+execution reports and result decision. The file came from your function; the
+Action explains how permission and reporting applied to that function.
+
+### Try an actual denied call
+
+Now ask for the second known invoice using a different request key:
+
+```sh
+node enforce-invoice.mjs submit invoice_456 node-read-denied-001
+```
+
+The quickstart's Deny rule matches this identifier. Expect **Saved task:
+blocked**, with no **Protected reader invoked** and no returned invoice status.
+The private catalogue knows the record exists, but AuthRail's rule prevents
+the protected reader from opening it. On its Action, inspect the call decision
+and reason; this path has no successful function execution or result check to
+claim as completion.
+
+A message saying **unavailable** or an error from configuration or transport
+is different from the intended deny result. Resolve it using
+[diagnostics](/docs/operations), rather than counting every stopped call as a
+passing rule test. The [compatibility guide](/docs/compatibility) identifies
+what the installed SDK and Runtime can evaluate together.
+
+## 6. Save an approval wait and continue after review
+
+You can use the same read to learn approval continuation without introducing
+a money-moving function. Prepare a new version of the sample Policy stating
+that reading `invoice_123` requires one named person's approval, while other
+invoice identifiers remain denied. In its Policy Rail, replace the ordinary
+Allow rule for `invoice_123` with **Require approval**; keep the Deny rule for
+other identifiers. Cite the new published Policy passage, test the expected
+approval and deny cases, review publication and select this Rail Version for
+the deployment. Do not leave an old Allow rule as an accidental alternative.
+
+The reviewed action must support approval. Expand **Approval reviewers** on
+the reviewed action. Under **Who can approve this action?**, select an active person, set **Approvals needed** to `1`, and save
+the reviewers. This can be the sole operator of the sample workspace. These
+are AuthRail account members; the sample application's fixed `staff_123`
+principal does not cast anyone's approval.
+
+Once the deployment is using the new version, submit a fresh request:
+
+```sh
+node enforce-invoice.mjs submit invoice_123 node-read-review-001
+```
+
+Expect **Saved task: awaiting_approval**, an Action reference and no callback
+marker. The program has saved the SDK's continuation before exiting. It
+contains the original checked call and decision, so the next invocation does
+not reconstruct the request from a new model response.
+
+Sign in as the named reviewer, open the waiting Action, review its values and
+expiry, then approve it. Return to the application and resume the original key:
+
+```sh
+node enforce-invoice.mjs resume node-read-review-001
+```
+
+The SDK claims the saved call's one-use permit, records the start, invokes the
+same reader and checks its result. Expect the callback marker and
+`Invoice status: open`. The Policy's result decision may still say
+`approval_required`: it still describes the rule's review requirement. The SDK
+releases that result only with the permit for this same approved Action.
+Approval, the execution report and the released result remain separate records.
+
+Keep the input and request key unchanged when resuming. A completed, denied or
+unknown task cannot be submitted again under that key through this program.
+A genuinely different request gets a new key and its own rule decision; a new
+key is not a way to recover the original task.
 
 <details className="guide-details">
-<summary>Approvals, unknown outcomes and additional SDK features</summary>
+<summary>How the local task journal handles restarts and uncertain outcomes</summary>
 
-A saved approval wait raises `EnforceBlockedError` with `approvalContinuation`.
-Encrypt and save it with the original authenticated request before a restart.
-`resumeApprovalFrom` claims an approved call. `recoverApprovalFrom` reads an
-existing permit after a lost claim response. Neither permits replacement
-model arguments or starts an already-started attempt.
+The complete program creates `node-invoice-tasks` inside your private deployment
+directory. It generates a 32-byte journal key there and encrypts task snapshots
+with AES-GCM. The authenticated binding includes the organisation, deployment,
+Operation Version, principal, session and business request key. Preserve this
+key and directory together; replacing the key does not recover existing tasks.
+The SDK continuation and execution context remain outside the agent's access.
 
-`EnforceOutcomeUnknownError` includes recovery context. Check the provider using
-the original idempotency key before `reconcile`. Do not rerun the function on
-a generic network error. The [recovery guide](/docs/recovery) explains this flow.
+Each invocation exclusively locks its task, writes a new encrypted snapshot,
+flushes it to disk and atomically replaces the previous file. A normal exit
+releases the lock. A process crash leaves its lock in place so another process
+does not assume the work is safe to repeat. An operator must establish that the
+original process is gone and inspect the Action and saved attempt before
+repairing a crash-left lock. Clearing a lock is not permission to reset a task,
+replace its key or repeat its execution. A missing or changed binding fails closed.
 
-The <a href={`${AUTHRAIL.repositories.node}#readme`}>SDK README</a> also covers
-source facts, Guard handlers and discovery. Run `npm test` from the SDK checkout
-to build and run its source checks. Those checks do not establish that every
-route in your application is protected.
+Use the status command to inspect a normally unlocked task without running it:
+
+```sh
+node enforce-invoice.mjs status node-read-review-001
+```
+
+Before claiming an approval permit, the program saves **claiming**. If that
+claim's response is lost before the callback begins, keep this task and use:
+
+```sh
+node enforce-invoice.mjs recover-permit node-read-review-001
+```
+
+This calls the SDK's existing-permit recovery method. It cannot issue a new
+permit, revive expired approval or rerun a started attempt. Run **resume** only
+after the reviewer has approved: an early, rejected or unavailable claim may
+leave the task held for inspection rather than automatically trying another
+claim. A task marked **started**, **outcome_unknown** or **result_withheld**
+requires investigation; the program does not offer an automatic execution retry.
+
+These downloadable journal programs run on macOS or Linux: their local file
+permissions, user-ownership checks and directory flushing use POSIX behaviour.
+That restriction belongs to this example, not a new SDK platform restriction.
+Run one command at a time as the same trusted application user. This file store
+is a complete single-host, single-operator teaching example, not a scheduler. In a multi-user application, bind tasks to its authenticated
+users and resources, use its durable workflow store and exclusive worker claims,
+and let the user or worker continue saved work. For provider writes, keep the
+SDK recovery context before sending and use the provider idempotency key when
+supported. Follow [human approvals](/docs/approvals) and
+[execution recovery](/docs/recovery) for those application contracts.
 
 </details>
 
-The [Runtime walkthrough](/docs/application-example) shows a connected
-application and the decisions it retained in AuthRail.
+## Bringing the integration into your own application
+
+Replace the fixed sample identities with values from your application's login
+or workload authentication, and replace the catalogue with an authorised
+resource lookup. Keep provider credentials behind the function. The wrapper
+belongs around that function, before the model can call an equivalent route
+without checks. Return the checked result or a useful held/blocked state to
+your agent loop; the SDK does not need to interpret the person's chat message.
+
+The [application-building guide](/docs/build-your-app) shows how to put those
+responsibilities into a tool handler. Continue with
+<a href={AUTHRAIL.repositories.node + '/blob/v0.1.1/README.md'}>the released Node.js API reference</a>
+for additional signatures and [compatibility](/docs/compatibility) before using
+newer Data, Guard or Contextual AI capabilities.

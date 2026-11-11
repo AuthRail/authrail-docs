@@ -74,3 +74,8 @@ a:focus-visible,button:focus-visible { outline: 3px solid var(--color-fd-ring); 
 .guide-details[open] > summary { margin-bottom: 14px; }
 .guide-details > :last-child { margin-bottom: 0; }
 .guide-details > summary:focus-visible { outline: 3px solid var(--color-fd-ring); outline-offset: 5px; }
+
+.walkthrough-video { margin: 28px 0; min-width: 0; }
+.walkthrough-video video { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--color-fd-border); border-radius: 8px; }
+.walkthrough-video video:focus-visible { outline: 3px solid var(--color-fd-ring); outline-offset: 5px; }
+.walkthrough-video figcaption { margin-top: 10px; font-size: 14px; line-height: 1.7; color: var(--color-fd-muted-foreground); }

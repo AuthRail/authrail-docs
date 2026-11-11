@@ -10,83 +10,81 @@ decisions to a human for approval. Connect that oversight to your organisation's
 policies and compliance requirements.
 
 **[Read the documentation](https://docs.authrail.io)** ·
-**[Open the workspace](https://app-staging.authrail.io)**
+**[Getting started](https://docs.authrail.io/docs/getting-started)** ·
+**[Watch the demonstration](https://docs.authrail.io/docs/application-example)**
 
-## From requirements to working practices
+## Applying your rules to an agent's tools
 
-An organisation needs to know which obligations apply to its AI systems and
-how it meets them. AuthRail connects that work in one workspace:
+An assistant helping a finance team may be allowed to read invoices but need
+approval before creating an estimate. AuthRail lets the organisation express
+those differences through **Rails** and apply them when the application uses
+the corresponding functions. The application continues to perform its own
+business operations and keep the credentials they need.
 
-- **Frameworks** organise obligations from standards, regulations and your own
-  organisation. Choose an exact version, define its scope and review what applies.
-- **Policies and Controls** describe what your organisation expects and how its
-  teams put those expectations into practice. Reuse the same approved practice
-  across Frameworks.
-- **Tests and Evidence** check whether those practices work and retain the
-  material reviewed to support the result.
-- **Readiness** shows what is supported by up-to-date reviewed proof and what still
-  needs attention. Findings, Tasks and narrow Exceptions help teams handle gaps
-  without erasing earlier results.
+A developer connects those functions through an SDK and a customer-side
+**sidecar**, which evaluates the published rules. **Observe** shows what the
+rules would decide while the application continues; **Enforce** makes permission
+a condition of running the connected function. The SDK can also check returned
+information before the assistant receives it, for example to remove a credential
+field from application settings.
 
-For example, a support team may require human review before an AI assistant
-makes sensitive account changes. Its Policy records that expectation; its
-Control describes the review process; its Tests and Evidence show whether the
-process worked over the assessed period.
+The resulting Action brings together the request, decisions, approvals and
+application reports. It lets a reviewer understand why work was stopped or what
+the application reported after permission was granted. When the outcome depends
+on an external provider, that provider's own record remains a separate source
+for establishing whether the effect occurred.
 
-[Start with the product introduction](https://docs.authrail.io/docs), then follow
-[Frameworks and scope](https://docs.authrail.io/docs/frameworks).
+[Building your own application](https://docs.authrail.io/docs/build-your-app)
+explains how this fits into an agent loop. The
+[quickstart](https://docs.authrail.io/docs/getting-started) then provides a complete
+invoice-reader example for Node.js, Go and Python.
 
-## Bring the rules to AI actions
+## Working with AuthRail through an assistant
 
-AuthRail **Runtime** connects reviewed rules, called **Rails**, to the application
-where an AI system calls a tool or receives its result. Your application uses
-an SDK and a customer-side **sidecar** to check those rules. It keeps its own
-business logic and provider credentials.
+[AuthRail MCP](https://docs.authrail.io/docs/mcp) connects an assistant to your
+AuthRail workspace using the organisation access you grant. It can inspect
+supported records and help prepare configuration for review. Publication,
+deployment changes and approval decisions still require an authorised person's
+confirmation.
 
-Start in **Observe** to see what the rules would decide. Move a reviewed,
-protected path to **Enforce** to require permission before an operation runs and
-withhold results that should not reach the agent. Requests can require a named
-human reviewer before the application continues.
+This management connection is separate from integrating the application's
+business tools. Those functions still need their SDK and sidecar checks, and
+the agent should not have another route to their private credentials. The
+connection guide explains registration, sign-in, consent and the supported
+workflows using `https://mcp.authrail.io/mcp`.
 
-Actions bring together the request, decisions, approvals and application reports
-so reviewers can understand what happened. Permission, reported execution and
-independently verified effects remain distinct. Runtime records support
-compliance through the relevant Control's Test or Evidence review.
+## Connecting oversight to governance
 
-![An AuthRail Action showing its request and result checks and application-reported completion](public/screenshots/runtime-enforce-execution.jpg)
+AuthRail also supports the work of documenting a practice and demonstrating
+that it meets the organisation's duties. Policies describe expectations,
+Controls explain how teams fulfil them, and Tests and Evidence establish
+whether the practices worked over a review period. Frameworks connect that
+proof to applicable obligations through reviewed mappings.
 
-*An example Action: request and result checks are allowed, and completion is
-reported by the executor. Those records do not independently prove a provider effect.*
+Runtime records can contribute when a Control's Test or Evidence requirement
+defines how they should be assessed. Readiness follows that proof and its
+freshness rather than being created by a log, an allowed request or a signature.
+Continue with [Policies and Controls](https://docs.authrail.io/docs/policies-controls)
+and [Frameworks](https://docs.authrail.io/docs/frameworks) to explore this workflow.
 
-[Understand Runtime](https://docs.authrail.io/docs/concepts) before
-[connecting your first application](https://docs.authrail.io/docs/getting-started).
-
-## Public repositories
+## Repositories and installation guides
 
 | Repository | Purpose |
 | --- | --- |
-| [AuthRail Sidecar](https://github.com/AuthRail/authrail-sidecar) | Run the local rule checker with Docker or a native binary. Includes the supported OpenShell integration. |
-| [Node SDK](https://github.com/AuthRail/authrail-sdk-node) | Connect TypeScript and JavaScript applications to the sidecar. |
-| [Go SDK](https://github.com/AuthRail/authrail-sdk-go) | Connect Go applications through the same decision protocol. |
-| [Python SDK](https://github.com/AuthRail/authrail-sdk-python) | Connect async Python functions through the same sidecar. |
-| [Documentation](https://github.com/AuthRail/authrail-docs) | This public product documentation and website. |
+| [Sidecar](https://github.com/AuthRail/authrail-sidecar) | Local rule evaluation, guided setup and Docker/native distribution. |
+| [Node SDK](https://github.com/AuthRail/authrail-sdk-node) | Integration for JavaScript and TypeScript functions. |
+| [Go SDK](https://github.com/AuthRail/authrail-sdk-go) | Integration for Go applications using the same decision protocol. |
+| [Python SDK](https://github.com/AuthRail/authrail-sdk-python) | Integration for async Python functions. |
+| [MCP](https://github.com/AuthRail/authrail-mcp) | Delegated management tools and customer-side connector source. |
+| [Documentation](https://github.com/AuthRail/authrail-docs) | This website and its guides. |
 
-Docker builds the sidecar from source inside its build stage; you do not need
-to compile a native binary first. The SDK belongs in the protected application.
-See [Docker setup](https://docs.authrail.io/docs/docker),
-[Node setup](https://docs.authrail.io/docs/node) and
-[Go setup](https://docs.authrail.io/docs/go) and
-[Python setup](https://docs.authrail.io/docs/python) for prerequisites and the full steps.
+Use the published versions listed in the
+[compatibility reference](https://docs.authrail.io/docs/compatibility) when
+following an installation guide. Repository source includes newer capabilities
+that are not all present in those packages. Guided Docker setup uses a prebuilt
+artifact, while the optional
+[OpenShell example](https://docs.authrail.io/docs/openshell) documents a separate
+source integration for customer-operated containment.
 
-## OpenShell and integration references
-
-The supported [OpenShell integration](https://docs.authrail.io/docs/openshell)
-uses customer-operated [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell)
-for sandbox containment while AuthRail checks business actions through the
-protected executor. See the [official OpenShell documentation](https://docs.nvidia.com/openshell/latest/)
-for its installation and sandbox responsibilities.
-
-Our integration research also draws on
-[OpenAPPA's tool-call and tool-result interception patterns](https://www.openappa.com/how-it-works).
-AuthRail has its own sidecar protocol, Rails, approval lifecycle and retained
-records; the AuthRail guides describe the supported integration contract.
+The application in the demonstration is a private, local reference example
+rather than a hosted service or a general provider connector catalogue.

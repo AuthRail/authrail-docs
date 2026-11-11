@@ -4,12 +4,16 @@ import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/components/mdx';
 import { source } from '@/lib/source';
 import { AUTHRAIL } from '@/lib/constants';
+import { PageActions } from '@/components/page-actions';
+import { getPageMarkdown } from '@/components/page-markdown';
 export default async function DocumentationPage({ params }: PageProps<'/docs/[[...slug]]'>) {
   const { slug } = await params;
   const page = source.getPage(slug);
   if (!page) notFound();
   const Content = page.data.body;
-  return <DocsPage toc={page.data.toc}><DocsTitle>{page.data.title}</DocsTitle><DocsDescription>{page.data.description}</DocsDescription><DocsBody><Content components={getMDXComponents()} /></DocsBody></DocsPage>;
+  const markdown = await getPageMarkdown(page);
+  const markdownUrl = `/docs/markdown${slug?.length ? `/${slug.map(encodeURIComponent).join('/')}` : ''}`;
+  return <DocsPage toc={page.data.toc}><DocsTitle>{page.data.title}</DocsTitle><DocsDescription>{page.data.description}</DocsDescription><PageActions key={page.url} markdown={markdown} markdownUrl={markdownUrl} chatgptUrl={AUTHRAIL.assistants.chatgpt} claudeUrl={AUTHRAIL.assistants.claude} /><DocsBody><Content components={getMDXComponents()} /></DocsBody></DocsPage>;
 }
 export function generateStaticParams() { return source.generateParams(); }
 export async function generateMetadata({ params }: PageProps<'/docs/[[...slug]]'>): Promise<Metadata> {

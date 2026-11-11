@@ -1,19 +1,77 @@
 ---
 title: "Identity and deployment"
-description: "Get the connection settings and prepare the private files your application and sidecar need."
+description: "Understand the private connection files, authenticated caller and resource behind a protected request."
 icon: FingerprintIcon
 ---
 
-Before the application can send checks, AuthRail needs to recognise its
-sidecar and the application making those requests. This setup uses a deployment
-token from AuthRail and a signing key created by your application operator.
+When your application asks AuthRail to check a tool call, the request needs to
+identify the installation, the caller and the record being used. These answers
+come from different places. A **deployment** identifies one installation of
+your AI system; your application authenticates the caller and looks up the
+record. A signing key lets the application show that it supplied those details.
 
-You will finish with four private files and the connection values from your
-deployment. The Docker, native and SDK guides use these same files. Complete
-the dashboard steps in [Connect your first application](/docs/getting-started)
-first, then open that deployment's **Integration setup** tab.
+For example, a billing service can request an invoice check for a signed-in
+staff member without giving the agent the service’s Stripe credential. This
+page explains the connection files and the application’s responsibilities.
+For a new installation, [guided setup](/docs/getting-started) creates the files
+and registers the public key for you.
 
-## 1. Copy the deployment settings
+## Find the generated connection files
+
+Setup saves files in the directory you choose with `--directory`. The
+quickstart uses `$HOME/.local/share/authrail/my-deployment`. Your application
+operator should own this private directory and keep it across restarts, because
+it contains the keys and credentials needed to reconnect the same installation.
+The table shows which process needs each file; token values and private keys
+should stay out of chat, browser code and shared terminal output.
+
+| File | Who uses it | Purpose |
+| --- | --- | --- |
+| `connection.json` | Operator and application configuration. | API URL, organisation/deployment IDs, trusted AuthRail signing fingerprints and the application's public-key fingerprint. JSON keys use camelCase, including `organisationId` and `deploymentId`. |
+| `deployment-token` | Sidecar. | Connect this deployment to AuthRail for configuration and reports. |
+| `adapter-token` | Protected application and sidecar. | Authenticate local SDK requests. |
+| `executor-private.pem` | Protected application only. | Sign the application’s requests and execution reports. |
+| `executor-public.pem` | AuthRail registration and sidecar. | Verify the application's signatures; this is the only application key sent to AuthRail. |
+
+A **fingerprint** is a short identifier for a key. The AuthRail signing
+fingerprint lets the sidecar recognise rules issued by AuthRail. Your
+application’s fingerprint identifies the key it uses to sign requests. Keep
+these two values distinct, and keep business-provider credentials separately
+in the application that performs the work.
+
+The setup command's Docker and native paths have different placement and
+lifecycle instructions. Follow [Docker](/docs/docker) or [native](/docs/native)
+for the selected path, and use the [configuration reference](/docs/configuration)
+when provisioning through your deployment's secret store.
+
+## Bind a trusted caller and target
+
+Your application should authenticate the user or service before asking the
+sidecar for a decision. It then supplies that caller and session as
+`principalId` and `sessionId`, and looks up the target record before supplying
+`resourceId`. The SDK uses the same information in each supported language.
+
+Suppose an agent requests invoice `in_example`. The application first checks
+which account the user may access and finds the invoice in that account. It
+chooses the provider credential and the confirmed Operation Version for the
+function, then signs the request. This keeps the agent’s requested input
+separate from the identity and access established by your application.
+
+Use a stable business request key so recovery can recognise the same work.
+The signature shows that the registered application key supplied the request;
+it does not independently establish the caller’s identity or a provider effect.
+That is why authentication, resource lookups and provider verification remain
+part of your application.
+
+<details className="guide-details">
+<summary>Manual provisioning for an existing deployment</summary>
+
+If your team provisions credentials through an existing secret store or
+deployment tool, it can prepare the equivalent files and settings below.
+Guided setup normally handles this work. For an existing installation, reuse
+its registered key and credentials unless you are carrying out a planned change.
+
+### Copy the deployment settings
 
 Under **Configure the sidecar**, copy these values into your private deployment
 configuration:
@@ -28,7 +86,7 @@ configuration:
 
 <ProductShot src="/screenshots/runtime-integration-setup.jpg" alt="A deployment's Integration setup page with connection settings, token controls and application public key" caption="Use your own deployment's Integration setup. This sample already has a token and an application key; it does not display a secret token value." />
 
-## 2. Save the deployment token
+### Save the deployment token
 
 Create a private directory outside your source checkout. These examples use a
 POSIX terminal on macOS or Linux:
@@ -47,11 +105,11 @@ value in this file:
 $HOME/.local/share/authrail/my-deployment/deployment-token
 ```
 
-The sidecar uses it to fetch this deployment's rules and send reports. Keep it
-private. **Replace token** invalidates the old token; it does not reveal the
-previous value.
+The sidecar uses this credential to fetch the deployment’s rules and send
+reports. Store it privately, and remember that **Replace token** invalidates
+the old value. AuthRail does not display a saved token again.
 
-## 3. Create the application's key and local token
+### Create the application's key and local token
 
 The application signs its requests so the sidecar and AuthRail can check where
 they came from. OpenSSL creates two related files: a **private key** the
@@ -73,7 +131,7 @@ It is different from the deployment token.
 Run these commands once for a new installation. If you already registered a
 key, use its existing files; overwriting them would break that registration.
 
-## 4. Register only the public key
+### Register only the public key
 
 Print the public file:
 
@@ -84,10 +142,11 @@ cat "$HOME/.local/share/authrail/my-deployment/executor-public.pem"
 Copy the complete PEM text into **Integration setup → Connect your application
 → Application public key**, then select **Connect key**.
 
-Never paste `executor-private.pem` into AuthRail. Keep that key and all provider
-credentials in the protected application, outside the agent's reach.
+Only the public key goes into AuthRail. The matching `executor-private.pem`
+stays with your application, alongside its other private credentials and
+outside the agent’s reach.
 
-## 5. Use the files in the right place
+### Use the files in the right place
 
 The **sidecar** needs `deployment-token`, `adapter-token` and
 `executor-public.pem`. The **application SDK** needs the same `adapter-token`
@@ -102,6 +161,8 @@ prompts or shared terminal captures.
 Continue with [Docker setup](/docs/docker) or [native setup](/docs/native). The
 [configuration reference](/docs/configuration) lists the setting names used by
 each process.
+
+</details>
 
 <details className="guide-details">
 <summary>How these identities differ</summary>
@@ -121,9 +182,6 @@ substitute their fingerprints.
 `resourceId` through its own lookup. The SDK examples show how to supply these
 values; an agent's statement about its identity or target does not authenticate
 it.
-
-A valid signature identifies an assertion from the registered application key.
-It does not independently verify the person, target record or provider effect.
 
 </details>
 
@@ -147,8 +205,8 @@ SDK discovery uses it to find or propose the AI Inventory item. Review and
 confirm that identity before Enforce. A discovery key is not the deployment
 token or permission to perform a business action.
 
-Keep the full sidecar state directory through key changes and restarts. An
-invalid state file needs investigation through [recovery](/docs/recovery), not
-deletion to make startup succeed.
+Preserve the full sidecar state directory through key changes and restarts.
+If a state file is invalid, follow [recovery](/docs/recovery) so you can
+investigate it without losing queued reports or configuration history.
 
 </details>

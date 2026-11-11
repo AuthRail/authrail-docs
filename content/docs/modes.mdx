@@ -1,66 +1,78 @@
 ---
 title: "Observe and Enforce"
-description: "Compare advisory rule checks with protection that can stop an application's action."
+description: "Learn how your rules behave, then apply their decisions before a function runs."
 icon: ShieldCheckIcon
 ---
 
-**Observe** shows what the rules would decide while the application continues.
-**Enforce** requires the protected application to apply the decision before an
-action runs. A deployment uses one of these modes.
+**Observe** lets you see how your Rails respond while the application continues
+its normal work. **Enforce** makes the application wait for permission before
+running the connected function. Each deployment uses one of these two modes.
 
-For example, a payment above the allowed limit can still execute in Observe
-while AuthRail records that the rule would deny it. In Enforce, the connected
-protected function stops on that denial. Use Observe to learn how your rules
-behave, then move to Enforce after checking the application's protection.
+For example, a payment outside your rules can still happen in Observe, alongside
+a **Would deny** decision. In Enforce, that denial stops the function you
+connected. This makes Observe useful for understanding a rule before enabling
+it, provided the requests themselves are safe to run.
 
-## Move one connected application into Enforce
+## Move an application from Observe to Enforce
 
-Use a safe system for these checks. Observe does not prevent a payment or
-another business change merely because a rule would block it.
+Start in a safe application or provider test account. You will compare the
+rules' decisions with the function's real behaviour, then enable enforcement
+once its route and credentials are in place.
 
-### 1. Start with selected rules in Observe
+### 1. Observe representative requests
 
-Confirm the AI system and deployment in **AI Inventory**. Publish the relevant
-action and Rails, then select them for that deployment. The developer connects
-the application's Observe adapter at its tool and result checks.
+In **AI Inventory**, confirm the AI system and deployment, then choose the
+published action and Rails it should use. Connect the application's Observe
+adapter at its call and result hooks, following the [SDK guide](/docs/getting-started).
+Check [compatibility](/docs/compatibility) when choosing a rule that requires
+an additional reader, processor or contextual assessment.
 
-Run representative safe requests: one allowed, one outside the rule, one that
-needs approval and any case where required context cannot be obtained. Inspect
-the reported decisions and what the application actually did.
+Try requests the rule should allow, deny or send for approval, together with
+any relevant missing-data case. Open their Actions and compare the advisory
+checks with what the application actually did. A passing draft example alone
+cannot show that these hooks receive the application's calls.
 
-### 2. Review the protected tool path
+### 2. Connect the function that performs the work
 
-Before enabling Enforce, the developer connects the Enforce adapter at the real
-business function. Keep the provider credential behind that function and check
-that the agent cannot reach the tool or credential through another route.
+The developer now uses the Enforce adapter around the business function. The
+application authenticates the caller, selects the resource and provider account,
+and keeps the credential away from the agent. Review other routes to the same
+tool so an agent cannot go around this function; [execution security](/docs/security)
+explains that review.
 
-The selected rules must cover the intended action. AuthRail must also have the
-required call and result reports for the selected setup. Rule examples alone
-do not show that the actual application is connected.
+Check that the selected Rails cover the action and that AuthRail has the call
+and result reports needed by the deployment's setup. The application code and
+deployment mode work together: changing the dashboard setting cannot turn an
+Observe wrapper into an Enforce wrapper.
 
-### 3. Turn on Enforce in AuthRail
+### 3. Turn on Enforce
 
-Open the deployment's **Overview**, choose **Review Enforce setup** and inspect
-its readiness. Confirm the tested protected-tool boundary, then choose
-**Turn on Enforce** when ready. Wait for the sidecar to receive the selected
-Enforce rules before relying on protection.
+Open the deployment's **Overview**, choose **Review Enforce setup**, and read
+its readiness information. Confirm the function and credential arrangements,
+then choose **Turn on Enforce**. Wait for the sidecar to receive the Enforce
+configuration before relying on it.
 
-Changing a dashboard mode does not turn code using an Observe adapter into a
-protected function. The application integration and deployment mode must agree.
+Run an allowed and a denied request. The allowed one should show its decision,
+execution reports and result check. For the denied one, also inspect the
+application's business history or provider account to confirm the function did
+not create an effect. You now have evidence of both the decision and the route
+that applies it.
 
-## Apply Enforce in application code
+## Call the function through the SDK
 
-Create the client using the private connection settings from your
-[Node](/docs/node), [Go](/docs/go) or [Python](/docs/python) setup. These examples
-belong inside your existing request handler. `operation` contains the reviewed
-Operation Version ID, stable business Action key and authenticated caller and
-resource identities. `invoiceService` is your application's invoice reader.
+The example below reads an invoice through your existing `invoiceService`.
+Create the client with the private settings from the [Node.js](/docs/node),
+[Go](/docs/go) or [Python](/docs/python) guide. `operation` supplies the Operation
+Version ID, a stable business request key and the caller and resource identities
+obtained by the application.
 
-Use this wrapper **instead of** an unprotected call to that function. A denied
-call raises or returns an error; it must not fall through to a direct call.
-The result is released only after its result check passes.
+Place this call in your request handler in place of its direct invoice read.
+The SDK invokes the function only after the call check succeeds, then checks
+its result before returning it. If the wrapper reports an error, return or
+handle that error rather than calling the invoice service again outside it.
 
 <Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+
 <Tab value="Node.js">
 
 ```ts
@@ -80,11 +92,11 @@ const checked = await client.enforce(
 return checked.result;
 ```
 
-`privateClientConfig` is the same protected connection configuration used in
-the Node guide. Handle approval waits and unknown outcomes as described below;
-do not catch an error by running `invoiceService.read` directly.
+`privateClientConfig` comes from the Node setup. `invoiceService` belongs to
+your application; the SDK does not create a provider connection for it.
 
 </Tab>
+
 <Tab value="Go">
 
 ```go
@@ -102,11 +114,12 @@ if err != nil {
 return result, nil
 ```
 
-Use `context` and `authrail "github.com/AuthRail/authrail-sdk-go"` imports.
-`client` is the configured Go SDK client. Here `invoiceService.Read` returns
-an invoice as `map[string]string`; use your own reviewed JSON result type.
+Import `context` and `authrail "github.com/AuthRail/authrail-sdk-go"` and use
+the client from the Go setup. This example returns `map[string]string`; your
+function can use its own JSON result type.
 
 </Tab>
+
 <Tab value="Python">
 
 ```python
@@ -126,70 +139,60 @@ checked = await client.enforce(
 return checked.result
 ```
 
-Put the call inside your async request handler. The example uses your existing
-`invoice_service`; the SDK does not supply a provider connection.
+Use the `AsyncEnforceClient` from the Python setup inside your async request
+handler. `invoice_service` is your application's existing reader.
 
 </Tab>
+
 </Tabs>
 
-For actions that change data, save the callback's execution context and pass
-its provider idempotency key to your provider. See [recovery](/docs/recovery).
-For an approval-required error, save the waiting work and use the
-[approval continuation](/docs/approvals#save-and-resume-the-applications-work).
+These examples use the core Enforce wrapper. Requirements such as automatic
+Data reads, ready-made Guard processing and Contextual AI also need the
+capabilities listed in [compatibility](/docs/compatibility). For a function
+that changes data, save the callback's execution context and use its provider
+idempotency key as described in [recovery](/docs/recovery).
 
-## Verify both an allowed and a denied request
+## Handle a wait or an unavailable check
 
-Run the allowed request and inspect its call decision, execution reports and
-result check. Run a denied request and verify that the protected function did
-not execute. Check the application's saved history or the provider record,
-not only the label on a decision.
+An approval-required response means the function is waiting for a person's
+decision. Save the work using an [approval continuation](/docs/approvals#save-and-resume-the-applications-work)
+so the originating application can resume it later. A denied request, expired
+permission, uncovered action or unavailable sidecar stops Enforce before the
+function runs. The required call report must also have reached AuthRail; a
+report waiting only in the local queue does not yet satisfy that condition.
 
-<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="Enforce Action showing allowed request and result checks with separate Started and Completion reported entries" caption="This safe sample run retained both rule checks and the application's start and completion reports." />
-
-You should now be able to show both what the rules decided and what the
-protected application did. [Human approvals](/docs/approvals) explains the
-waiting path for requests that need review.
+Result checks happen after the function, which is why a withheld result can
+accompany a completed business operation. If execution or reporting leaves the
+effect uncertain, [investigate the original attempt](/docs/recovery) before
+retrying. Returning an error to the agent does not by itself establish that a
+provider made no change.
 
 <details className="guide-details">
-<summary>More about Enforce permission and failure behaviour</summary>
+<summary>What Enforce establishes before running a function</summary>
 
-SDK guides call the protected business function a **callback**. A **retained**
-decision or report means AuthRail saved it and acknowledged it. A report saved
-only in the local sidecar queue is still waiting for that acknowledgement.
+The SDK needs a fresh allowed decision for the actual input, or the matching
+one-use permit after approval. It records the attempt's start with AuthRail
+before invoking the function and checks a successful result before releasing
+it to the agent. A **retained** report is one AuthRail has acknowledged; a
+**queued** report is still waiting locally for that acknowledgement.
 
-Enforce requires a fresh allowed decision covering the actual input, or the
-matching one-use permit after a required approval. It retains the execution
-start before the business function and checks a successful result before
-returning it to the agent.
-
-| Situation | What the protected path does |
-| --- | --- |
-| Fresh allowed call retained by AuthRail | Records the execution start, then invokes the protected function. |
-| Human approval needed | Waits and saves the original request context for authorised resumption. |
-| Denied, uncovered, stale or mismatched decision | Stops before the function. |
-| Sidecar unavailable or call report only queued locally | Stops before the function. |
-| Result denied after execution | Withholds the result; the business effect may already exist. |
-| Execution or completion reporting leaves an uncertain outcome | Preserves recovery information for investigation before retry. |
-
-A denied result cannot undo a completed provider operation. If the outcome is
-uncertain, follow [execution recovery](/docs/recovery) rather than repeating the
-action to find out what happened.
+Connecting hosted AuthRail MCP provides management access to configuration and
+records. Business tools, shell commands and provider APIs need their own SDK
+route; management access cannot add those hooks to another tool.
 
 </details>
 
 <details className="guide-details">
-<summary>More about Observe and separate deployments</summary>
+<summary>Observe during an outage and separately named deployments</summary>
 
-Observe remains advisory if the sidecar or recording service is unavailable.
-A missing decision does not prove that nothing happened, and an application
-exception does not prove that a provider made no change.
+Observe remains advisory when the sidecar or reporting service is unavailable.
+The application can continue and report its outcome separately, while an absent
+decision remains a gap in what AuthRail recorded. That execution report does
+not turn an observed request into an enforced one.
 
-The application can report its observed execution outcome separately. That
-report does not turn an advisory decision into enforcement.
-
-You can use separately named deployments to compare modes. Each keeps its own
-identity and rule selection. There is no required Test/Live naming scheme or
-third Runtime mode. If protection becomes unavailable, repair it deliberately
-rather than silently falling back to Observe.
+You can use separately named deployments to compare modes, each with its own
+identity and selected rules. There is no required Test/Live naming scheme or
+third Runtime mode. If an Enforce installation stops working, repair that
+installation rather than automatically changing it to Observe.
 
 </details>

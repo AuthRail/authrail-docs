@@ -1,0 +1,170 @@
+---
+title: "Using AuthRail with an assistant"
+description: "Connect an assistant to your AuthRail workspace, prepare changes and review decisions using your own permissions."
+icon: PlugsConnectedIcon
+---
+
+import { AUTHRAIL } from '@/lib/constants';
+
+AuthRail MCP connects your assistant to your AuthRail workspace. As you build
+an application or manage agents already in use, you can work with the assistant
+to prepare rules, inspect decisions and understand where human approval is
+needed. You might ask it to prepare a release rule, investigate an agent's
+access to customer information, or explain why a requested operation was held.
+The assistant works with the account and organisation access you grant it.
+
+This connection is for working with AuthRail itself. Your application's
+business tools use a separate SDK and sidecar integration, which checks the
+functions that read information or make changes. Connecting management MCP
+does not automatically add those checks to the assistant's existing payment,
+browser or shell tools.
+
+## Connecting your assistant
+
+Add AuthRail as a remote MCP connection in your assistant, using this address:
+
+<CommandBlock lang="text" code={AUTHRAIL.mcpEndpoint} />
+
+1. Open your assistant's MCP or connector settings and add the address above.
+   Choose its standard OAuth connection flow. A compatible assistant can identify
+   itself automatically; you do not need to create a client ID first.
+2. Follow the link to sign in to AuthRail. Choose the organisation you intend
+   to work with and review the access the assistant requests.
+3. Grant the capabilities needed for your work. Your organisation role and
+   content permissions continue to apply alongside this consent.
+4. Ask the assistant to check its AuthRail connection and summarise the workspace.
+   Check the account and organisation before preparing changes.
+
+The assistant needs Streamable HTTP and OAuth with PKCE S256. Client discovery
+uses a published client identity document (CIMD), with automatic registration
+available for clients that use that flow instead. Both identify the assistant;
+your sign-in and consent are what give it access to your organisation.
+
+The public service address is **mcp.authrail.io/mcp**. Its live availability has
+not yet been verified for this documentation update; a connection failure at
+that address does not mean you need to run a local server or supply a different
+organisation's credentials.
+
+<details className="guide-details">
+<summary>When your assistant asks for a client ID</summary>
+
+Some clients require a pre-registered ID. Obtain the OAuth callback address
+from that client's setup instructions, then sign in to AuthRail and open
+`/mcp/clients`. Enter a recognisable name and the callback under **Register an
+assistant client**. Copy the resulting public client ID into the assistant's
+settings and restart its connection flow.
+
+HTTPS callbacks and HTTP loopback callbacks, including `localhost`, are
+supported. Copy the callback exactly; wildcard addresses are not accepted.
+A public client ID is an identifier, not a secret or an access grant. The
+assistant still needs PKCE S256, and you still sign in and choose its access.
+
+</details>
+
+Session tokens, provider credentials and private setup files belong outside the
+conversation. The organisation used by a tool comes from the connection grant;
+to work in a different organisation, reconnect and choose it through consent
+rather than supplying another organisation in a tool argument.
+
+## Preparing a rule together
+
+Suppose you are building an agent that can prepare and release application
+changes. You want it to work independently on a draft, while a named reviewer
+must approve any production release. After defining the release operation and
+publishing the relevant Policy in AuthRail, you could ask:
+
+> Find our production-release operation and prepare a Policy Rail requiring
+> the release owner's approval before it runs. Show me the conditions and
+> examples so I can review the rule before publication.
+
+The assistant finds the action, reads its reviewed version and prepares the
+Rail draft. It saves and tests the draft using the same workspace permissions
+as the dashboard, and you can inspect the proposed rule in AuthRail before
+publishing it. If someone has edited the draft meanwhile, the assistant needs
+to read and reconcile that change rather than overwrite it.
+
+For a Guard, the assistant can inspect `authrail_list_guard_protections` to
+understand the available choices and their limits. For a Data Rail, it begins
+with `authrail_get_data_source_options` and helps prepare the source and rule.
+You still need a compatible application reader and a private credential binding
+before that source can supply a live fact; saving a definition does not connect
+the provider.
+
+The result of this work is a draft for your review. Publication remains an
+authorised person's decision, as does selecting the published version for a
+deployment. The [Rails guide](/docs/rails) explains what to review and how the
+rules reach the application.
+
+## Choosing what the assistant can access
+
+Consent separates the kinds of work a connection may request. Granting a
+capability does not override the person's organisation role or the audience of
+a document, Control or AI system. The tools available to the assistant reflect
+both the connection's consent and the installed service's capabilities.
+
+| Capability | Work it supports |
+| --- | --- |
+| `workspace.read` | Inspect the connection and workspace, and discover released SDK guidance. |
+| `runtime.drafts` | Prepare connected-action, Guard, Data and Policy drafts and run their saved examples. |
+| `runtime.deployments` | Read deployments, prepare an Observe installation and request deployment changes for human review. |
+| `runtime.approvals` | List your assigned approvals and prepare an approve, reject or cancel decision for you to review. |
+| `runtime.read` | Inspect Action, certificate and receipt metadata within your AI Inventory visibility. |
+| `governance.read` | Follow Framework readiness, mappings, Control and Policy versions, Tests and Evidence history. |
+| `connections.read` | Read provider Connection status and saved collection health. |
+
+Governance reads do not accept Evidence or recalculate readiness, and Connection
+reads do not start collection or reveal credentials. A restricted or stale result
+should be understood in that context rather than treated as complete coverage.
+If a tool is missing, check the consent, your organisation permission and the
+service version; use the workspace for work that MCP does not support.
+
+<details className="guide-details">
+<summary>Reviewing deployment changes and approvals</summary>
+
+Deployment-change tools prepare a proposal with the selected rule versions and
+current deployment sequence, then return an expiring review link. The originating
+person signs in, reads its impact and confirms it. For Enforce, this includes
+reviewing the tool and credential boundary the deployment will rely on. A changed
+sequence, lost permission or expired proposal requires a fresh review.
+
+An approval-decision tool similarly prepares the named reviewer's decision
+without casting a vote. Only that person can open the review, read the request
+and confirm it in AuthRail. Approval does not resume the application's function;
+that continuation remains with the application that saved the work.
+
+</details>
+
+## Connecting your own business tools
+
+For an application you are building, an authorised coding assistant can use
+`authrail_get_sdk_integrations` to find the Node.js, Go or Python SDK and help
+wrap the function using its local development tools. Installing files still
+requires those local tools and permissions; a remote management call cannot
+perform the installation itself. [Building your own application](/docs/build-your-app)
+explains the integration, and the [quickstart](/docs/getting-started) provides
+complete examples using published packages.
+
+An existing customer MCP tool server needs a customer-side connector with the
+same SDK and sidecar boundary. Each tool must be bound to a reviewed Operation,
+its credentials kept behind the executor, and equivalent unprotected routes
+removed before relying on enforcement. The connector source is documented in
+the MCP repository; this guide does not assume a released generic connector
+installer is available.
+
+The originating application also owns approval continuation and investigation
+of uncertain writes. If an operation's outcome is unknown, inspect its saved
+provider reference rather than asking the assistant to declare success or
+start a replacement request. See [approvals](/docs/approvals) and
+[recovery](/docs/recovery) for these workflows.
+
+## Managing access and connection problems
+
+Open `/mcp/connections` in your AuthRail workspace to review **Assistant
+connections** and revoke a grant you no longer need. Expiry, sign-out, revoked
+consent or lost membership may require the assistant to reconnect through the
+normal sign-in flow.
+
+When a call fails, check the connected account and organisation first, followed
+by consent and the permission needed for that task. For support, retain the tool
+name, component version, time and a redacted error. Private review links,
+credentials and business content should remain outside public reports.

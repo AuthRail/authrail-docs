@@ -1,0 +1,176 @@
+---
+title: "Connections and source records"
+description: "Collect provider records and bring them into a Control's Tests and Evidence."
+icon: PlugsConnectedIcon
+---
+
+A **Connection** lets AuthRail collect read-only records from a provider account
+your organisation authorises. It can save your team from repeatedly exporting
+files when a Control needs current source material, such as an account
+configuration or an invoice record.
+
+For example, a reviewer can select a collected account record while checking
+whether the expected settings were in place. The Connection supplies that
+record; the Test or Evidence review establishes what it supports. Collection
+does not by itself make a Test pass or a Framework duty ready.
+
+## Choose the source your check needs
+
+Open **Connections** and choose the capability available in your workspace.
+Read its setup instructions to understand which account or project it can
+access, the permissions it needs, the records it collects and how often it
+collects them. Support for one part of a provider does not imply support for
+all its products or operations.
+
+Choose the smallest account, organisation, project or company boundary that
+covers your check. Setup will ask you to sign in and grant consent or enter a
+restricted credential. Obtain credentials from the provider administrator and
+enter them in the private setup form, rather than an assistant conversation or
+Evidence explanation.
+
+
+If the source you need is unavailable, use suitable manual Evidence rather than
+choosing an unrelated integration.
+
+## Example: review the repository holding your agent application
+
+Suppose Northstar keeps its support application in the GitHub repository
+`northstar-example/support-agent`. A separate inventory Control requires the team
+to know which repositories contain deployed agent code and whether their
+visibility matches the organisation's expectations. GitHub metadata can support
+that narrow check; it does not establish code review, branch protection or the
+approval of a customer account change.
+
+Choose GitHub's **Repository discovery and monitoring** capability. The current
+AuthRail connector uses a fine-grained personal access token and the
+**GitHub organisation name**, rather than asking the assistant to connect its
+own GitHub account. For the example, enter `northstar-example` as the organisation
+name, not a repository URL or a person's login. Use your organisation's real name
+when following the steps.
+
+A GitHub account administrator should create a fine-grained token with that
+organisation as its resource owner, limit repository access to the repositories
+this Connection needs, and retain read-only **Metadata** permission. Complete any
+organisation approval GitHub requires before expecting private repositories to
+appear. Follow [GitHub's token instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token)
+for its current screens. AuthRail's repository collection uses
+[GitHub's organisation repository listing](https://docs.github.com/en/rest/repos/repos#list-organization-repositories),
+which requires Metadata read access for fine-grained tokens; it does not need
+source-code write permission.
+
+Enter the token only in AuthRail's private credential field. Name the Connection
+**Support application repositories**, check the organisation identity validated
+by setup, and finish connection setup. If validation fails, first compare the
+organisation name, token owner, selected repositories, approval state and expiry.
+Do not broaden the token to write access to solve a read-access problem.
+
+## Authorise collection and choose what to monitor
+
+Give the Connection a recognisable name, supply the account boundary requested
+by the form and complete authorisation. Check the provider identity and
+permissions that AuthRail validates, then let discovery finish or choose
+**Collect now** when it is available.
+
+A discovered provider record, such as a repository or account, is called a
+**Resource**. An **Observation** records a fact about that Resource at a
+particular collection time. The collection history helps you see which run
+produced it and whether that run completed successfully.
+
+Review Resources on the Connection with **Monitor**, **Don't monitor** or
+**Decide later**. Monitoring makes their source records available for later
+selection. You still decide whether they answer the question posed by a
+Control's Test or Evidence requirement.
+
+## Bring a record into the Control
+
+Open the approved Control's **Tests and Evidence** area. While recording a Test
+result, select the provider records you inspected. If an Evidence requirement
+expects provider data, choose **Select provider record**, then the monitored
+Resource and its Observation. Complete the period and review steps described
+in [Tests and Evidence](/docs/tests-evidence).
+
+If a Resource is missing from the picker, review its monitoring state on the
+Connection first. If no suitable Observation exists, collect again and refresh
+the picker. Check the collection time against the requirement's freshness before
+using an older record. The saved Test Run or Evidence Record keeps its source
+so a later reviewer can follow the conclusion back to what was collected.
+
+### Select a repository snapshot as Evidence
+
+After collection, find `northstar-example/support-agent` in the Connection's
+Resources and choose **Monitor**. Open its collected Observation and check the
+stable repository identity, full name, owner, visibility, archived/fork state,
+default branch and collection time. These are the metadata this connector
+collects. A repository absent from this token's visible set is not proof that
+it does not exist.
+
+In the inventory Control's draft, prepare an Evidence requirement with
+**Connection observation** as its proof source. Its expected proof is a current snapshot
+identifying the production agent-code repository and its visibility. Select a
+point-in-time period (`0` days); a single Observation cannot demonstrate a month
+of operation. A `7`-day cadence and freshness can be appropriate for this example's
+weekly inventory review, but your requirement should choose its own limits.
+Approve the Control Version containing this definition before using **Select
+provider record**. Review any Mapping replacement before relying on the new
+version's proof for a Framework duty.
+
+Select this monitored repository and the Observation you actually inspected.
+Use its collection time as the point in time the submission represents. Explain,
+for example, “This snapshot identifies the support agent's repository and shows
+private visibility at collection; the deployment-to-repository inventory confirms
+it is the application repository.” Submit it and complete the applicable review.
+If that inventory link is unsupported or the visibility is wrong, the reviewer
+should identify the gap rather than accept a familiar repository name alone.
+
+An accepted, current Observation can satisfy this Evidence requirement. It does
+not run a Test automatically and cannot replace the October account-change
+approval package. This keeps source collection useful without asking the
+repository connector to prove something its metadata cannot establish.
+
+## Keep the source current
+
+Connection health tells you whether collection is working and up to date. It
+is separate from the assessment of a Control. Open **Collection history** when
+a run fails or returns only part of the data, and follow the recovery action
+shown there. You may need to reauthorise the account, wait for a provider retry
+time or request fresh collection. A record absent from a partial run cannot be
+assumed to have been deleted at the provider.
+
+Disconnecting stops new collection and removes AuthRail's local authority to
+use the credential. Resources and Observations remain in history, but old data
+does not stay current simply because it is visible. Check the affected Test or
+Evidence requirement and replace proof that is no longer available or fresh.
+
+<details className="guide-details">
+<summary>Rotating credentials and using a custom source</summary>
+
+AuthRail encrypts saved provider credentials and does not return them when you
+open a Connection. Rotate a credential through the Connection flow so it can be
+validated for the intended account. A Custom source may show a one-time
+credential during setup; store it privately. Its submitted records still need
+the same Test or Evidence qualification as other source material.
+
+Changing a credential or account creates a new source revision. Earlier
+Observations keep their original account and collection history. If a provider
+revocation cannot be confirmed, inspect the reported state and revoke access
+at the provider where needed; a failed request does not confirm that the
+provider removed access.
+
+</details>
+
+<details className="guide-details">
+<summary>How this differs from Runtime Data Rails</summary>
+
+A collection Connection brings records into AuthRail for monitoring and proof.
+A Runtime Data Rail obtains a value while checking a business request. The
+application separately binds that reader to its account and private credential;
+a collection Connection does not grant an agent access, authorise writes or
+protect another route to the provider.
+
+Reader support depends on the installed SDK. The newer source readers for
+Stripe invoice status and QuickBooks invoice balance are not included in SDK
+0.1.1. See [compatibility](/docs/compatibility) and [trusted data for Rails](/docs/facts)
+before choosing one. OpenAPI and JSON Schema imports can describe candidate
+operations and fields, but they do not establish a live reader or fresh fact.
+
+</details>

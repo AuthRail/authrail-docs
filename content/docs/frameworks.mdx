@@ -1,92 +1,136 @@
 ---
 title: "Frameworks and scope"
-description: "Choose the duties your organisation will work on and review where they apply."
+description: "Choose a Framework, decide which duties apply and connect them to your organisation's practices."
 icon: StackIcon
 ---
 
-A **Framework** brings together duties your organisation wants or needs to meet.
-For example, a Framework may include a duty to provide human oversight of an
-AI support assistant. Each duty in AuthRail is a **Framework Obligation**: a
-statement of who must do what, under which conditions, with its source.
+A **Framework** brings together duties from a regulation, standard or your own
+organisation. Each duty is a **Framework Obligation** that explains who must do
+what, in which circumstances, and where that duty comes from. For example, an
+organisation using an AI support assistant may need to show how people oversee
+sensitive account changes.
 
-Use a Framework to build a work list grounded in those duties. Your team still
-reviews which ones apply and how its own practices address them.
+Frameworks help you connect those duties to the way your organisation works and
+the proof that supports it. You can connect an application to
+[Runtime](/docs/concepts) first and add this governance work when you need it.
+There is no Framework setup requirement for trying a protected function.
 
-## Build your first obligation work list
+## A worked example: oversight of account changes
 
-### 1. Choose a Framework
+The governance guides follow a fictional organisation, Northstar, whose support
+assistant can request changes to customer accounts. Northstar authors an
+**AI Operations Standard**, publishes version 1, and includes this duty:
 
-Open **Frameworks** in your AuthRail workspace. Use **Managed catalogue** for
-Frameworks managed by AuthRail, **Organisation frameworks** for those your team
-authors, or **Active** to return to one already in use.
+> Before an assistant changes a customer's account access, a named authorised
+> person must review and approve the requested change. Keep the request,
+> decision and outcome so the organisation can check that the process worked.
 
-Open the Framework and read its content. Check the edition, called its
-**Framework Version**, before choosing **Activate framework**. AuthRail opens
-its workspace with sections for Scope, Obligations, Controls and Readiness.
-Activation starts the work; it does not mean the organisation meets the duties.
+This is example organisation-owned content, not a claim about a particular law
+or a ready-made entry in the managed catalogue. Use your actual source and its
+wording when assessing a regulatory or contractual duty. The example will connect
+this duty to a Policy, a Control and a completed October review; each guide
+explains the part of that relationship it owns.
 
-### 2. Explain your organisation's circumstances
+## Choose the edition you intend to follow
 
-Open **Scope**. Scope tells AuthRail which circumstances to use when reviewing
-this Framework—for example, what kind of AI work the organisation performs.
-Start with the whole organisation. Use a narrower boundary only when the
-answers or operating practice genuinely differ.
+Open **Frameworks** and browse **Managed catalogue** for content maintained by
+AuthRail or **Organisation frameworks** for content your team authors. Before
+choosing **Activate framework**, read the source, citations, jurisdiction and
+effective dates. The published edition is called a **Framework Version**; make
+sure it is the one your organisation intends to work against.
 
-Answer the questions and review the resulting decisions. Save a draft while
-you are collecting answers. Choose **Apply scope** when the review is ready,
-then wait for AuthRail to finish applying the assessment.
+Activation opens a workspace for that version, with Scope, Obligations,
+Controls and Readiness together. It begins your organisation's assessment and
+does not mean every duty applies or has been met. You can return to this
+workspace through **Frameworks → Active**.
 
-If you do not know an answer, keep it unknown and investigate. An unanswered
-question is not a reason to exclude a duty.
+## Explain where the duties apply
 
-### 3. Review the duties that apply
+Open **Scope** and answer the questions about your organisation's circumstances.
+Start with the whole organisation. A narrower department, team or AI-system
+boundary is appropriate when the answers or operating practice differ there.
+For the support assistant, the questions might establish what work it performs
+and which responsibilities your organisation has.
 
-Open **Obligations** and read a duty with its supporting source.
-**Applicability** tells you whether it applies to the circumstances you reviewed.
-**Coverage** tells you which approved practices address it.
+Review the applicability decisions as well as your answers. **Applicability**
+means whether a duty applies in those circumstances. If you do not know an
+answer, leave it unknown while you investigate; missing information cannot serve
+as a reason to exclude a duty. Save a draft while gathering facts, then choose
+**Apply scope** when the review is complete. Required unresolved questions or
+decisions must be addressed before it can be applied.
 
-<ProductShot src="/screenshots/framework-obligations.jpg" alt="Framework Obligations showing applicability, coverage filters and View coverage actions" caption="Review the duty and its applicability before choosing the practice that addresses it. These decisions belong to the sample workspace." />
+Applying scope saves a **Scope Snapshot**: the answers and decisions used for
+that assessment. A saved draft does not change the active snapshot. If applying
+scope continues in the background, wait for its result rather than submitting
+the same work again.
 
-Search or filter the list, then choose **View coverage** for a duty you need to
-address. For the support assistant's human-oversight duty, you would look for
-the approved practice describing how sensitive requests receive review.
+### Work through the example's applicability
 
-### 4. Choose one duty to work on
+Northstar's published Framework includes questions about using assistants and
+letting them change account access. In its whole-organisation Scope, the answers
+and the reason for them would be:
 
-If an applicable duty has no accepted Control connected to it, keep that gap
-visible. A **Control** is the practice your organisation relies on to fulfil a
-duty. The next guide shows how to describe and approve it.
+| Question in this example | Answer | Reason to record |
+| --- | --- | --- |
+| Does the organisation use an assistant in customer support? | Yes | The support application uses an assistant to handle authenticated customer requests. |
+| Can that assistant request a change to customer account access? | Yes | It can request an access change through the application's protected function. |
+| Which part of the organisation operates differently? | No separate segment is needed | The same approval process applies wherever this function is used. |
 
-You should now have a reviewed work list: duties that apply, duties with a
-reviewed reason for exclusion and questions that still need answers. Continue
-with [Policies and Controls](/docs/policies-controls) for the duty you chose.
+The first two answers support an **applicable** decision for the duty. Explain
+that the assistant can request a sensitive change even though a human must approve
+it; having a review process does not make the duty inapplicable. If the team has
+not yet established what the assistant can reach, leave that answer unresolved
+and investigate its tools rather than answering No.
+
+Review the duty's decision and rationale, then apply the completed Scope. Keep
+the resulting Snapshot as the assessment's boundary. When a second support team
+later uses a genuinely different process, review that difference explicitly;
+simply adding another Framework does not create another organisational scope.
+
+## Open a duty and review its coverage
+
+In **Obligations**, read a duty alongside its supporting source. Applicability
+explains why it is included or excluded; **Coverage** explains which approved
+practices address it. Search or filter the list, then choose **View coverage**
+for a duty your team needs to work on.
+
+<ProductShot src="/screenshots/framework-obligations.jpg" alt="Framework Obligations with applicability and coverage filters and View coverage actions" caption="Open a duty to read its source and the practices connected to it. This screenshot shows a sample organisation's decisions." />
+
+For a human-oversight duty, look for a **Control** describing how sensitive
+requests receive review. Where no suitable Control is connected, the coverage
+gap remains visible until your team addresses it. Continue with
+[Policies and Controls](/docs/policies-controls) to describe the practice and
+explain how it fulfils the duty.
 
 <details className="guide-details">
-<summary>More about versions and scope history</summary>
+<summary>Changing versions or scope later</summary>
 
-A published Framework Version cannot be edited. Your scope and coverage work
-stays associated with that edition when another edition becomes available;
-review a newer one before adopting it.
+Published Framework Versions cannot be edited. When another edition becomes
+available, review it before adopting it; your existing scope and coverage stay
+associated with the edition they assessed. A material change in circumstances
+also needs a new scope draft and snapshot, so earlier assessments remain
+understandable.
 
-Applied scope answers and decisions form a **Scope Snapshot**, the saved basis
-for an assessment. Later changes create new reviewed work rather than erasing
-that basis. Unsaved draft answers do not contribute to the applied assessment.
-
-If someone changes scope while you are editing, reload before applying your
-review. If applying scope fails, resolve the reported error before relying on
-the resulting readiness view.
+If scope changes while you are editing, reload the current revision before
+applying your work. Resolve a failed application before relying on readiness.
+**Suspend framework** pauses active work while keeping its identity and history;
+it does not delete the assessment or resolve its gaps.
 
 </details>
 
 <details className="guide-details">
-<summary>More about pausing or reopening work</summary>
+<summary>Publishing an organisation-owned Framework</summary>
 
-**Suspend framework** pauses active work and retains its identity and history.
-It is not deletion and does not resolve an existing gap. If you cannot open a
-workspace, check the organisation and your access before starting another
-activation.
+Your organisation owns the sources and meaning of a Framework it authors. Save
+its complete source material, Obligations and scope questions, then follow the
+publication review. When an eligible independent reviewer is available, that
+review must finish before publication. Otherwise, an authorised sole operator
+can publish the saved version directly. An open or rejected review still needs
+to be resolved.
 
-A not-applicable decision needs a reviewed reason. It cannot stand in for
-missing information or an unfinished scope question.
+AuthRail checks the publisher's access and the saved content when publishing.
+AI can help prepare the material, but a person makes the publication decision.
+Managed reference content and your own published content do not certify your
+organisation's legal compliance.
 
 </details>

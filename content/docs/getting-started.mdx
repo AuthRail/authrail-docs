@@ -6,26 +6,32 @@ icon: PlugsConnectedIcon
 
 import { AUTHRAIL } from '@/lib/constants';
 
-Your application already has a function an AI assistant can use: read an
-invoice, add a comment, or send a reply. Connecting it to AuthRail lets you see
-how your rules apply to that function's requests and results.
+AuthRail helps you decide what an AI agent may do when it uses your
+application's tools. You describe the function, publish rules for it and connect
+those rules to the code that handles the request. AuthRail then records the
+decision so you can understand why the request was allowed, denied or sent for
+human review.
 
-This guide starts with one action in **Observe**. Your function keeps running
-as usual while AuthRail records what its rules would decide. By the end, you
-will be able to open a request in your workspace and inspect its checks.
+This walkthrough connects an invoice reader. It accepts an `invoiceId`, reads
+a local JSON file and returns the invoice's ID and status. You can try it in
+Node.js, Go or Python without a business-provider account. You will start in
+**Observe** mode: the function runs while AuthRail shows what its rules would
+decide. This makes a harmless read a good starting point, before you use
+**Enforce** to require permission before a function runs.
 
-You need an AuthRail account, access to manage AI Inventory and Rails, and an
-application with a function you can safely try. Use a safe test system for this
-first connection: Observe does not stop a function when a rule would deny it.
+You need an AuthRail account with permission to manage AI Inventory, Policies
+and Rails, plus access to your organisation's workspace. Ask your installation
+administrator for the workspace address and the API address used by developer
+setup. The [application integration guide](/docs/build-your-app) explains how
+the SDK fits between an agent's tool request and your own function.
 
 ## 1. Add the AI system
 
-<a href={AUTHRAIL.workspaceOrigin}>Open your AuthRail workspace</a> and select
-your organisation. In **AI Inventory**, add or select the AI system you are
+Open your AuthRail workspace and select your organisation. In **AI Inventory**, add or select the AI system you are
 connecting. Review its details and confirm its identity.
 
-This gives the application a place in AuthRail. It does not install anything
-in your application yet.
+AI Inventory identifies the system whose rules and activity you want to manage.
+You will connect its application code after preparing the action and rules.
 
 <ProductShot src="/screenshots/ai-inventory.jpg" alt="AuthRail AI Inventory listing the AI systems in an organisation" caption="AI Inventory is where you identify the system you want to connect." />
 
@@ -35,33 +41,109 @@ Open **Rails → Connected actions**. If your action is already listed, open
 **View action details** and check that its description, inputs and results
 match the function you intend to connect.
 
-If it is not listed, select **Connect an action**:
+If it is not listed, select **Connect an action** and prepare the first fields:
 
-1. Enter an **Action name** and a stable **Action ID**, such as `invoice.read`.
-2. Under **What does it do?**, describe the function.
-3. Name the input field and its type. For example, an invoice reader might
-   receive a text field named `invoiceId`.
-4. Add a result field and type for the value you want to check, such as a text
-   field named `status`.
-5. Choose whether the function reads information, changes data or sends data
-   out, and describe its effect. Then select **Add action**.
+1. Enter **Action name** `Read sample invoice` and a stable **Action ID**, such
+   as `invoice.read`.
+2. Under **What does it do?**, enter “Read an invoice's status without changing it.”
+3. Enter `invoiceId` under **Information this tool uses** and select **Text**.
+4. Enter `status` under **Result field (optional)** and select **Text**.
+5. Under **What does this tool do?**, choose **Read information** and describe
+   its effect as “Read a local sample invoice's status.” Select **This action
+   may require human approval**, then **Add action**.
 
-In **Registered actions**, review the entry and select **Confirm action**.
-This describes a function you own; it does not create that function or connect
-to its provider.
+Before confirming it, open **Edit action details** on the new draft. The compact
+form starts with one result field and no separate resource identity; the complete
+example also returns the invoice ID and binds that record to the request. Replace
+**Contract JSON** with the complete description below, then choose **Save tool
+description**. This is the reviewed description of your function, not a request
+to run it and not a place for credentials.
+
+<details className="guide-details">
+<summary>Complete invoice action description — use this before confirmation</summary>
+
+```json
+{
+  "summary": "Read the status of an invoice selected by the authenticated application user.",
+  "inputSchema": {
+    "type": "object",
+    "properties": { "invoiceId": { "type": "string" } },
+    "required": ["invoiceId"],
+    "additionalProperties": false
+  },
+  "resultSchema": {
+    "type": "object",
+    "properties": {
+      "invoiceId": { "type": "string" },
+      "status": { "type": "string" }
+    },
+    "required": ["invoiceId", "status"],
+    "additionalProperties": false
+  },
+  "availableFields": [
+    { "root": "arguments", "path": ["invoiceId"], "type": "string", "description": "The invoice selected by the application." },
+    { "root": "result", "path": ["invoiceId"], "type": "string", "description": "The invoice returned by the protected reader." },
+    { "root": "result", "path": ["status"], "type": "string", "description": "The invoice's current status." }
+  ],
+  "resourceIdentity": { "type": "invoice", "field": ["invoiceId"] },
+  "expectedEffects": [ { "kind": "read", "description": "Read a local sample invoice's status without changing it." } ],
+  "requiredFacts": [],
+  "approvalSupported": true,
+  "idempotency": "not_applicable",
+  "requiredCoverage": ["tool_call", "tool_result"]
+}
+```
+
+`resourceIdentity` declares that `invoiceId` identifies the invoice whose access
+your application checked. The SDK will provide that same identifier after the
+application resolves its record. `availableFields` names the input and result
+fields your rules can compare, and `requiredCoverage` requires both checks.
+`approvalSupported` lets this same harmless read demonstrate a saved human-review
+wait later. It does not require approval until a published rule and reviewer
+selection require it. The operation is a read, so provider-write idempotency is
+not applicable; the application's request key still identifies each task.
+
+</details>
+
+In **Registered actions**, review the saved description and select **Confirm
+action**. AuthRail uses this description to check requests to your function;
+your application still provides the function itself. If you are reusing an
+existing action, verify that its reviewed version has these same fields,
+resource identity and coverage before using it in this walkthrough.
 
 Expand **View action details** and use **Copy version ID** under **Reviewed
-Operation Version ID**. Keep this value for the SDK setup. It identifies the
-exact action description you reviewed, rather than just its display name.
+Operation Version ID**. Keep this value for the SDK setup. Each confirmed version has its own ID, so the SDK can refer to the same input
+and result description you approved here.
 
 ## 3. Publish a rule
 
-Open **Rails**, create a Rail for this action, and decide what it should allow,
-deny or send for human approval. Try the rule's examples, review it and publish
-it. The [Rails guide](/docs/rails) walks through those choices.
+A **Policy Rail** turns part of a published organisation Policy into a rule
+that Runtime can apply. For this invoice reader, the rule is a straightforward
+comparison: allow the sample invoice ID and deny other IDs. Start with the
+Policy that gives that rule its authority; Frameworks and Controls are not
+prerequisites for this task.
 
-For the first connection, choose a rule whose result you can explain for a
-safe example request. A draft does not affect your application.
+1. In **Policies**, prepare and publish a short Policy for the sample:
+   “The sample invoice assistant may read invoice_123. Requests for a different
+   invoice identifier must be denied.” Follow the Policy review and publication steps;
+   [Policies and Controls](/docs/policies-controls#write-the-expectation)
+   explains publication and sole-operator handling.
+2. Return to **Rails → Create Rail → Policy Rail**. Choose the published
+   Policy and the confirmed invoice-reading action. Use **Write rules**.
+3. Add an **Allow** rule for the input `invoiceId` equal to `invoice_123`, and a
+   **Deny** rule when it is not equal. For each rule, select its Policy section
+   and copy the exact supporting sentence into **Exact Policy passage**. Keep
+   AuthRail Contextual AI off; this comparison needs no interpretation or external reader.
+4. Add call and result examples for `invoice_123` expecting Allow, and another
+   invoice identifier expecting Deny. Supply the reviewed result fields in
+   result examples. Save the draft, run its tests and read the reasons for each result.
+   An authorised person can then review and confirm publication.
+
+The [Rails guide](/docs/rails) explains conditions, testing and version selection.
+The rules take effect only after publication and deployment selection. This
+example checks a fixed invoice ID. When you integrate your own application, it
+will also need to authenticate the caller and look up which records that caller
+may access.
 
 <ProductShot src="/screenshots/rails-catalogue.jpg" alt="AuthRail Rails workspace listing configured Rails" caption="Create and review your rule in Rails before selecting it for a deployment." />
 
@@ -79,17 +161,23 @@ steps connect that setup to your running application.
 
 ## 5. Connect the application
 
-Complete these guides in order:
+The sidecar is a small program that runs beside your application and checks its
+requests. Guided setup signs you in, connects the deployment and saves the
+application's keys and credentials privately.
 
-1. [Prepare the connection details](/docs/identity). This shows where to copy
-   your deployment settings, how to create the application's keys, and which
-   files each process needs.
-2. Run the sidecar with [Docker](/docs/docker), the recommended container setup,
-   or [natively](/docs/native) if your application runs directly on your host.
-   The sidecar is the local service that checks your selected rules.
-3. Add the [Node SDK](/docs/node), [Go SDK](/docs/go) or [Python SDK](/docs/python) around the function your
-   application already uses. The SDK asks the sidecar to check the call and
-   the returned result.
+1. Download the [sidecar executable](/docs/native#1-download-the-sidecar).
+2. Follow [native setup](/docs/native#2-connect-and-start) for the terminal
+   program in this example. Leave its sidecar running, then open another
+   terminal for the SDK program. If your application runs in containers,
+   follow [Docker setup](/docs/docker) instead.
+3. Choose the SDK for your language below. Its guide contains a complete
+   invoice-reading program and explains where to find the settings created
+   during setup.
+
+The example uses a simple Policy Rail supported by the published SDKs. Before
+adding Guard processing, automatic Data readers or Contextual AI, check the
+[compatibility guide](/docs/compatibility#released-capability-boundary) for the
+versions those features need.
 
 Once the sidecar is ready, install the SDK from your application's directory.
 Choose your language; each linked SDK guide continues from this command with
@@ -121,30 +209,61 @@ Use Python 3.11 or newer. Continue with [Connect a Python application](/docs/pyt
 </Tab>
 </Tabs>
 
-Your application keeps its business logic and provider credentials. Keep those
-credentials and the connection secrets outside the AI agent's reach.
+The wrapper belongs in the part of your application that owns the business
+function and its credentials. Keep those credentials private so the agent
+cannot call the same provider through an unprotected route.
 
 The SDK connects your language's function calls to the sidecar. The sidecar
 holds and evaluates the selected rules, so Node, Go and Python use the same rule
-engine. [How Runtime works](/docs/concepts#where-does-it-run) explains why
+engine. [How Runtime works](/docs/concepts#the-application-sdk-and-sidecar) explains why
 these are separate parts and how the sidecar receives rule updates.
 
 ## 6. Find your first request
 
-Run a safe request through the connected function. In the deployment, open
+Run the complete local invoice example from your selected SDK guide with
+`invoiceId: "invoice_123"`. Both checks should report Allow under the sample
+rules; the fixture returns `status: "open"`. In the deployment, open
 **Actions & decisions** and select its Action. Inspect the request check and
 result check, including their reasons.
 
 <ProductShot src="/screenshots/runtime-observe-execution.jpg" alt="An Observe Action in AuthRail showing rule checks and separately reported execution" caption="In Observe, inspect what the rules would decide alongside what the application reports doing." />
 
+You have now seen a request, the rules that applied to it and its recorded
+decisions. The saved Rail examples explain the authored rule; the next step exercises
+that rule at the running application's function boundary. Before enabling
+Enforce, review other access routes to the function and its credentials through
+[Observe and Enforce](/docs/modes).
+
 A report marked `retained` has reached AuthRail. A `queued` report is saved by
 the sidecar and still needs delivery. The [monitoring guide](/docs/operations)
 explains how to inspect the sidecar if a request is missing.
 
-An Observe decision describes what the rules would decide; your function can
-still run after a denial. When you are ready to require permission before the
-function runs, follow [Observe and Enforce](/docs/modes). Review the application's
-[other access routes](/docs/security) first.
+The [AuthRail demonstration](/docs/application-example) shows how these checks
+fit into an agent application using business tools.
 
-The [Runtime walkthrough](/docs/application-example) shows the connected sample
-application, its sidecar logs and the resulting AuthRail records.
+## 7. Enforce, deny and resume the same application
+
+Continue with the **Make this same application enforce its rules** section in
+[Node.js](/docs/node#5-make-this-same-application-enforce-its-rules),
+[Go](/docs/go#5-make-this-same-application-enforce-its-rules) or
+[Python](/docs/python#5-make-this-same-application-enforce-its-rules). Each provides
+a complete downloadable program using the same reviewed action, connection
+files and invoice fixture. Its task journal and resource lookup are included;
+you do not need to invent a payment service to finish this example.
+
+The application accepts a request key alongside the invoice identifier, saves
+its task privately and prints a marker only when the protected reader begins.
+Use it to check these outcomes in your safe installation:
+
+| Request | Expected application behaviour | What to inspect in AuthRail |
+| --- | --- | --- |
+| Read `invoice_123` under the original Allow rule. | The reader runs and returns the checked `open` status. | Call permission, execution reports and result decision. |
+| Read `invoice_456`, which the private catalogue knows but the Rail denies. | The reader does not run and no invoice result is returned. | The denied call and its supporting Policy rule. |
+| Read `invoice_123` after publishing/selecting the guide's approval rule. | The application saves a wait and exits without reading the invoice. | The original values, named reviewer and expiry. |
+| Approve, then resume the saved request key. | A later invocation claims permission and continues the original read. | Approval and execution on that same Action, rather than a replacement request. |
+
+The SDK guides explain the approval rule change, durable continuation storage,
+resume commands and held or unknown states. An unavailable check is a problem
+to investigate, not a successful denial test. Keep the [compatibility
+reference](/docs/compatibility) beside the application checks when selecting
+SDKs and the Runtime that executes your rules.

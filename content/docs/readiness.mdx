@@ -1,111 +1,173 @@
 ---
 title: "Readiness and remediation"
-description: "Find the work blocking a Framework duty and follow it to the practice or proof that needs attention."
+description: "Understand why a duty is ready, find what needs attention and keep a record of the assessment."
 icon: ListChecksIcon
 ---
 
-**Readiness** shows which applicable Framework duties have the approved
-practices and supporting proof they need. Use it to find the next piece of
-work, not to assign your organisation a score.
+**Readiness** shows whether the duties that apply to your organisation have the
+approved practices and supporting proof they need. It helps you understand the
+work behind an assessment and decide what to address next.
 
-For example, the support team's human-review practice may be approved, but its
-monthly Test found requests without approval records. Readiness helps you
-follow that gap back to the failed check and the work needed to resolve it.
-The assessment is derived from those records; you cannot edit the percentage.
+For example, a support team's human-review process may be approved while its
+monthly Test finds changes without approval records. Readiness follows that
+failure back to the affected duty. The percentage comes from these underlying
+records; you cannot edit it, and it is not legal certification.
 
-## Find and resolve one blocked obligation
+## Find what is holding a duty back
 
-### 1. Open the Framework's assessment
+Open the active Framework's **Overview** or **Readiness**. Read the assessment
+time and state counts, then choose **View obligation readiness** to see the
+duties behind the total. Open a duty marked **Not ready** or **Unknown** and
+follow its explanation to the relevant Control, Policy, Test, Evidence or
+coverage decision.
 
-Open the active Framework's **Overview** or **Readiness**. Read the overall
-state, assessment time and obligation counts. Choose **View obligation
-readiness** to see the duties behind the total.
+<ProductShot src="/screenshots/framework-readiness.jpg" alt="A Framework assessment showing one of 217 obligations ready and the remaining readiness states" caption="The total is a starting point for investigation. Open an obligation to understand its supporting records and outstanding work." />
 
-<ProductShot src="/screenshots/framework-readiness.jpg" alt="Framework readiness showing Not ready, one of 217 obligations ready and separate assessment states" caption="The sample has one ready obligation. The remaining states identify the work behind the percentage." />
+AuthRail calls the assessment of a Control in that relationship **mapped
+Health**. A Control may support several duties, so its overall summary is not
+enough to explain each one. Read the Health and proof attached to the Mapping
+you are investigating.
 
-### 2. Choose a duty that needs attention
+## Read the worked example's assessment
 
-Open an obligation marked **Not ready** or **Unknown** and read its blockers.
-Follow the connected Control and its Tests and Evidence. A missing approval,
-failed check or expired piece of proof needs a different response from an
-unanswered scope question.
+Follow Northstar's example through [Frameworks and scope](/docs/frameworks),
+[Policies and Controls](/docs/policies-controls) and
+[Tests and Evidence](/docs/tests-evidence). At **2 November 2026 at 12:00 UTC**,
+open its account-change oversight duty and check each reason behind its result:
 
-AuthRail calls the assessment of that mapped practice **Health**. For this
-review, use the Health and proof connected to the obligation you opened, rather
-than assuming a Control's overall summary answers every duty it supports.
+| Assessment input | What is in place in the example |
+| --- | --- |
+| Applicability | The accepted decision says the duty applies to the whole organisation, using the applied Scope Snapshot. |
+| Coverage | The accepted Mapping selects the approved account-change Control Version, with the collective coverage review complete. |
+| Policy basis | The selected human-oversight Policy version remains valid for that Control. |
+| Test | The October review passed at 10:00 UTC, with the approved procedure, period and freshness. |
+| Evidence | The October review package was accepted for the matching requirement and remains available and current. |
 
-### 3. Address the cause
+When those are all the Mapping's required inputs and no other blocker remains,
+its Health can be **Healthy** and the duty **Ready**. Merely uploading the package
+would leave the Evidence requirement unsatisfied until the Record was accepted.
+A passed Test against a different Control Version would also fail to supply this
+Mapping's input, even if it had the same title.
 
-If a Test found missing approval records, investigate the affected requests.
-Fix the review or record-retention process, then perform the appropriate check
-and submit the supporting proof. Keep the earlier failure in history.
+Now keep the same example without adding fresh proof. The Evidence is due on
+**1 December 2026 at 00:00 UTC**; the Test is due on **2 December at 10:00 UTC**.
+A due input is already a known blocker in mapped Health, so ordinary Ready
+status cannot continue past the first due deadline without suitable new proof.
+The freshness limits are separate outer age limits: at **16 December 2026 at
+00:00 UTC**, the Evidence becomes stale. The old Test has not yet reached its
+own maximum age, but it is due and cannot substitute for the required Evidence.
+The Test itself becomes stale on **17 December at 10:00 UTC**. Read the live explanation to see each input rather than treating
+one green summary as a permanent result.
 
-A **Finding** records a problem that needs attention. A **Task** organises work
-to address it. Use the Framework's **Findings** view to follow the problem and
-its work. Finishing a Task alone does not rewrite a failed Test or close its
-Finding; the source problem has its own review and closure process.
+These dates illustrate the settings chosen for the worked example. Your page
+uses your saved times, required periods and definitions. A Framework with other
+unmet duties remains not ready overall even when this one duty is Ready. If an
+assessment cannot establish a required fact, investigate its Unknown explanation
+instead of assuming the missing information is a failure or a pass.
 
-### 4. Check the updated assessment
+## Address the problem at its source
 
-Return to Readiness after the reviewed records have been updated. Check its
-assessment time and remaining blockers. If scope changes are still being
-applied, wait for that work to finish before relying on the result.
+For the missing-approvals example, investigate the affected requests and fix the
+review or record-keeping process. Then perform the appropriate Test and submit
+its supporting proof. The previous failure stays in history so someone reviewing
+the period can understand both the gap and what changed.
 
-You should be able to explain why the duty is ready or what still blocks it,
-using the records behind the answer. Readiness is an operational assessment,
-not legal certification. Continue to [Runtime](/docs/concepts) when you are
-ready to connect these expectations to an application's actions.
+A **Finding** records the problem; a **Task** organises the work to address it.
+Open the Framework's **Findings** view, read the source and history, and assign
+Tasks with a clear outcome, owner and due date. Completing a Task records that
+work as done. The owning Test, Evidence or other source still needs to record
+its resolution before the Finding can close.
+
+For example, if the October review found one account change without approval,
+record the failed Test and retain the unmatched change in its source material.
+A remediation Task could ask engineering to close the unprotected route and
+support to review the affected account. Completing that Task does not change
+October's failed check. Perform and record a suitable later Test after the fix,
+submit the proof it requires, and let those source records establish the new
+state. A temporary Exception, where eligible, records acceptance of the gap; it
+does not replace the missing approval in the original record.
+
+Return to Readiness after updating those records and check the new assessment
+time and remaining blockers. If scope is still being applied, wait for it to
+finish before relying on the assessment.
 
 <details className="guide-details">
-<summary>More about readiness states and percentages</summary>
+<summary>How the assessment is calculated</summary>
 
-| State | Meaning |
+Readiness follows the source of the duty through to the proof for the practice
+that addresses it:
+
+```text
+authoritative source
+  → immutable Framework Version
+  → Framework Obligation
+  → accepted Applicability Decision
+  → accepted Obligation-Control Mapping
+  → approved Control Version
+  → optional scoped Implementation Version
+  → Tests and Control-owned Evidence
+  → mapped Health
+  → Obligation Readiness
+  → Framework Readiness
+```
+
+Each relationship identifies the versions used in the assessment. Linking an
+Action, Policy or file for context does not replace the Mapping or its required
+proof. Only Health for that Mapping contributes to the duty; aggregate Control
+Health is a summary across its relationships.
+
+Mapped Health is **Healthy**, **Unmet**, **Unknown** or **Not evaluated**. A known
+failure or missing proof is unmet, indeterminate information is unknown, and
+empty Test and Evidence expectations are not evaluated. Obligation Readiness
+then uses the following states:
+
+| State | What it tells you |
 | --- | --- |
-| Ready | Required coverage and usable supporting proof are in place. |
-| Ready with exceptions | An approved, effective Exception covers an eligible known blocker within its limits. |
-| Not ready | A known blocker needs work, such as incomplete coverage, a failed check or missing proof. |
-| Unknown | The information does not support a dependable conclusion. |
-| Not applicable | A reviewed applicability decision excludes this duty for the assessed scope. |
+| Ready | The required coverage and current proof are in place. |
+| Ready with exceptions | An approved Exception covers an eligible known blocker for its effective period. |
+| Not ready | A known blocker needs attention. |
+| Unknown | The available information does not support a dependable conclusion. |
+| Not applicable | A reviewed applicability decision excludes the duty for this scope. |
 
-The percentage counts Ready and Ready with exceptions against the assessed
-applicable obligations. Not-applicable obligations are outside that total;
-unknowns do not silently become successes. A positive result below one percent
-is shown as less than one percent.
-
-A passing Test and accepted Evidence support the practice and period assessed.
-They do not automatically address another obligation or a different practice
-version. The overall Control summary cannot replace the assessment for the
-reviewed obligation-to-Control Mapping.
+A Framework uses the first four states. Its percentage counts **Ready** and
+**Ready with exceptions** against the current applicable duties. Duties found
+not applicable are outside that total; unknowns do not become successes. A
+positive result below one percent appears as `<1%`. The assessment also keeps
+its evaluation time and inputs so you can explain what the result relied on.
 
 </details>
 
 <details className="guide-details">
-<summary>More about Exceptions</summary>
+<summary>Accepting a gap temporarily with an Exception</summary>
 
 An **Exception** records a decision to accept a specific eligible gap for a
-limited time. It names the blocker, explains the reason and boundary, sets an
-expiry, and records steps to reduce risk while the gap exists.
+limited time. Where Readiness offers **Request exception**, describe the reason,
+owner, expiry and measures that reduce risk while the gap remains. Choose
+**Submit for approval** for the authorised independent reviewer to consider it.
 
-Where Readiness offers **Request exception**, select the blocker and provide
-that context. **Submit for approval** sends it to an authorised reviewer. A
-requester does not independently approve their own request.
-
-An Exception does not make a failed source fact healthy. It cannot resolve
-unknown applicability, incomplete coverage or mismatched versions and
-boundaries. After it expires, the earlier approval is no longer a basis for
-relying on a with-exceptions assessment.
+An approval may make the duty **Ready with exceptions** while the Exception is
+in effect. It does not turn a failed source fact into a healthy one, and it
+cannot resolve unknown applicability, incomplete coverage or mismatched versions
+and boundaries. Once it expires, that approval no longer supports the result.
+The requester's approval cannot stand in for independent review.
 
 </details>
 
-<details className="guide-details">
-<summary>More about saving an assessment for review</summary>
+## Save an assessment for a later review
 
-Use **Audit reports** in the Framework workspace to capture its scope, coverage,
-proof and assessment at a point in time. The report keeps that saved view while
-live readiness continues to change.
+Open **Audit reports** in the Framework workspace and choose **Create report**
+when the current state represents the review point you want to preserve. The
+report captures scope, duties, Mappings, Controls, Policies, proof, Findings,
+Tasks and Exceptions as they were then. Later changes to live readiness do not
+rewrite it; create a new report for another review date.
 
-Archive preparation and download have their own status and access checks. If
-preparation fails or a link expires, use the available recovery action. Access
-to a report also depends on access to the records it contains.
+Creating a report also starts its first download. When the archive is ready,
+choose **Download report**. If it fails to prepare or expires, **Prepare
+download** creates another archive from the same report. Preparation runs in
+the background, so follow its status while it finishes. You need organisation
+data-export permission and a recent sign-in to create or download reports;
+follow the sign-in prompt and return to the report when asked.
 
-</details>
+Personal and organisation data exports are available separately through the
+account menu under **Settings → Exports**. They have their own scope and access
+checks and do not replace a Framework's point-in-time report.

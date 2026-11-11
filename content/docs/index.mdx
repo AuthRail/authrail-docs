@@ -1,102 +1,106 @@
 ---
 title: "Introduction"
-description: "Learn what AuthRail does and follow one example from an organisational rule to a checked AI action."
+description: "Understand AuthRail and how it helps your organisation govern the actions of connected AI agents."
 icon: BookOpenIcon
 ---
 
-An AI support assistant can read a conversation, suggest a reply and ask a tool
-to change a customer's account. Giving it a useful model is one part of the
-work. Your team also needs to decide which changes it may request, when a
-person should review them and how to check what happened.
+AuthRail is an AI governance platform that helps organisations decide what their
+AI agents are allowed to do, apply those decisions when an agent uses a tool,
+and understand the outcome afterwards. It connects the rules your organisation
+sets with the applications where agents read information, make changes and
+carry out business tasks.
 
-**AuthRail is a workspace for governing how your organisation uses AI.** It
-helps you organise the duties you follow, document the practices your teams use,
-review proof that those practices work and check actions in connected AI
-applications.
+As agents move beyond answering questions, they can take on responsibilities
+that affect customers, software and the organisation itself: building an
+application, releasing changes to production, changing account access, exporting
+confidential information or committing company funds. These tasks need more
+than access to a tool. They need rules about who may request the work, which
+systems and information it may affect, and when a person must review it.
 
-You can start with the organisation's governance work. Installing an SDK comes
-later, when you connect an application.
+AuthRail helps you express those boundaries in the applications you connect.
+You can introduce it while building an agent application, or add it to an
+existing workflow, so authority is considered alongside the tools and business
+functions rather than left to the model's judgement.
 
-## Follow one support-team example
+## From an organisation's rule to an agent's action
 
-Suppose your support team wants a person to review sensitive account changes
-before its AI assistant can make them. The team needs a clear practice, a way to
-apply it and records it can review afterward.
+Consider an engineering assistant helping a team build and maintain an
+application. Preparing a code change, accessing production data and releasing
+that change are different responsibilities. The team might allow work in a
+preview environment, require human review before a production release, and
+stop a request that would expose credentials or remove an authentication check.
+A customer-service application could use the same approach for changes to
+customer access, and a finance application for payments or refunds.
 
-### 1. Understand the duties you need to meet
+Those rules need information from the application: the person requesting the
+work, the system or environment involved, the proposed change and any business
+facts the decision depends on. Your integration establishes which functions
+pass through these checks; AuthRail does not become a cloud executor or gain
+access to those systems simply because you describe a rule.
 
-A **Framework** groups duties your organisation follows, such as obligations
-from a regulation or standard. In AuthRail, you choose a Framework, explain
-where it applies and review the duties relevant to your organisation.
+In AuthRail, you express these rules through **Rails**. When the assistant asks
+to use a connected tool, AuthRail **Runtime** checks the request against the
+published Rails. The application can proceed when the request is permitted,
+stop when it is denied, or save it while a person reviews it. Runtime can also
+check the tool's result before it is returned to the assistant, for example to
+withhold an API key while still returning useful application settings.
 
-For the support team, one applicable duty might concern human oversight. That
-gives the team a reason to establish and check its review process. The
-[Frameworks guide](/docs/frameworks) shows how to start that work.
+The [video walkthrough](/docs/application-example) shows this in a connected
+agent application. The [Rails guide](/docs/rails) explains how to prepare rules
+for your own actions, including rules that need a trusted business value or
+AuthRail Contextual AI to interpret selected material.
 
-### 2. Describe what people should do
+## Connecting your application
 
-A **Policy** states the organisation's expectation: sensitive account changes
-need human review. A **Control** describes the practice that fulfils it: who
-reviews the request, what they inspect and how the application waits for their
-decision.
+Your application continues to perform its business operations and hold the
+credentials they need. A developer adds an AuthRail **SDK** around the function
+that performs each operation, and runs a **sidecar** beside the application to
+evaluate its Rails. Placing the check at that function is what allows Runtime
+to stop an operation before it runs; connecting an agent account or installing
+a library alone does not cover its other tools.
 
-The same Policy and Control can support several Frameworks. You maintain the
-practice once rather than writing a different copy for each obligation.
+If you are building an agent application, [the app-builder guide](/docs/build-your-app)
+explains how the model's tool request reaches this check and which information
+comes from your application. The [quickstart](/docs/getting-started) introduces the SDK through a small
+read-only example in Node.js, Go or Python, which you can then adapt to the
+functions in your application. It begins in
+**Observe**, where you can see what the rules would decide while the function
+continues, before moving to **Enforce**, where the connected function requires
+permission to run.
 
-<ProductShot src="/screenshots/policy-published-version.jpg" alt="A published AuthRail Policy showing its owner, review schedule and purpose" caption="A Policy gives the team a written expectation with a responsible owner. A Control explains how the team puts it into practice." />
+You can also use [AuthRail MCP](/docs/mcp) to work with AuthRail through an
+assistant. With your organisation's permissions, a coding assistant can help prepare
+actions and rules, obtain SDK integration guidance and inspect the resulting
+records. It uses its separately authorised development tools to work on your
+application code. Publication and
+approval still require an authorised person's decision, and the business tools
+still need their Runtime integration.
 
-### 3. Check that the practice works
+## Understanding what happened
 
-A **Test** describes a repeatable check. For example: inspect the support team's
-sensitive changes for a month and check whether each has the required review.
-**Evidence** is the material reviewed to support the conclusion, such as the
-request list and approval records.
+AuthRail brings a request's decisions, approvals and application reports together
+in an **Action**. This gives you a way to investigate why work was stopped,
+which rules applied, and what the application reported after it was allowed
+to continue.
 
-**Readiness** shows how that reviewed work supports the Framework's applicable
-duties and what still needs attention. A missing record or failed check stays
-visible; a percentage is not legal certification.
+Permission and outcome answer different questions. An allowed refund request
+may still be rejected by the payment provider, while a lost response may leave
+the outcome uncertain. The Action preserves those distinctions so you can
+compare the application's report with the provider's own record and resolve
+uncertainty before trying the operation again. [Actions and records](/docs/records)
+explains how to read that history.
 
-### 4. Apply the rule inside an AI application
+## Connecting agent oversight to governance
 
-**Runtime** connects reviewed rules to an application's actual tools. Those
-rules are called **Rails**. They can check a request before a tool runs and
-check its result before information returns to the agent.
+The same organisation may need to show that its practices meet the duties of a
+regulation or standard. AuthRail supports that work through Policies, reusable
+Controls, Frameworks, Tests and Evidence. A Policy describes an expectation, a
+Control explains how the organisation fulfils it, and the Control's Tests and
+Evidence establish whether the practice worked during the period under review.
 
-For the support assistant, Runtime can require approval before the protected
-account-change function continues. Your application keeps the provider
-credentials and performs the operation. AuthRail records the decisions and the
-application's execution reports so the team can investigate them afterward.
-
-Runtime has two modes. **Observe** shows what the rules would decide while the
-application continues. **Enforce** makes the connected protected path require
-permission before it runs. The developer must place the check at the real tool
-and keep the agent from reaching its credentials another way.
-
-## Start with your organisation's work
-
-Begin with [Frameworks and scope](/docs/frameworks), then follow the governance
-guides through Policies, Controls and proof. You will have a clear account of
-what your team expects, how it operates and what supports that account.
-
-After that, [How Runtime works](/docs/concepts) explains the application
-connection. The [Runtime walkthrough](/docs/application-example) shows a sample
-request, the running sidecar and the resulting AuthRail records.
-
-<details className="guide-details">
-<summary>More about decisions, execution and proof</summary>
-
-An allowed decision says that a request met the checked rules. An execution
-report says what the application reported about its attempt. Looking up the
-provider's own record can establish whether an external change happened.
-These are different questions, and AuthRail keeps their records separate.
-
-An **Action** brings together a Runtime request's checks, approval and execution
-reports. **Activity Records** describe meaningful activity for review. A signed
-record helps establish integrity; it does not independently prove an external
-effect or certify compliance.
-
-Runtime records can support a Control's Test or Evidence review when that
-review defines which requests and outcomes qualify. They do not automatically
-make a Framework obligation ready.
-
-</details>
+Runtime records can contribute to that assessment when the relevant Test or
+Evidence requirement defines how they should be used. [Framework readiness](/docs/readiness)
+then follows the applicable duties and their reviewed proof; it is not created
+simply by collecting logs or allowing an agent request. You can explore this
+connected workflow in [Policies and Controls](/docs/policies-controls) after
+getting familiar with Runtime.

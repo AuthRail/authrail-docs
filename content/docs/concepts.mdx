@@ -1,145 +1,152 @@
 ---
 title: "How Runtime works"
-description: "See what your agent tries to do and apply your rules before its tools run."
+description: "Learn how AuthRail applies your organisation's rules when an application uses a tool or returns its result."
 icon: SquaresFourIcon
 ---
 
-An AI assistant becomes more consequential when it can use tools: reading a
-customer record, sending a message, changing an account or initiating a payment.
-Your organisation needs to understand those requests and decide whether they
-are appropriate for the user, the record and the circumstances involved.
+AuthRail Runtime connects your organisation's rules to the functions an AI
+application uses to do work. It checks a request before a connected function
+runs and can check its result before information returns to the agent. This
+allows you to control an operation at the point where it happens, while your
+application continues to own its business logic and provider connections.
 
-**AuthRail Runtime provides that oversight within a connected application.**
-Before a tool performs an operation, Runtime evaluates the request against the
-organisation's published Rails, using the application's verified identity and
-any business information the rule needs. The decision can allow the request,
-stop it or send it to a named reviewer. Runtime also checks the tool's result
-before it returns to the agent and keeps the decisions, approval and reported
-execution together so your team can investigate what happened.
+For example, a finance assistant might be allowed to read invoices but need a
+person's approval before creating an estimate. Runtime gives the application a
+way to apply those rules consistently and keep the request, decision, approval
+and execution reports together for later review.
 
-The application integrates these checks with the function that performs the
-operation. It retains its business logic and provider credentials, while the
-SDK applies the decision at that point. This placement matters: a denied payment
-must stop before the payment function runs, whereas a result check controls
-what the agent receives after the function has returned.
+## What happens when the agent asks to use a tool?
 
-## Follow a simple example
+The assistant's model interprets the person's message and proposes a tool call,
+such as reading an invoice. Your application then identifies the caller and
+checks which invoice they are permitted to access. It sends the operation and
+that information through an AuthRail SDK to the sidecar running beside it.
 
-Imagine an assistant that pays invoices. Your team allows payments up to 100
-units, asks a person to review larger payments, and only permits the selected
-invoice to be changed.
+The sidecar evaluates the request using the deployment's published Rails. In
+Enforce mode, the SDK lets the function continue only when it has the required
+permission and recording confirmation. A denied call stops before the function
+runs, while a request needing approval is saved for its reviewer. When an
+allowed function returns, the SDK checks the result before releasing it to
+the assistant and reports what happened during the attempt.
 
-| The agent asks to… | Your rule says… |
-| --- | --- |
-| Pay 80 units on the selected invoice | Allow the request. |
-| Pay 150 units on the selected invoice | Ask a reviewer. |
-| Pay a different invoice | Deny the request. |
+This is why the flexibility of a chat interface and the authorization decision
+are separate. The model can turn several differently worded messages into the
+same tool request; the deterministic engine checks the resulting operation and
+its values against the rules. Ordinary conversation does not automatically
+create an Action or pass through every kind of Rail. The [app-builder
+guide](/docs/build-your-app) explains how to connect these responsibilities in
+your own application.
 
-You configure these action rules as [Rails](/docs/rails). Runtime checks the
-actual request against the Rails selected for that application.
+## The application, SDK and sidecar
 
-## What happens when a tool is called?
+An **SDK** is the library you add to your Node.js, Go or Python application. It
+connects the language's function calls to Runtime, submits the checks and
+reports, and applies the decision around the business function. Your application
+supplies the authenticated caller, the permitted resource and the credentials
+needed to carry out the operation.
 
-1. **The agent proposes an action.** For example, “pay 80 units on this invoice.”
-2. **Your application identifies the user and invoice.** It uses its own trusted
-   records, rather than accepting the agent's claim about who owns the invoice.
-3. **The application asks AuthRail to check the call.** In Enforce, a denied
-   request stops here. A request needing approval waits for a reviewer.
-4. **Your application runs an allowed tool.** It keeps the payment credential and
-   reports the attempt and its outcome.
-5. **The tool's result is checked before it reaches the agent.** A result that
-   breaks a rule can be withheld. This cannot undo a payment that already ran.
+The **sidecar** is a separate process you run beside that application. It loads
+the deployment's signed rules from AuthRail, evaluates requests locally and
+sends decision and execution reports back to the workspace. Keeping evaluation
+in one sidecar implementation allows the language SDKs to use the same rule
+engine. It also gives your operator a separate process to monitor, with its own
+persistent state and report-delivery queue.
 
-Start in [Observe](/docs/modes) to see the decisions while testing your rules.
-Choose Enforce only after reviewing the application path that will apply them.
+In the **AuthRail workspace**, your team reviews the AI system, prepares and
+publishes Rails, selects the versions for each deployment, handles approvals
+and inspects its records. [Management MCP](/docs/mcp) provides assistant tools for
+supported work in that workspace, using the connected person's permissions.
+The application's SDK integration is still what checks the business function;
+management access alone does not connect its other tools.
 
-## Where does it run?
+The [quickstart](/docs/getting-started) walks through these parts with a local
+invoice reader. Use the [Docker](/docs/docker) or [native](/docs/native) guide for
+the sidecar, according to where your application runs.
 
-You connect your application with an **SDK**, a library added to your code, and
-a **sidecar**, a small service running beside it.
+## How Rails contribute to a decision
 
-| Part | What it does |
-| --- | --- |
-| AuthRail workspace | Your team reviews AI systems, publishes Rails, handles approvals and inspects records. |
-| Sidecar | Loads the deployment's Rails, checks requests locally and sends reports to AuthRail. |
-| Your application and SDK | Ask for the checks, apply the decision and run the actual business function. |
+A **Rail** expresses a rule your organisation wants to apply to an action.
+Different kinds of Rail contribute different parts of the check. A Guard can
+restrict the input or information returned by a tool, a Data Rail can supply a
+trusted business value, and a Policy Rail can apply the organisation's business
+authority using those values.
 
-The SDK and sidecar are separate because connecting a language's tools and
-evaluating business rules are different responsibilities. The Node adapter
-understands JavaScript tool calls; Go and Python adapters work with their
-applications' functions. All three
-send checks to the same sidecar implementation, which loads the selected Rails,
-evaluates them locally and manages report delivery.
+For a payout, the application might obtain the account's available funds in the
+requested currency and let a Policy Rail compare that value with the requested
+amount. For a release, a Rail might use AuthRail Contextual AI to assess whether
+selected release notes describe weakened authentication. In that case the
+permitted material is sent to AuthRail for interpretation, and its finding is
+used by the local deterministic engine. Required local filtering happens before
+that disclosure, and an uncertain finding cannot satisfy a required check.
 
-Keeping that evaluator in the sidecar means each SDK does not need its own
-copy of the rule engine. A rule can therefore keep the same meaning across
-languages, and fixes to evaluation or reporting can be maintained in one place.
-The trade-off is an additional service to run beside the application. The
-[installation guides](/docs/docker) explain how to operate that service, while
-the SDK guides cover the code added to your application.
+The [Rails guide](/docs/rails) explains authoring and publication, while
+[Data and Contextual AI](/docs/facts) explains how a rule obtains the information
+it needs. Check [compatibility](/docs/compatibility) when choosing these features:
+the current editor supports capabilities that are not all included in the
+older published SDKs.
 
-The application keeps provider credentials away from the agent. The SDK must
-check the function that really performs the work. If the agent can call the
-same provider through another route, that route also needs protection.
+## Observe first, then enforce the connected path
 
-## How the sidecar stores and updates rules
+A deployment runs in either **Observe** or **Enforce**. Observe helps you see
+what your rules would decide while the application continues under its normal
+behaviour. It is useful when introducing an integration or trying rules against
+safe requests, because you can inspect the decisions before making them a
+condition of execution.
 
-The sidecar stores the deployment's signed configuration in both a local file
-and memory. It saves the configuration to its state file and uses the in-memory
-copy to check requests. After a restart, it reads the saved file and verifies
-the configuration before using it. In Docker, that file belongs in the
-persistent state volume, so recreating a container does not erase it.
+Enforce changes that relationship: the connected function must obtain permission
+before it runs, and its result must pass the release check before the agent
+receives it. Before relying on this protection, review other routes to the same
+operation. If the agent can use an unwrapped tool or read the provider credential
+directly, that route remains outside the check. [Observe and Enforce](/docs/modes)
+explains the transition, and [execution security](/docs/security) explains what
+to review around the application.
 
-To change the rules for an installation, publish the new Rail version, then
-select and apply it to that deployment. Publishing alone does not replace the
-version every deployment uses. The sidecar checks AuthRail for configuration
-updates every five seconds by default. It verifies an update's signature,
-deployment identity, validity and sequence before saving it and replacing the
-copy used in memory. An invalid update does not replace the accepted rules.
+## Reading the decision and outcome
 
-The signed configuration has a validity deadline; this does not delete the
-Rail in your workspace. A saved configuration cannot authorize new Enforce
-operations indefinitely after it expires. See [monitoring](/docs/operations)
-for checking configuration validity and connection problems.
+An **Action** brings the checks, any approval and the application's execution
+reports together. It helps you understand which rules applied and why a request
+was allowed, stopped or held for review.
 
-## See the decision and the reported result
+<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="An example Action with allowed request and result checks and separate execution reports" caption="The Action connects permission checks with the application's reports about its attempt." />
 
-Open an Action in AuthRail to inspect the request check, result check and
-execution reports together.
-
-<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="AuthRail showing an allowed invoice request, an allowed result and separate started and completion-reported entries" caption="One sample payment: AuthRail retained the checks and the application's start and completion reports." />
-
-**Allowed** is a permission decision. **Completion reported** means the application
-said it completed the operation. To verify a provider effect, inspect the matching
-record in that provider. These records answer different questions.
-
-The [Runtime walkthrough](/docs/application-example) follows this example through
-the application, sidecar logs and AuthRail screens.
+An allowed decision establishes permission for the checked request. Completion
+reported means the application said it completed the operation; a provider's
+own record can establish the external effect. These may differ when the provider
+rejects a request or the application loses a response. A result can also be
+withheld after an operation has already happened. [Actions and records](/docs/records)
+and [recovery](/docs/recovery) explain how to investigate these situations without
+repeating an uncertain write.
 
 <details className="guide-details">
-<summary>How Runtime knows which application and action to check</summary>
+<summary>How the sidecar receives and preserves rules</summary>
 
-An **AI Inventory item** identifies the AI system your team reviews. A
-**deployment** identifies one installation of that system, with its own mode,
-selected Rails and application identity.
+A deployment identifies one installation of an AI system and its selected Rail
+Versions. Publishing a Rail creates a new version for review and selection;
+it does not automatically replace the version every deployment uses. The
+sidecar checks for configuration updates every five seconds by default and
+verifies the signature, deployment identity, validity and sequence of an update
+before replacing the accepted configuration.
 
-Each connected action has a reviewed **Operation Version** describing its inputs,
-results and identity requirements. The SDK uses that version so a function name
-alone cannot substitute for the reviewed action.
+The sidecar keeps that configuration in memory and in its local state file,
+which it verifies again after a restart. Docker installations preserve the
+whole state directory in a volume so rules and queued reports survive container
+replacement. A signed configuration has a validity deadline, so cached rules
+cannot authorize new Enforce operations indefinitely after expiry. Follow
+[monitoring](/docs/operations) and [recovery](/docs/recovery) when a connection
+or configuration needs attention.
 
-Your team confirms the AI system and the application authenticates its requests.
-A configured provider or model name describes setup; it does not prove which
-model generated a request. See [identity and deployment](/docs/identity).
+An AI Inventory item identifies the system your organisation reviews. Its
+configuration can describe the provider and model in use, but does not prove
+which model generated a particular request. Each connected function also uses
+a reviewed **Operation Version**, describing its inputs, results and identity
+requirements. [Identity and deployment](/docs/identity) explains these bindings.
 
 </details>
 
-## Connect Runtime to your governance work
+## Connecting Runtime to governance
 
-[Policies and Controls](/docs/policies-controls) describe what your organisation
-expects and how it puts those expectations into practice. Runtime can apply
-those expectations to connected actions. A Control's [Test or Evidence
-review](/docs/framework-proof) determines which Runtime records support its proof.
-
-Continue with [Rails](/docs/rails) to understand the rules, or
-[connect your first application](/docs/getting-started) when you are ready to set
-up the integration.
+Runtime records can help a team demonstrate how a process operated, but the
+question being assessed still matters. A Control's Test or Evidence requirement
+must define which requests, period, coverage and review qualify as proof.
+[Using Runtime records in a Control](/docs/framework-proof) shows how to connect
+those records to the wider Policies, Controls and Framework workflow.

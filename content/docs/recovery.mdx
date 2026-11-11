@@ -1,68 +1,64 @@
 ---
 title: "Execution and recovery"
-description: "Find out whether an action happened before trying it again."
+description: "Find out what happened to an interrupted request before deciding whether to try again."
 icon: GitBranchIcon
 ---
 
-Your application asks a provider to make a payment. The request times out.
-Did the payment fail, or did the provider complete it and lose the response?
-Trying again immediately could pay twice.
-
-Use this guide when an application crashes, a provider response is lost or an
-Action has an unknown outcome. The first task is to establish what happened to
-**the original request**.
+A payment request can time out after the provider has made the payment but
+before your application receives the response. An immediate retry could pay
+twice. Recovery starts with the original request: find its saved attempt, check
+the provider or business ledger, and report what that source establishes.
 
 AuthRail keeps the permission decision and the application's execution reports
-separately. An allowed decision tells you the request had permission. The
-application must check the provider or its own saved business records to
-establish the effect.
+separately. An allowed decision explains why the request could proceed; it
+cannot tell you what happened after a lost response. Use this guide when an
+application crashes, reporting is interrupted or an Action shows **Outcome
+unknown**.
 
-## Investigate the original request
+## Investigate the original attempt
 
-The developer or operator responsible for the protected application should:
+The application's developer or operator can follow the request without repeating
+its business operation:
 
-1. **Stop automatic retries for this request.** Keep its saved request, Action
-   and execution-attempt identifiers. Keep the original arguments and provider
-   request key too.
-2. **Open its Action in AuthRail.** Read the request decision and execution
-   reports. An attempt marked `started` may have reached the provider.
-3. **Look up the original operation.** Use the trusted provider account or the
-   application's saved effect record. Match the request key, resource and
-   relevant amount or other business details.
-4. **Report the established outcome through the SDK.** Report success when the
-   source confirms the effect. Report failure only when the source confirms
-   that no effect occurred.
-5. **Leave it unknown if the source cannot establish either answer.** Keep the
-   request for an operator to investigate.
+1. Pause automatic retries for this task and keep its original arguments,
+   Action and attempt IDs, and provider request key.
+2. Open the Action and read **Permission to run** and **What the application
+   reported**. An attempt with a start report may have reached the provider.
+3. Look up the original operation in the same provider account or your durable
+   business ledger. Match its request key, resource and amount or other details
+   that identify the intended effect.
+4. Report the established outcome through the SDK. Report success when the
+   source confirms the effect, and failure only when it confirms no effect.
+   If it cannot establish either answer, keep the task unknown for investigation.
 
-This is called **reconciliation**: checking the original effect and updating
-its reported outcome. A timeout, HTTP error or the agent's recollection is not
-enough to establish that nothing happened.
+This process is called **reconciliation**. It updates the original attempt
+rather than performing the payment again. A timeout, HTTP error or recollection
+from a chat does not establish that no payment happened.
 
-**Expected result:** the same Action has an established outcome or remains
-explicitly unknown. The investigation itself does not repeat the payment.
+## Save recovery information before calling the provider
 
-## Save the attempt and report what you establish
+The SDK gives the Enforce callback an execution context identifying its attempt
+and provider idempotency key. Save that context with the business request before
+calling the provider, so another process can investigate it after a crash.
+A provider **idempotency key** lets a supporting provider recognise a repeat
+of the same intended request; check the provider's own behaviour before relying
+on it to prevent duplicates.
 
-The code below continues the Enforce setup in the SDK guide. `client`,
-`operation` and `payment` come from your protected application. The operation
-keeps the original reviewed version, authenticated identity and stable business
-Action key. Run reconciliation in a worker that exclusively claims that task.
+These examples continue the [SDK setup](/docs/getting-started). `client`,
+`operation` and `payment` belong to your application, with the original version,
+authenticated identities and business request key. `recoveryStore` or
+`recovery_store` encrypts the context and binds it to the organisation, user,
+deployment and task in `binding`. Its load function checks that same binding,
+and the reconciliation worker claims the task exclusively.
 
-`recoveryStore` / `recovery_store` is an application-owned helper: encrypt and
-persist the recovery context, binding it to the original organisation, user,
-deployment and task. Its load function must check the same binding. Save the
-context **before** calling the provider. Keep the original payment arguments
-and business request with it; do not reconstruct them from agent messages.
-
-`provider.pay` / `Pay` performs your actual protected operation using the SDK's
-idempotency key. `lookupOriginal` / `LookupOriginal` / `lookup_original` must
-query that same trusted provider account and original request. It returns a
-validated state (`succeeded`, `failed` or `unknown`) and a bounded provider
-reference. Here `failed` means the lookup **confirmed no effect**, not a timeout.
-These provider and storage methods are your code, not AuthRail SDK APIs.
+The `provider` methods are also application code. `pay` performs the operation
+using the supplied idempotency key. `lookupOriginal` queries the same account
+for that original request and returns a validated state of `succeeded`, `failed`
+or `unknown`, plus a provider reference. In this example, `failed` specifically
+means the lookup confirmed no effect, not that the lookup itself failed.
 
 <Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+
 <Tab value="Node.js">
 
 ```ts
@@ -96,6 +92,7 @@ async function reconcilePayment() {
 ```
 
 </Tab>
+
 <Tab value="Go">
 
 ```go
@@ -134,6 +131,7 @@ func reconcilePayment(ctx context.Context) error {
 ```
 
 </Tab>
+
 <Tab value="Python">
 
 ```python
@@ -165,85 +163,115 @@ async def reconcile_payment():
 ```
 
 </Tab>
+
 </Tabs>
 
-A recovery-storage failure must also keep the task held for investigation,
-not mark it failed or authorize another attempt.
+The SDK's reconciliation response belongs to the original attempt. Use it to
+update the task, leaving an unknown lookup unresolved even when the worker
+returns normally. If recovery storage fails, keep the task held for investigation
+as well; losing its journal does not establish failure or make a retry safe.
+The signed report records what the executor established through its lookup,
+rather than an independent provider lookup performed by AuthRail.
 
-A returned reconciliation receipt updates the original attempt; it does not
-repeat the payment. Update your task after checking that response. An unknown
-lookup stays unresolved, even though the example worker returns without error.
-A result-blocking error can also mean an effect exists: inspect and reconcile
-that original effect instead of treating every SDK error as a failed payment.
+## Decide what can happen next
 
-## Retry only after confirming no effect
+When the provider confirms completion, show the existing effect and its
+reference instead of executing again. When it confirms no effect, the
+application can seek a fresh decision and, where required, fresh facts and
+approval for another attempt. An unresolved lookup stays with an operator.
 
-A confirmed no-effect reconciliation can allow another execution attempt. The
-application still needs a fresh decision, any required approval, and fresh
-business facts used by the rule.
+For another attempt at the same intent, keep the original arguments, provider
+request key and AuthRail Action key. The Action key is the application's stable
+identity for this business request; replacing it would create a different
+request without resolving the first one. Reusing it with changed arguments is
+also not a way to update that earlier request.
 
-Keep the same business arguments and provider request key. Keep the same
-AuthRail Action key—the value your application assigned to this business
-request. Changing that key creates a different request; it does not resolve
-the uncertainty around the first one. Do not reuse an Action key with different
-arguments.
+A person may explicitly ask for different work, such as another amount or target.
+That is a new intent needing its own decision, so a prior denial does not impose
+a blanket ban on later requests. The application still needs to distinguish
+that new instruction from splitting work to evade a rule or repeating a write
+whose effect remains unknown.
 
-A provider **idempotency key** is a request key it can use to recognize a repeat
-of the same operation. Pass the SDK's provider key to services that support it,
-and keep it in your application's saved records. Confirm the provider's own
-idempotency behavior before relying on it to prevent duplicate effects.
+## When a result was withheld
+
+An invoice may be created successfully before a result check stops its sensitive
+fields from reaching the agent. Withholding the response does not delete the
+invoice. Inspect the execution reports and provider record before treating an
+SDK error as a failed write. If the operation needs reversal, use the business
+application's supported reversal process.
+
+## Restore reporting without repeating the operation
+
+A sidecar can have reports waiting locally even while some of the Action is
+visible in AuthRail. Check the recording status to see which part needs repair:
+
+| Status | Meaning | Next step |
+| --- | --- | --- |
+| `retained` | AuthRail acknowledged the report. | Keep its reference with the application task. |
+| `queued` | The sidecar saved the report locally for delivery. | Restore connectivity and preserve its state directory. |
+| `unavailable` | The report could not be durably recorded. | Investigate storage and delivery using the application's recovery information. |
+
+Enforce waits for the required call report before a new operation runs. Delivering
+that report later does not automatically start the waiting function, while a
+reporting failure after execution cannot reverse its effect. Observe remains
+advisory during the same outage.
+
+Keep the whole sidecar state directory across restarts, including queues,
+session history and recording-gap files. They are part of the information
+needed for recovery. [Diagnostics](/docs/operations) shows how to check the
+connection and local process without clearing those records.
 
 <details className="guide-details">
-<summary>More about saving recovery information</summary>
+<summary>What to keep in the execution journal</summary>
 
-The protected application keeps provider credentials and performs the business
-function. Before that function runs in Enforce, the adapter sends a signed
-`started` receipt to AuthRail. Your application must also save the recovery
-context with its business request so it survives a process restart.
+Before Enforce invokes the business function, the adapter sends a signed
+`started` report to AuthRail. Your application's journal then preserves the
+callback's recovery context alongside the original business input: the Action
+ID, attempt ID, provider idempotency key and any approval permit reference.
+The provider key has the form `ar-<Action ID>`; save the value the SDK supplies
+rather than reconstructing an attempt after a crash.
 
-Keep the Action ID, attempt ID, original input, provider idempotency key and
-any approval permit reference. The Enforce callback receives a provider key
-of the form `ar-<Action ID>`. Use the recovery context supplied by your adapter,
-rather than reconstructing a different attempt after a crash.
-
-Node's `reconcile`, Go's `Reconcile` and Python's `reconcile` report an outcome established by the
-protected application's lookup. They accept recovery context, a provider
-reference and a known outcome. The resulting receipt is
-`reconciled_succeeded` or `reconciled_failed`. Neither method automatically
-repeats the business function.
-
-A signed receipt establishes what the registered executor key reported. It does
-not independently retrieve or verify the provider record.
+Node's `reconcile`, Go's `Reconcile` and Python's `reconcile` take that context,
+a known outcome and provider reference. Their reports use
+`reconciled_succeeded` or `reconciled_failed` and do not invoke the business
+function again.
 
 </details>
 
-## Check whether the result was withheld
+<details className="guide-details">
+<summary>Renew an expired Enforce selection</summary>
 
-An operation can finish even if AuthRail stops its result from being returned
-to the agent. For example, the provider may create an invoice, then the result
-check may prevent the agent from seeing sensitive invoice fields.
+An expired signed selection cannot grant permission. In **AI Inventory**, open
+the deployment's **Overview → Selected Rails** and use **Renew current Rails**
+where available. Check the versions and confirm that the function and credential
+arrangements still apply, then wait for a valid configuration and current
+connection health before continuing work.
 
-Inspect the execution reports and provider record before retrying. A withheld
-response does not delete the invoice. If the business operation needs to be
-reversed, use your application's supported reversal process.
+On a compatible server, a sidecar's authenticated connection update can renew
+an unchanged Enforce selection near or after expiry. The server rechecks the
+selected versions, credential, AI system revision and the authority behind the
+last confirmation. If those checks fail, the selection stays blocked; consult
+[compatibility](/docs/compatibility) for your installed components.
 
-## Restore report delivery without repeating the action
+Renewal keeps the current rules and mode. It does not publish drafts, select
+newer versions, restore a revoked deployment, extend an approval or repeat a
+business operation. Once configuration is restored, a saved request still
+continues through its own approval or recovery flow.
 
-The sidecar may have a report waiting to reach AuthRail. Read its recording
-status before deciding what to do:
+</details>
 
-| Status | Meaning | What to do |
-| --- | --- | --- |
-| `retained` | AuthRail saved the report. | Keep its record references with the application task. |
-| `queued` | The sidecar saved the report locally for delivery. | Restore connectivity and keep the complete state directory. |
-| `unavailable` | Durable recording could not be established. | Investigate storage and delivery; preserve the application's recovery information. |
+<details className="guide-details">
+<summary>Reports rejected after an application-key change</summary>
 
-Enforce holds a new operation when its required call report has not been
-retained. Later report delivery does not start that operation automatically.
-A reporting problem after execution cannot undo an effect that already happened.
-Observe remains advisory during a reporting outage.
+A decision report signed by an old key may become a blocked recording gap once
+that key's acceptance window closes. A local operator can inspect its safe
+metadata and acknowledge the gap with a reason. This records the delivery gap
+locally; it cannot manufacture a central Action or Decision Certificate or
+claim that the request was enforced.
 
-Keep the entire sidecar state directory through restarts, including queues,
-saved session history and recording-gap files. Deleting those files can remove
-the information needed to recover. See [monitoring](/docs/operations) to inspect
-connection status and local logs.
+An execution outcome may also remain queued after its decision becomes visible.
+Acknowledging a decision gap does not resolve a rejected execution report.
+Keep the original business ledger and sidecar state while investigating both
+delivery and the provider effect.
+
+</details>

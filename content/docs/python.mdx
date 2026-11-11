@@ -6,23 +6,38 @@ icon: CodeIcon
 
 import { AUTHRAIL } from '@/lib/constants';
 
-The Python SDK connects a function in your application to the local AuthRail
-sidecar. Start in **Observe**: your function keeps running while the sidecar
-checks its request and result against your selected Rails.
+The Python SDK connects a function in your application to AuthRail. When an
+agent requests that function, the SDK asks a nearby **sidecar** to check the
+request against your published Rails. It can also check the function's result
+before your application returns it to the agent.
 
-This guide reads a safe invoice file so you can see the checks without moving
-money or calling a provider. You need Python 3.11 or newer and a running sidecar.
-Complete [your first application](/docs/getting-started) and the
-[connection setup](/docs/identity) first. Your reviewed action must accept a text
-`invoiceId` and describe the invoice result fields used below.
+In this guide, you will connect an invoice reader that reads a small local
+file. You will see its result alongside AuthRail's decisions, without calling
+a payment provider. The example uses **Observe** mode, which lets the function
+run while showing what your rules would decide. Even a deny decision leaves
+the function running in this mode.
+
+Before you begin, complete the workspace steps in
+[your first application](/docs/getting-started) and start the sidecar using
+[native setup](/docs/native). You need Python 3.11 or newer and a new
+sample project directory. The program will read the private connection files
+created during setup.
+
+These instructions install SDK 0.1.1 and use a Policy Rail that compares the
+invoice ID. If you want to use automatic Data readers, the expanded Guard
+protections or Rail-owned Contextual AI, first check
+[which releases support them](/docs/compatibility#released-capability-boundary).
+Those features are not included in SDK 0.1.1.
 
 ## 1. Install the SDK
 
-Create a virtual environment in your application directory and install the
+Use an empty sample directory, create a virtual environment and install the
 <a href={AUTHRAIL.packages.python}>PyPI package</a>:
 
-<CommandBlock lang="bash" code={`python3 -m venv .venv
-source .venv/bin/activate
+<CommandBlock lang="bash" code={`mkdir authrail-invoice-example &&
+cd authrail-invoice-example &&
+python3 -m venv .venv &&
+source .venv/bin/activate &&
 python -m pip install authrail==${AUTHRAIL.releases.sdkVersion}`} />
 
 Run `python --version` and confirm it is at least 3.11. If your machine has
@@ -44,33 +59,33 @@ its checks before submitting changes.
 </details>
 
 Use the [native sidecar](/docs/native) if Python runs directly on your host. If
-Python runs in Docker, follow the [shared network setup](/docs/docker#4-connect-your-application-container).
+Python runs in Docker, follow the [shared network setup](/docs/docker#3-connect-your-application-container).
 
-## 2. Prepare a safe example
+## 2. Prepare the invoice and connection settings
 
-In the private directory prepared during connection setup, keep the existing
-`adapter-token` and `executor-private.pem` files. Add `connection.json` with
-your copied IDs:
+Guided setup created `connection.json`, `adapter-token` and
+`executor-private.pem` in your private deployment directory. Leave these files
+in place, and add a separate file named `example-config.json`:
 
 ```json
-{
-  "organisation_id": "YOUR_ORGANISATION_ID",
-  "deployment_id": "YOUR_DEPLOYMENT_ID",
-  "operation_version_id": "YOUR_REVIEWED_OPERATION_VERSION_ID"
-}
+{"operation_version_id":"YOUR_REVIEWED_OPERATION_VERSION_ID"}
 ```
 
-Replace each placeholder. The Operation Version ID comes from the confirmed
-action's details, not its display name or parent action ID.
+Replace the placeholder with the **Reviewed Operation Version ID** from the
+confirmed invoice action, or the version listed by setup. Its input should be
+a text `invoiceId`, and its result should contain text fields `invoiceId` and
+`status`. The generated `integration.json` also lists the selected action
+versions, although the sidecar still checks permission for each request.
 
-In the same private directory, create `invoice.json` with safe example data:
+Add `invoice.json` in the same directory:
 
 ```json
 {"invoiceId":"invoice_123","status":"open"}
 ```
 
-The sidecar gets your application's public key. The Python process gets the
-private key and adapter token. Keep both outside the agent and browser bundle.
+This file stands in for your application's invoice store. Keep the directory
+private because it also holds the application's signing key and connection
+credentials.
 
 ## 3. Observe the function
 
@@ -87,11 +102,12 @@ from authrail import AsyncObserveClient, Operation
 
 async def main():
     private = Path.home() / ".local/share/authrail/my-deployment"
-    settings = json.loads((private / "connection.json").read_text())
+    connection = json.loads((private / "connection.json").read_text())
+    settings = json.loads((private / "example-config.json").read_text())
     async with AsyncObserveClient(
         sidecar_url="http://127.0.0.1:7078",
-        organisation_id=settings["organisation_id"],
-        deployment_id=settings["deployment_id"],
+        organisation_id=connection["organisationId"],
+        deployment_id=connection["deploymentId"],
         adapter_token=(private / "adapter-token").read_text().strip(),
         executor_private_key=(private / "executor-private.pem").read_bytes(),
     ) as client:
@@ -108,16 +124,24 @@ async def main():
         async def read_invoice():
             text = await asyncio.to_thread((private / "invoice.json").read_text)
             invoice = json.loads(text)
-            if invoice["invoiceId"] != "invoice_123":
-                raise ValueError("Invoice does not match this request")
-            return invoice
+            if invoice != {"invoiceId": "invoice_123", "status": "open"}:
+                raise ValueError("Invoice fixture does not match this request")
+            return {"invoiceId": "invoice_123", "status": "open"}
 
         run = client.observe(operation, {"invoiceId": "invoice_123"}, read_invoice)
         invoice = await run.result
         checks = await run.observation
         print("Invoice status:", invoice["status"])
-        print("Call:", checks.call_decision, checks.call_error)
-        print("Result:", checks.result_decision, checks.result_error)
+        for phase, decision, error in (
+            ("call", checks.call_decision, checks.call_error),
+            ("result", checks.result_decision, checks.result_error),
+        ):
+            if error is not None:
+                print(phase, "check unavailable:", error)
+            elif decision is not None:
+                print(phase, decision.outcome, decision.recording_status)
+            else:
+                print(phase, "check unavailable")
 
 
 asyncio.run(main())
@@ -129,43 +153,229 @@ Run it with the activated environment:
 python observe_invoice.py
 ```
 
-The invoice result comes from your function. The separate checks show what the
-Rails would decide. A denied Observe decision does not stop this read.
-Await both the result and observation before closing the client or ending the
-process. An async server can reuse a client across requests.
+With the sample fixture, the first line is `Invoice status: open`. Under the
+quickstart's selected rules, the phase lines should show `allow` and `retained`.
+A local invoice result with unavailable or queued checks is not the same as a
+centrally saved decision.
 
-The fixed user and resource IDs are for this local example. In your application,
-resolve them from authenticated application state and trusted resource lookups.
-Do not let agent-written arguments choose another user or account. Keep the
-business action key stable for retries of the same request.
+A deny or unavailable check still leaves the function running in Observe.
+Await both `run.result` and `run.observation` before closing the client so the
+program has time to finish reporting its checks.
 
-## 4. Find the request
+The sample staff, session and invoice identifiers let you try the SDK without
+a login flow. In your application, get the caller and session from its login or
+service authentication, then look up the invoice that caller may access. The
+agent's arguments should not choose an account or credential. Reuse the business
+`action_key` for recovery of the same request and choose another key for new work.
 
-Open the deployment's **Actions & decisions** and inspect its call and result
-checks. A report marked `retained` reached AuthRail; `queued` means it is still
-saved locally for delivery. Check [deployment monitoring](/docs/operations) if
-the request is missing.
+## 4. Find the request in AuthRail
 
-<ProductShot src="/screenshots/runtime-observe-execution.jpg" alt="An Observe request from the AuthRail reference application with call and result decisions and separately reported execution" caption="An Observe request from the reference application. Python uses the same Action view to show its decisions and reported execution." />
+Open the deployment's **Actions & decisions** and select the invoice Action.
+Read the call and result decisions separately, including their reasons. A report
+marked `retained` has reached AuthRail; `queued` means the sidecar has saved it
+for later delivery. See [monitoring](/docs/operations) if the request is missing.
 
-The [Runtime walkthrough](/docs/application-example) shows the same journey
-through a connected application, sidecar logs and workspace records.
+<ProductShot src="/screenshots/runtime-observe-execution.jpg" alt="An Observe request in AuthRail showing call and result decisions alongside the application's reported execution" caption="Observe shows how the Rails applied to the request while the application continued running." />
 
-## Require permission before the function runs
+## 5. Make this same application enforce its rules
 
-When you are ready for Enforce, first review [modes](/docs/modes) and the
-[execution boundary](/docs/security). Create `AsyncEnforceClient` with the same
-connection settings. Its callback receives the checked arguments and an
-execution context, and `enforce` returns only after the result check passes.
+The next stage keeps the same invoice reader, connection files and reviewed
+Operation Version. You will now make the function wait for permission, then
+try a request that your rule denies. There is no provider account to create
+and no payment to make.
 
-For a provider write, the callback must save that execution context with the
-business request and use its stable provider idempotency key. An
-`EnforceBlockedError` identifies the blocked phase and whether an effect may
-already have occurred. An `EnforceOutcomeUnknownError` requires reconciliation
-before retrying.
+First follow [Observe and Enforce](/docs/modes#move-an-application-from-observe-to-enforce):
+review the application's routes and credentials, confirm the deployment's
+Enforce setup and select **Turn on Enforce**. Keep its published invoice Rail
+selected. The sample code must use the Enforce wrapper as well as an Enforce
+deployment; changing only a dashboard setting does not replace an Observe wrapper.
 
-The <a href={AUTHRAIL.repositories.python + '/blob/main/README.md'}>Python README</a>
-shows these APIs, including saved approval continuations, permit recovery,
-Guard processing, fact readers and contextual AI. Follow
-[human approvals](/docs/approvals) for saving and resuming application work,
-and [execution recovery](/docs/recovery) for uncertain provider outcomes.
+<a href="/examples/sdk/enforce-invoice.py" download>Download the complete Python Enforce application</a>
+and save it as `enforce-invoice.py` in your sample project. It uses SDK 0.1.1 and the
+connection settings already prepared above. Read the file before running it.
+All of its task storage and lookup helpers are included; the excerpt below
+shows the part around the protected function.
+
+Add a second harmless fixture, `invoice-denied.json`, in the same private
+deployment directory as `invoice.json`:
+
+```json
+{"invoiceId":"invoice_456","status":"open"}
+```
+
+The application has a fixed private catalogue mapping `invoice_123` to
+`invoice.json` and `invoice_456` to `invoice-denied.json`. It checks the requested
+identifier against that catalogue before calling the SDK, then reads the file
+only inside the protected callback. An agent-supplied identifier never becomes
+a filesystem path, deployment ID or credential choice.
+
+The program joins four responsibilities: parse the request, resolve the
+application's record, ask AuthRail for permission, then return the checked
+result. This excerpt is part of the complete downloadable program:
+
+```python
+async def read_invoice(checked, execution):
+    task["status"] = "started"
+    task["recovery"] = execution.as_dict()
+    save()
+    return await asyncio.to_thread(lookup_invoice, checked["invoiceId"])
+
+result = await client.enforce(operation, task["input"], read_invoice)
+# Only this checked result is returned to the caller.
+print("Invoice status:", result.result["status"])
+```
+
+In the full program, `save` writes the application's encrypted task journal and
+`lookup_invoice` reads the selected fixture and validates
+its fields. The callback also prints **Protected reader invoked**, so you can
+see whether it was entered. The SDK saves permission and execution-start
+reports before entering it, and checks its returned result before returning
+that result to this application.
+
+Run an allowed request with a new business request key. The commands below
+use a language-specific prefix so trying another SDK against the same deployment
+does not reuse this application's earlier Action:
+
+```sh
+python enforce-invoice.py submit invoice_123 python-read-allowed-001
+```
+
+Under the original quickstart Policy, expect **Protected reader invoked**,
+`Invoice status: open`, and an allowed, retained result decision. Open the
+printed Action in **Actions & decisions** and compare the request decision,
+execution reports and result decision. The file came from your function; the
+Action explains how permission and reporting applied to that function.
+
+### Try an actual denied call
+
+Now ask for the second known invoice using a different request key:
+
+```sh
+python enforce-invoice.py submit invoice_456 python-read-denied-001
+```
+
+The quickstart's Deny rule matches this identifier. Expect **Saved task:
+blocked**, with no **Protected reader invoked** and no returned invoice status.
+The private catalogue knows the record exists, but AuthRail's rule prevents
+the protected reader from opening it. On its Action, inspect the call decision
+and reason; this path has no successful function execution or result check to
+claim as completion.
+
+A message saying **unavailable** or an error from configuration or transport
+is different from the intended deny result. Resolve it using
+[diagnostics](/docs/operations), rather than counting every stopped call as a
+passing rule test. The [compatibility guide](/docs/compatibility) identifies
+what the installed SDK and Runtime can evaluate together.
+
+## 6. Save an approval wait and continue after review
+
+You can use the same read to learn approval continuation without introducing
+a money-moving function. Prepare a new version of the sample Policy stating
+that reading `invoice_123` requires one named person's approval, while other
+invoice identifiers remain denied. In its Policy Rail, replace the ordinary
+Allow rule for `invoice_123` with **Require approval**; keep the Deny rule for
+other identifiers. Cite the new published Policy passage, test the expected
+approval and deny cases, review publication and select this Rail Version for
+the deployment. Do not leave an old Allow rule as an accidental alternative.
+
+The reviewed action must support approval. Expand **Approval reviewers** on
+the reviewed action. Under **Who can approve this action?**, select an active person, set **Approvals needed** to `1`, and save
+the reviewers. This can be the sole operator of the sample workspace. These
+are AuthRail account members; the sample application's fixed `staff_123`
+principal does not cast anyone's approval.
+
+Once the deployment is using the new version, submit a fresh request:
+
+```sh
+python enforce-invoice.py submit invoice_123 python-read-review-001
+```
+
+Expect **Saved task: awaiting_approval**, an Action reference and no callback
+marker. The program has saved the SDK's continuation before exiting. It
+contains the original checked call and decision, so the next invocation does
+not reconstruct the request from a new model response.
+
+Sign in as the named reviewer, open the waiting Action, review its values and
+expiry, then approve it. Return to the application and resume the original key:
+
+```sh
+python enforce-invoice.py resume python-read-review-001
+```
+
+The SDK claims the saved call's one-use permit, records the start, invokes the
+same reader and checks its result. Expect the callback marker and
+`Invoice status: open`. The Policy's result decision may still say
+`approval_required`: it still describes the rule's review requirement. The SDK
+releases that result only with the permit for this same approved Action.
+Approval, the execution report and the released result remain separate records.
+
+Keep the input and request key unchanged when resuming. A completed, denied or
+unknown task cannot be submitted again under that key through this program.
+A genuinely different request gets a new key and its own rule decision; a new
+key is not a way to recover the original task.
+
+<details className="guide-details">
+<summary>How the local task journal handles restarts and uncertain outcomes</summary>
+
+The complete program creates `python-invoice-tasks` inside your private deployment
+directory. It generates a 32-byte journal key there and encrypts task snapshots
+with AES-GCM. The authenticated binding includes the organisation, deployment,
+Operation Version, principal, session and business request key. Preserve this
+key and directory together; replacing the key does not recover existing tasks.
+The SDK continuation and execution context remain outside the agent's access.
+
+Each invocation exclusively locks its task, writes a new encrypted snapshot,
+flushes it to disk and atomically replaces the previous file. A normal exit
+releases the lock. A process crash leaves its lock in place so another process
+does not assume the work is safe to repeat. An operator must establish that the
+original process is gone and inspect the Action and saved attempt before
+repairing a crash-left lock. Clearing a lock is not permission to reset a task,
+replace its key or repeat its execution. A missing or changed binding fails closed.
+
+Use the status command to inspect a normally unlocked task without running it:
+
+```sh
+python enforce-invoice.py status python-read-review-001
+```
+
+Before claiming an approval permit, the program saves **claiming**. If that
+claim's response is lost before the callback begins, keep this task and use:
+
+```sh
+python enforce-invoice.py recover-permit python-read-review-001
+```
+
+This calls the SDK's existing-permit recovery method. It cannot issue a new
+permit, revive expired approval or rerun a started attempt. Run **resume** only
+after the reviewer has approved: an early, rejected or unavailable claim may
+leave the task held for inspection rather than automatically trying another
+claim. A task marked **started**, **outcome_unknown** or **result_withheld**
+requires investigation; the program does not offer an automatic execution retry.
+
+These downloadable journal programs run on macOS or Linux: their local file
+permissions, user-ownership checks and directory flushing use POSIX behaviour.
+That restriction belongs to this example, not a new SDK platform restriction.
+Run one command at a time as the same trusted application user. This file store
+is a complete single-host, single-operator teaching example, not a scheduler. In a multi-user application, bind tasks to its authenticated
+users and resources, use its durable workflow store and exclusive worker claims,
+and let the user or worker continue saved work. For provider writes, keep the
+SDK recovery context before sending and use the provider idempotency key when
+supported. Follow [human approvals](/docs/approvals) and
+[execution recovery](/docs/recovery) for those application contracts.
+
+</details>
+
+## Bringing the integration into your own application
+
+Replace the fixed sample identities with values from your application's login
+or workload authentication, and replace the catalogue with an authorised
+resource lookup. Keep provider credentials behind the function. The wrapper
+belongs around that function, before the model can call an equivalent route
+without checks. Return the checked result or a useful held/blocked state to
+your agent loop; the SDK does not need to interpret the person's chat message.
+
+The [application-building guide](/docs/build-your-app) shows how to put those
+responsibilities into a tool handler. Continue with
+<a href={AUTHRAIL.repositories.python + '/blob/v0.1.1/README.md'}>the released Python API reference</a>
+for additional signatures and [compatibility](/docs/compatibility) before using
+newer Data, Guard or Contextual AI capabilities.

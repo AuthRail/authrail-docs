@@ -4,13 +4,41 @@ description: "Find each connection value and give it to the process that needs i
 icon: GearIcon
 ---
 
-You do not need to invent the values used by the sidecar and SDK. AuthRail
-supplies the deployment settings. Your application operator creates the local
-keys and token. This page helps you identify them while following the
-[Docker](/docs/docker), [native](/docs/native) or SDK setup.
+The application and sidecar need different connection settings because they
+have different jobs. The sidecar downloads rules for a deployment and reports
+its decisions. Your application signs requests to that sidecar and keeps the
+credentials used by the business function. For an invoice reader, this means
+the provider credential remains in the application while the sidecar receives
+only the information needed to check its rules.
 
-For a first installation, use [Identity and deployment](/docs/identity) first.
-It shows the dashboard controls and creates the private files referenced here.
+Guided [Docker](/docs/docker) or [native setup](/docs/native) creates the private
+files below and prepares helpers for Node.js, Go and Python. Use this reference
+to understand those files or when your operator manages the process through
+existing deployment tooling. The [identity guide](/docs/identity) explains how
+the keys relate to the caller and target of a request.
+
+## Guided setup files
+
+| File | Owner and purpose |
+| --- | --- |
+| `connection.json` | Setup's API origin, organisation/deployment IDs, signing-key trust and application-key binding. Keep it intact. |
+| `integration.json` | Selected action versions and integration guidance. It does not itself grant permission. |
+| `executor-private.pem` | Protected application only; signs requests and execution reports. |
+| `executor-public.pem` | Registered in AuthRail and supplied to the sidecar for verification. |
+| `deployment-token` | Sidecar's deployment-scoped credential for configuration/reporting. |
+| `adapter-token` | Local application-to-sidecar credential; distinct from the deployment credential. |
+| `authrail_binding_v1.*` | Generated helpers for reading the private files from the protected application. |
+| `native-state` / Docker volumes | Persistent rule cache, report queues and recovery state. Preserve the complete set. |
+
+The `--directory` option chooses where setup writes these files. The guides
+use `$HOME/.local/share/authrail/my-deployment`; if you use the default location,
+look for the directory printed by setup. Your operator should keep it private
+and preserve it across restarts, including the keys, queued reports and
+recovery information.
+
+The environment settings below are for an operator-managed Runtime process.
+Guided setup prepares its own configuration, so exporting an additional variable
+in your shell will not automatically pass it into the child process or container.
 
 ## Copy these values from AuthRail
 
@@ -31,8 +59,9 @@ token** and save its one-time value privately.
 
 ## Prepare these values locally
 
-The [connection guide](/docs/identity) creates the local files. Their values are
-not issued by AuthRail:
+Your application operator supplies the local token, key files and storage
+location. The [identity guide](/docs/identity) includes manual provisioning
+steps for teams that manage these through their existing tools:
 
 | Sidecar setting | Value to use |
 | --- | --- |
@@ -40,27 +69,25 @@ not issued by AuthRail:
 | `AUTHRAIL_EXECUTOR_PUBLIC_KEY_FILE` | The path to `executor-public.pem`, whose public key you registered in AuthRail. The application keeps the matching private key. |
 | `AUTHRAIL_STATE_FILE` | A private state-file path for this instance. Docker uses `/var/lib/authrail/state.json` and a volume for the whole parent directory. |
 
-The SDK needs the same organisation and deployment IDs, the adapter token,
-`executor-private.pem`, the reviewed Operation Version ID and the local
-sidecar URL. Give provider credentials only to the protected application.
-Keep all secrets out of agent prompts, browser code and source control.
+The SDK uses the organisation and deployment IDs, adapter token, private
+signing key, Operation Version ID and local sidecar address. These settings
+belong in the protected application. Keep them and its provider credentials
+out of agent prompts, browser bundles and source control.
 
-## Leave optional settings alone for the first connection
+## Optional process settings
 
-The standard local address is `127.0.0.1:7078`, and the sidecar checks for updated
-configuration every five seconds. You do not need a separate monitoring system
-to receive local process logs.
-
-Use the options below only when your operator needs them. The
-[monitoring guide](/docs/operations) explains what the local health fields and
-optional diagnostics mean.
+Most installations can use the default local address, `127.0.0.1:7078`, and
+the five-second configuration update interval. Process logs work without a
+separate monitoring service. The options below let an operator change these
+settings, rotate keys or connect an existing monitoring system; see
+[monitoring](/docs/operations) for help interpreting the output.
 
 <details className="guide-details">
 <summary>Listener, sync, key rotation and operator settings</summary>
 
 | Setting | When to use it |
 | --- | --- |
-| `AUTHRAIL_HEALTH_ADDR` | Change the default `127.0.0.1:7078` only to another reviewed loopback address/port. Never use `0.0.0.0` or expose the listener publicly. |
+| `AUTHRAIL_HEALTH_ADDR` | Change the default `127.0.0.1:7078` to a loopback address and port chosen for this installation. Never use `0.0.0.0` or expose the listener publicly. |
 | `AUTHRAIL_SYNC_INTERVAL` | Set another update interval of at least one second when the operator needs it. Default: five seconds. |
 | `AUTHRAIL_PREVIOUS_EXECUTOR_PUBLIC_KEY_FILE` | Point to the previous public PEM during an approved key-change overlap while old reports drain. |
 | `AUTHRAIL_OPERATOR_TOKEN` | A separate random secret of at least 32 characters for authorised local recording-gap review. It must differ from adapter and deployment credentials. |
@@ -75,8 +102,9 @@ Collector. Ask the team operating that monitoring system for its OTLP/HTTP
 address; it does not come from AuthRail's Integration setup. Use HTTPS for a
 remote Collector.
 
-The sidecar sends traces and metrics to that Collector. Local process logs
-still work without it. Leave the setting unset if you do not use a Collector.
+The sidecar sends traces, which show the path and timing of requests, and
+metrics, which summarise service behaviour, to that Collector. Leave the
+setting unset if your team does not use one; local process logs remain available.
 
 </details>
 
@@ -88,15 +116,17 @@ Docker's launcher can read private token files instead of direct token values:
 `AUTHRAIL_OPERATOR_TOKEN_FILE`. Set the direct value or its `_FILE` setting,
 not both for the same credential.
 
-The Compose recipe takes host file paths through
+The repository Compose recipe takes host file paths through
 `AUTHRAIL_DEPLOYMENT_TOKEN_PATH`, `AUTHRAIL_ADAPTER_TOKEN_PATH` and
 `AUTHRAIL_EXECUTOR_PUBLIC_KEY_PATH`. They point to files you prepared; they are
 not tokens themselves. Compose mounts these files read-only for the sidecar.
-The [Docker guide](/docs/docker) supplies the actual launch commands.
+For the guided installation commands, use the [Docker guide](/docs/docker);
+it does not require the repository Compose recipe.
 
-`AUTHRAIL_SIDECAR_IMAGE` selects the sidecar image; it defaults to the local
-`authrail-sidecar:development` build used by that guide. For a reviewed rollout,
-the operator selects an immutable image digest. Keep the entire state volume
-when changing images and review [compatibility](/docs/compatibility) first.
+`AUTHRAIL_SIDECAR_IMAGE` applies to the repository Compose recipe. The guided
+executable selects its compiled-in image digest; see [compatibility](/docs/compatibility).
+For an operator-managed rollout, choose an image digest under your team’s
+change process so the installed contents stay identifiable.
+Keep the entire state volume when changing images.
 
 </details>

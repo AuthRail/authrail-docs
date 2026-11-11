@@ -6,19 +6,17 @@ icon: TerminalIcon
 
 import { AUTHRAIL } from '@/lib/constants';
 
-A native sidecar runs directly on your computer or server as a separate
-program. Choose it when your protected Node, Go or Python application also runs on that
-host. It checks the same rules as the [Docker installation](/docs/docker).
+A native sidecar runs as a separate program on the same computer or server as
+your application. For example, the invoice reader in the quickstart can ask a
+sidecar on your laptop to check each request against its Rails. Choose this
+installation when your Node.js, Go or Python application runs directly on the
+host; use [Docker](/docs/docker) when it runs in a container.
 
-Download the executable for your computer, give it your deployment settings,
-then leave it running while the application makes checks. You do not need Go
-to use a release download. The commands below use a macOS or Linux terminal,
-`curl` and `tar`.
-
-First complete [the dashboard setup](/docs/getting-started) and
-[connection details](/docs/identity), including the registered public key and
-private token files. If you are replacing a running installation, follow the
-upgrade instructions at the end of this page before replacing its executable.
+Before you begin, prepare the action, published Rail and deployment in
+[your workspace](/docs/getting-started). You will need the API address supplied
+by your installation administrator and a macOS or Linux terminal with `curl`
+and `tar`. The download includes the executable, so you do not need Go or a
+source build.
 
 ## 1. Download the sidecar
 
@@ -26,8 +24,9 @@ Choose your operating system and processor. On a Mac, **About This Mac** shows
 an Apple chip or an Intel processor. On Linux, `uname -m` prints `aarch64` for
 arm64 or `x86_64` for amd64.
 
-The commands download the release archive and its checksum, check that the
-archive matches, then unpack it. Stop if the checksum check fails.
+Each download has a **checksum**, a value used to check that the archive has
+not changed. The commands verify it before unpacking the program. If verification
+fails, stop and download it again from the release page.
 
 <Tabs items={['macOS Apple silicon', 'macOS Intel', 'Linux arm64', 'Linux amd64']} groupId="sidecar-platform" persist>
 <Tab value="macOS Apple silicon">
@@ -80,134 +79,89 @@ cd authrail-sidecar-${AUTHRAIL.releases.sidecarVersion}-linux-amd64 &&
 </Tab>
 </Tabs>
 
-The final command prints the version and build revision, then exits. It does
-not start the sidecar. Keep this terminal in the extracted directory for the
-next steps. The download also contains the licence and implementation guides.
+The final command prints the program’s version and build revision, then exits.
+Keep this terminal in the extracted directory for setup.
 
-<details className="guide-details">
-<summary>Build from source when contributing</summary>
+## 2. Connect and start
 
-With Git and Go 1.26 or newer:
-
-<CommandBlock lang="bash" code={`git clone --branch v${AUTHRAIL.releases.sidecarVersion} ${AUTHRAIL.repositories.sidecar}.git
-cd authrail-sidecar
-go build -o authrail-sidecar ./cmd/authrail-sidecar`} />
-
-This compiles an executable in the checkout. It has not started the sidecar.
-Use the source checkout as your working directory for the commands below.
-
-</details>
-
-## 2. Give it the deployment settings
-
-In the same terminal, replace the `YOUR_...` values with those from the
-deployment's **Integration setup → Configure the sidecar**. Use your own API
-address if it differs from this example:
-
-<CommandBlock lang="bash" code={`export AUTHRAIL_CONTROL_PLANE_URL=${AUTHRAIL.apiOrigin}
-export AUTHRAIL_ORGANISATION_ID=YOUR_ORGANISATION_ID
-export AUTHRAIL_DEPLOYMENT_ID=YOUR_DEPLOYMENT_ID
-export AUTHRAIL_TRUSTED_KEY_SHA256=YOUR_TRUSTED_SIGNING_KEY
-export AUTHRAIL_EXECUTOR_PUBLIC_KEY_FILE="$HOME/.local/share/authrail/my-deployment/executor-public.pem"
-export AUTHRAIL_DEPLOYMENT_TOKEN="$(cat "$HOME/.local/share/authrail/my-deployment/deployment-token")"
-export AUTHRAIL_ADAPTER_TOKEN="$(cat "$HOME/.local/share/authrail/my-deployment/adapter-token")"
-umask 077
-mkdir -p "$HOME/.local/state/authrail/my-deployment"
-chmod 700 "$HOME/.local/state/authrail/my-deployment"
-export AUTHRAIL_STATE_FILE="$HOME/.local/state/authrail/my-deployment/state.json"`} />
-
-The token and key paths refer to the files from the connection guide. The
-state directory stores the sidecar's rules, report queue and recovery history.
-Keep it private and use a separate directory for each sidecar instance.
-
-These settings include private credentials. Keep the terminal and process
-environment outside the agent's reach. The application's private key and
-provider credentials do not belong in the sidecar.
-
-## 3. Start it
-
-Run:
+Replace `YOUR_AUTHRAIL_API_ORIGIN` with the API address from your installation
+administrator. This is the service the sidecar connects to, rather than the
+workspace website you open in a browser. The `--directory` option puts the
+installation’s private files in a location you can reuse across restarts.
 
 ```sh
-./authrail-sidecar
+export AUTHRAIL_API_URL='YOUR_AUTHRAIL_API_ORIGIN'
+./authrail-sidecar setup --api-url "$AUTHRAIL_API_URL" \
+  --directory "$HOME/.local/share/authrail/my-deployment" --runtime native
 ```
 
-The sidecar stays in the foreground and prints startup and service messages.
-Leave this terminal open. Use another terminal to start your application and
-check the local service:
+When the browser opens, sign in and choose the organisation and deployment
+you want to connect. Setup creates the application’s signing key on your
+computer and registers its public key with AuthRail. It also saves the
+deployment credential, a separate token for local SDK calls, and helper files
+for Node.js, Go and Python. These files belong to your application operator;
+keep the private directory out of the agent’s reach.
+
+The sidecar stays in the foreground. Wait for **Signed rules are ready**, then
+leave this terminal open. Setup writes process output to `sidecar.log` inside
+that private directory. In another terminal:
 
 ```sh
 curl --fail --silent --show-error http://127.0.0.1:7078/health
+tail -n 50 "$HOME/.local/share/authrail/my-deployment/sidecar.log"
 ```
 
-Look for `bundleValid: true` and the mode selected for this deployment. The
-response also shows the loaded bundle, application-key fingerprints and pending
-report counts. HTTP success alone only means the endpoint responded.
+Look for `bundleValid: true` and the mode you selected for the deployment.
+This means the sidecar has usable rules. You will check the application itself
+in the next step. If rules are unavailable, check the deployment’s selected
+Rails and access, then read `sidecar.log` for connection errors. Preserve the
+installation files while investigating so pending reports and recovery
+information remain available.
 
-If there is no valid bundle, check the copied settings, deployment token,
-registered application key and selected Rails. The deployment's **Overview →
-Connection health** should also show a recent update after the sidecar connects.
+## 3. Wrap your actual function
 
-## 4. Connect the SDK
-
-Follow the [Node](/docs/node), [Go](/docs/go) or [Python](/docs/python) guide in your protected application.
-Use `http://127.0.0.1:7078` as its sidecar URL, the same adapter token, and the
-application's private key. These processes must run on the same host; keep the
-sidecar listener private.
-
-After a safe request, the terminal shows decision events. The
-[Runtime walkthrough](/docs/application-example) includes an actual native
-status check and operation logs. [Monitoring](/docs/operations) explains how
-to read those events.
+Continue with [Node.js](/docs/node), [Go](/docs/go) or [Python](/docs/python).
+Use `http://127.0.0.1:7078` from the protected host application. The SDK uses the saved local token and private signing key. Business-provider
+credentials also belong in your application, where the agent cannot read them.
+Run the invoice example and open its [Action and decisions](/docs/records) to
+see the complete connection working.
 
 <details className="guide-details">
-<summary>Stop or remove the native sidecar</summary>
+<summary>Restart, stop and preserve a native installation</summary>
 
-Pause the protected application or move its traffic to a replacement first.
-If you started the sidecar in this terminal, press Ctrl+C. If a service manager
-starts it, stop that specific service. Disable its automatic startup when
-removing the installation.
-
-For a background process, find its listener:
+Pause the protected application before stopping the sidecar. Ctrl+C stops this
+foreground installation and preserves its private settings and `native-state`
+directory. Restart the same saved connection without signing in again:
 
 ```sh
-lsof -nP -iTCP:7078 -sTCP:LISTEN
+./authrail-sidecar installation run \
+  --directory "$HOME/.local/share/authrail/my-deployment"
 ```
 
-Use the configured port if different. Confirm that the process belongs to this
-sidecar, then send SIGTERM with `kill -TERM PID`, using the confirmed numeric
-PID. Allow it to exit and run the listener check again. Do not stop unrelated
-processes or use a broad process-name kill command.
+For a maintained installation, a service manager can run this command under
+the application operator’s account. Stop that service before upgrading or
+removing the program, and preserve the whole private directory. It contains
+keys, queued reports and the information used to recover interrupted work.
+Only one sidecar should use a state directory at a time; restoring an older
+copy could also erase reports or roll back configuration history. See
+[recovery](/docs/recovery) before replacing state or retrying an uncertain operation.
 
-For permanent removal, remove the stopped executable and its service-manager
-entry. Keep private state and credentials until queued reports, blocked reports
-and unknown effects are resolved and retained as required. Deleting the program
-does not erase AuthRail's retained Actions. Do not delete state to clear a warning.
+When you rerun setup, it recognises the saved deployment and key. If you have
+edited a generated helper, setup keeps your version and writes the update to
+a separate file for you to compare. A different registered key or missing
+state needs recovery or a planned key change. Moving from native to Docker
+also needs a migration of the installation; setup rejects reuse of the native
+directory as a Docker installation.
 
 </details>
 
 <details className="guide-details">
-<summary>Package, maintain or upgrade an installation</summary>
+<summary>Remote browser and listener options</summary>
 
-For a maintained installation, have a service manager or secret store supply
-the credentials rather than relying on an interactive terminal. Keep the
-instance's identity and complete private state through restarts.
-
-To build a local archive for another installation of the same OS and CPU, run
-this from the source checkout:
-
-```sh
-sh scripts/package.sh development ./dist
-```
-
-It creates an archive and adjacent SHA-256 checksum. Verify the checksum before
-unpacking. Choose a reviewed source commit when you need a repeatable build.
-
-Before an upgrade, pause the application, stop the sidecar with Ctrl+C or
-SIGTERM, and allow its bounded shutdown to complete. Preserve the entire state
-directory and credential files. Replace the executable and restart with the
-same settings, then check valid rules and report queues before accepting work.
-Never restore an older state copy or delete rejected state to make startup
-succeed. Follow [recovery](/docs/recovery) for unresolved reports and effects.
+Use `--no-browser` if you want to open the printed sign-in URL yourself. The
+browser must be able to reach the temporary callback on the setup computer’s
+loopback interface, so keep that callback private. The native `--listen` option
+changes the local address and port used by the sidecar; choose a loopback address
+and configure the SDK to use the same one.
 
 </details>

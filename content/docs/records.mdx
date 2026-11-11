@@ -1,67 +1,82 @@
 ---
 title: "Actions, decisions and activity"
-description: "Find out why a request was allowed or stopped and what the application reported afterward."
+description: "Follow a request from the rule's decision to the application's reported outcome."
 icon: ClockCounterClockwiseIcon
 ---
 
-An **Action** is the saved account of one Runtime request: the AI system and
-application involved, the rule checks, any approval and the reported execution.
-Use it when someone asks why a payment was stopped or whether an allowed
-request actually completed.
+An **Action** brings together the history of one Runtime request: the application
+and AI system, rule checks, approval and execution reports. It is the place to
+look when someone asks why a payment was stopped or whether an allowed account
+change was completed.
 
-For example, a support team sees an allowed account-change request. The Action
-can show the allowed check and a separate completion report. That difference
-matters: permission to make a change is not the same as a report that the
-application made it.
+These are different questions. A decision establishes permission, while an
+execution report records what the application said happened. To establish an
+external effect independently, you also need the matching provider record or
+another authoritative source. Keeping those distinctions helps you explain an
+outcome without promising more than the available records show.
 
-## Explain one request from beginning to end
+## Follow a request in AuthRail
 
-### 1. Find the Action
+### 1. Find its Action
 
-Open **Actions & decisions** in AuthRail or follow **View in AuthRail** from
-the originating application. Check that you have the intended AI system,
-deployment, target and Runtime mode. In Observe, a would-deny decision may
-sit alongside a completed operation because the mode is advisory.
+Open **Actions & decisions**, or follow **View in AuthRail** from the originating
+application. Check the AI system, deployment, target and mode so you are reading
+the intended request. In Observe, a completed operation can appear beside a
+**Would deny** check because Observe did not stop it.
 
-### 2. Read the request decision
+### 2. Read why it was allowed or stopped
 
-Read the outcome and reason. Follow the rules used for that decision and look
-for missing business facts or required processing. If the request needed human
-review, open its approval and check the reviewers, expiry and outcome.
+Begin with **Permission to run** and **Why this decision was made**. **Before
+running** explains the call check, and **Before returning the result** explains
+what could reach the agent afterward. The page uses the explanation saved with
+the decision, where available.
 
-### 3. Inspect execution and the result check
+**Information used for the decision** shows the status and age of its source
+readings. **Rails used for this request** opens the versions used at that time,
+even when the deployment now selects different ones. If a person reviewed the
+request, follow its approval to see the reviewers, deadline and decision.
 
-Expand **Execution reports**. Look for a started attempt and the application's
-completion, failure or uncertain-outcome report. Read the result check as well:
-the application may have completed an operation whose result was then withheld
-from the agent.
+### 3. Look at the application's report
 
-<ProductShot src="/screenshots/runtime-enforce-execution.jpg" alt="Action showing allowed call and result checks and separate execution start and completion reports" caption="The checks explain permission. The execution entries describe what the protected application reported about its attempt." />
+Expand **What the application reported** to follow the attempt's start,
+completion, failure or uncertainty. Compare it with the result check: a function
+can finish while its returned information is withheld from the agent.
 
-If no completion is known, do not treat the Action as a successful provider
-change. Investigate the application's saved operation history and, where
-appropriate, the provider's own record before retrying.
+| Outcome shown | How to read it |
+| --- | --- |
+| Outcome not reported | No execution outcome was saved for this attempt. |
+| Permission granted | The call received permission; no execution outcome has been reported. |
+| Awaiting approval | A person's decision is needed before the saved request can continue. |
+| In progress | The application reported starting the attempt. |
+| Completed | The authenticated executor reported completion. |
+| Failed | The authenticated executor reported failure. |
+| Outcome unknown | The effect needs investigation before another attempt. |
+
+**Completed** describes the executor's report, not a provider lookup performed
+by AuthRail. If you need to confirm a provider change, match its account and
+reference with the provider's record. [Recovery](/docs/recovery) explains what
+to do when the effect cannot yet be established. A list's **Latest check** may
+be the later result check, so use **Permission to run** for the original call.
 
 ### 4. Follow the related activity
 
-Use the linked Activity Records to see meaningful events in their business
-context. An **Activity Record** describes the event for organisational review;
-the Action keeps the detailed Runtime checks and execution reports together.
+An **Activity Record** places a meaningful event in its organisational context,
+while the Action keeps the Runtime checks and attempt reports together. On the
+linked Activity Record, begin with **Recorded outcome** and its timeline.
+**Saved record details** and **Technical references** provide supporting data,
+and **Original recorded wording** makes a translated historical summary available.
+Descriptions written by people keep their original wording.
 
-You should now be able to explain what was requested, why the rule allowed or
-stopped it, who reviewed it and what the application reported. The
-[Runtime walkthrough](/docs/application-example) shows this alongside the sample
-application and sidecar.
+## Keep the reference with your application's task
 
-## Keep the Action reference with your application task
-
-The SDK returns the decision alongside its check. Save its Action ID with your
-application task so an operator can find the same request in AuthRail. The
-helpers below print only decision metadata; do not print the input, result or
-entire continuation. Identifiers belong in private diagnostic fields, not
-metric labels.
+Saving the Action ID with a payment or workflow task makes it easier for an
+operator to find the same request later. The SDK returns its decisions alongside
+the check result. These helpers show the useful metadata without printing the
+business input, result or private continuation. Keep identifiers in private
+diagnostic fields rather than metric labels.
 
 <Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+
 <Tab value="Node.js">
 
 ```ts
@@ -78,11 +93,13 @@ function logDecision(decision: ObserveDecision | null | undefined) {
 }
 ```
 
-Pass `checked.callDecision` and `checked.resultDecision` after Enforce, or
-`checks.callDecision` and `checks.resultDecision` after awaiting an Observe
-run's `observation`. Handle the separate check errors when a decision is absent.
+After Enforce, pass `checked.callDecision` and `checked.resultDecision` to this
+helper. In Observe, await the run's `observation`, then pass
+`checks.callDecision` and `checks.resultDecision`; inspect the separate errors
+if a decision is absent.
 
 </Tab>
+
 <Tab value="Go">
 
 ```go
@@ -99,11 +116,12 @@ func logDecision(decision *authrail.Decision) {
 }
 ```
 
-Pass the call and result decisions returned by `authrail.Enforce`. With
-Observe, receive its observation channel first, then use `CallDecision` and
-`ResultDecision`. A missing decision needs investigation of its separate error.
+Pass the call and result decisions returned by `authrail.Enforce`. In Observe,
+receive the observation channel first and use `CallDecision` and `ResultDecision`,
+checking the accompanying error when a decision is absent.
 
 </Tab>
+
 <Tab value="Python">
 
 ```python
@@ -123,69 +141,73 @@ def log_decision(decision: Decision | None) -> None:
     }))
 ```
 
-Pass `checked.call_decision` and `checked.result_decision` after Enforce, or
-the same fields from `await run.observation` in Observe. Inspect `call_error`
-and `result_error` separately if the checks could not finish.
+After Enforce, pass `checked.call_decision` and `checked.result_decision`.
+In Observe, await `run.observation` and use the same fields, with `call_error`
+and `result_error` explaining any check that did not finish.
 
 </Tab>
+
 </Tabs>
 
-`retained` means AuthRail acknowledged the record. `queued` means delivery is
-still pending in the local sidecar; do not display it as already saved in the
-workspace. These helpers log metadata, rather than proving provider completion.
-The [SDK guides](/docs/getting-started#5-connect-the-application) show where the
-returned decisions fit into a connected function.
+The recording status tells you where that report is. `retained` means AuthRail
+has acknowledged it; `queued` means the sidecar is still waiting to deliver it.
+Display that distinction in the application so a locally queued report is not
+presented as already saved in the workspace. The [SDK guides](/docs/getting-started)
+show where the decisions fit around a function call.
 
 <details className="guide-details">
-<summary>More about the different records</summary>
+<summary>Certificates, execution reports and downloads</summary>
 
-| Record | What it explains |
-| --- | --- |
-| Decision Certificate | The saved check, its rule versions and reasons, with information to check record integrity. |
-| Execution receipt | A signed report from the registered executor about an attempt or its outcome. |
-| Approval and permit | Human review and one-use permission for the checked request. |
-| Activity Record | A meaningful business event linked to its context and Runtime Action where present. |
-| Runtime log | Operational events useful for diagnosing a deployment. |
+A **Decision Certificate** is the signed account of a check, its rule versions
+and reasons. An **execution receipt** is the executor's signed report about an
+attempt. Approval records describe a person's review and the permission to
+continue. Runtime logs serve a different purpose again: diagnosing the
+installation rather than replacing these business records.
 
-A certificate does not independently verify provider completion or certify
-compliance. A signed execution receipt is an application assertion, not an
-independent provider lookup. Approval does not show that execution started.
-Runtime logs and internal monitoring traces do not replace durable Actions,
-approvals, receipts or Evidence review.
+Open **Decision certificates** and choose **Download signed certificate** to
+keep the statement and signature. The page displays its claim; it does not
+independently verify the signature in your browser. **Download execution report**
+also includes the executor statement, signature and public-key snapshot where
+available. Older reports without that material remain labelled as such.
 
-For a denied Enforce call, investigate any reported start and the application's
-or provider's history. A saved denial cannot prove that an alternative route
-did not perform the operation.
+Signature verification can detect a changed statement and identify its key.
+It cannot establish that a provider completed the operation or that every
+possible route was intercepted. For example, a saved denial does not rule out
+a separate direct provider call. Compare the application's or provider's history
+when a reported start or effect needs investigation.
 
 </details>
 
 <details className="guide-details">
-<summary>More about agent, provider and model details</summary>
+<summary>Caller identity and model information</summary>
 
-An Action can show the inventory name and provider/model configuration saved
-with it. Later inventory edits do not replace that historical context.
+**About this request** contains the AI system, deployment, time and caller
+context saved with the request. **Model configuration**, **Application
+verification** and **Technical references** provide additional diagnostic detail.
+Later inventory edits leave this historical context unchanged.
 
-For AuthRail Contextual AI, the decision's assessment identity, status and signed
-finding explain which contextual answer the rule used. The selected source text
-is not part of that retained finding. These details do not establish which model
-generated the agent's request. Treat execution identity as unreported when it
-was not reported rather than inferring it from configuration.
+Configured provider and model names describe the setup; they do not establish
+which model generated a particular request. Similarly, a contextual assessment's
+identity, status and signed finding explain the information used by a rule,
+without including its source text or proving the original agent's model identity.
+Unreported execution identity remains unreported.
 
-Access remains limited by organisation and permissions. An internal support
-role does not automatically grant access to all tenant payloads.
+Organisation permissions govern access to these records. An internal support
+role does not automatically expose tenant content.
 
 </details>
 
 <details className="guide-details">
-<summary>More about using Runtime history as proof</summary>
+<summary>Use Runtime records in compliance work</summary>
 
-When reviewing an older decision, use its saved certificates, execution reports
-and rule versions. A newer Rail cannot replace the one used for that Action.
-An older record without a saved signed report cannot be treated as if it had one.
+The Action's certificates, reports and Rail Versions describe the historical
+request. A later rule cannot replace those versions, and an older record does
+not acquire a missing signature merely because newer records include one.
 
-For audit use, a Control's Test or Evidence requirement defines the period,
-coverage, completeness, freshness and review needed. See
-[Framework proof](/docs/framework-proof). An integrity attestation does not turn
-an application-reported effect into independent verification.
+To use this history as compliance proof, a Control's Test or Evidence requirement
+sets the period, coverage, completeness, freshness and review it needs. See
+[Framework proof](/docs/framework-proof). Record integrity and an application's
+reported effect remain distinct from independent effect verification and from
+legal certification.
 
 </details>

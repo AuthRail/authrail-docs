@@ -1,114 +1,89 @@
 ---
 title: "Human approvals"
-description: "Review a waiting request and let the originating application continue it safely."
+description: "Review a waiting request and continue the saved work in its application."
 icon: ClipboardTextIcon
 ---
 
-A **human approval** lets a named person review a request that should not
-proceed automatically. For example, a payment rule may send an amount above the
-automatic limit to a reviewer. In Enforce, the protected function waits while
-the reviewer decides.
+A **human approval** gives a named person a chance to decide before an action
+proceeds. Your organisation might let an agent read invoices automatically,
+for example, while asking someone to review a proposed payment. In Enforce,
+the application saves that payment request and waits for the required decision.
 
-Use this flow when the request needs a person's judgement. Approving it gives
-permission for that request; it does not make the payment or prove that it ran.
+Approval gives permission to continue the request you reviewed. The originating
+application still has to resume it and perform the work, so the approval and
+its eventual execution appear separately on the Action.
 
-## Review one waiting request
+## Review and continue a request
 
-### 1. Open the request assigned to you
+1. Open **Actions & decisions → Approvals for you** with the account named in
+   the approval setup. You can also review through the Action detail when its
+   controls are available to you. If a request is missing, ask its owner to
+   check the named reviewer list.
+2. Read the requested action, reason, values and **Expires** time. For a payment,
+   consider the amount, account and purpose shown on this request. These are the
+   values the application saved for review, rather than a replacement discussed
+   later in chat.
+3. Choose **Approve** or **Reject**, or **Cancel request** when your authority
+   allows it. If the setup needs several approvals, your vote contributes to
+   that number, called the **quorum**.
+4. After approval, return to the application that made the request. The reference
+   chat uses **Check approval**, followed by **Continue saved request** when
+   approval is confirmed. Other applications provide their own continuation
+   control.
 
-In AuthRail, open **Runtime → Approvals** using an account named by the
-approval rule. Choose the waiting request. If you are not an eligible reviewer,
-ask the person responsible for that action's approval setup to check the
-reviewer list.
+<ProductShot src="/screenshots/runtime-approval-review.jpg" alt="Payment approval screen showing the request values, expiry and reviewer controls" caption="Review the request's values and deadline before deciding whether it may continue." />
 
-### 2. Check what you are being asked to allow
+After continuing, open the linked Action to see what the application reported
+and whether its result passed the release check. A rejected, cancelled or
+expired request stays in history without giving permission to run through that
+approval. An unclear outcome after resumption needs [recovery](/docs/recovery).
 
-Read the Action, its reason, requested values and expiry. For a payment, check
-the amount, account and purpose. The application supplies this review context
-for the request being checked; do not substitute a different request discussed
-in chat.
+## Understand the approval deadline
 
-<ProductShot src="/screenshots/runtime-approval-review.jpg" alt="Enforce payment request awaiting approval for invoice-demo with amount 150 and reviewer actions" caption="This request is waiting for review; no execution has been reported. Approval would give permission for this request, not prove that the payment ran." />
+The **Expires** time follows the configuration and facts used by the request.
+For example, a balance read at 10:00 with a five-minute freshness limit cannot
+support an approval after 10:05. Another request without that short-lived
+reading may have a longer window. The deadline never outlasts the signed
+deployment configuration used for its decision.
 
-### 3. Approve or reject the request
-
-Approve only the request you intend to allow, or reject it using the available
-review action. If the rule requires several approvals, your vote alone may not
-complete the review. The configured number of approvals is called the
-**quorum**.
-
-### 4. Return to the originating application
-
-After the required approval, continue the waiting workflow in the application
-that made the request. It resumes the same input through its protected
-function. In the sample application, an approved waiting request offers
-**Continue request**.
-
-Inspect the linked Action afterward for its execution reports and result check.
-The expected result is a reviewed request with a recorded decision and, if the
-application continued successfully, a separate report of its execution. A
-rejected or expired request must not run through that approval.
-
-## How long can a request wait?
-
-Read the **Expires** time on the approval request. That is the deadline for
-that request, rather than a fixed number of minutes after submission. The
-request cannot outlast the signed deployment configuration used to check it.
-If the decision uses a fact that becomes stale sooner, that earlier time sets
-the deadline. This does not mean the Rail itself is deleted or unpublished.
-
-For example, suppose a rule relies on a balance read at 10:00 that is valid for
-five minutes. Its approval cannot remain usable after 10:05, even if the
-reviewer has not responded. A request without that short-lived fact may have a
-longer window. The deadline shown in AuthRail tells the reviewer which applies.
-
-There is no separate setting for an arbitrary review period such as 48 hours.
-The displayed deadline follows the configuration and facts used for that check.
-If it has expired, the application must obtain a fresh decision; the old
-approval cannot be extended by retrying it.
+Read the displayed time rather than assuming a fixed review period. There is
+no separate arbitrary 48-hour setting, and renewing configuration or selecting
+a newer Rail does not extend an existing approval. Once it expires, the
+application needs a fresh decision. The Rail itself can remain published.
 
 ## Save and resume the application's work
 
-A payment can wait for review without leaving the original HTTP request open
-or keeping the agent process running. The application saves the waiting work
-and returns an “Awaiting approval” response. Approval in AuthRail does not
-automatically restart the application or make the payment.
+Your application can wait for review without keeping an HTTP request or agent
+process open. When the SDK reports that approval is required, it supplies an
+**approval continuation**: the original call and decision needed to resume.
+Save this with the application's task so a later worker or user action can
+continue the same work after approval.
 
-For a workflow that must survive a restart:
-
-1. When the SDK returns an approval-required block, save its **approval
-   continuation** in private persistent storage. This contains the original
-   checked call and decision needed to resume it.
-2. Alongside it, save your application's task ID, authenticated user and any
-   conversation or workflow state needed afterward. The continuation is not a
-   backup of the entire agent session. Protect it from access or changes by the
-   agent and other users.
-3. Arrange a worker or a “Continue request” action to check the review outcome.
-   After approval, load the original saved continuation and pass it to the
-   SDK with the same protected business function.
-4. The SDK claims permission for that exact request, records the start, invokes
-   the function and checks its result. Your application then updates its task
-   and continues the conversation or workflow.
+The application should store the continuation privately and persist any user,
+conversation or workflow state it will need afterward. The continuation contains
+the checked call, not a backup of the whole agent session. When resuming, one
+worker claims the task, loads that saved data, and passes it to the SDK with
+the original business function. The SDK then claims a one-use permit, records
+the start, runs the function and checks its result.
 
 ### Save the checked call, then resume it
 
-These snippets continue the [Node](/docs/node), [Go](/docs/go) or
-[Python](/docs/python) setup using an Enforce client. `operation` is your reviewed
-Operation with authenticated identity, a stable business Action key and a safe
-review summary. `payment` is the original application-validated input.
-`payInvoice` / `pay_invoice` is your protected business function.
+These examples continue the [SDK setup](/docs/getting-started) with an Enforce
+client. `operation` contains the action description, authenticated identities,
+stable business request key and review summary; `payment` is the application's
+validated input. `payInvoice` or `pay_invoice` is the function that performs it.
 
-`tasks` is **your application's storage**, not an SDK API. Its save/load helpers
-must encrypt the continuation in persistent private storage and check `binding`
-against the original organisation, authenticated user, deployment and task ID.
-A resume worker must claim that task exclusively before loading it. Never accept
-a continuation or replacement arguments from the browser or agent.
+The `tasks` store is application code. Its helpers must encrypt the continuation
+and bind it to the original organisation, authenticated user, deployment and
+task ID in `binding`. A resume worker claims that task exclusively before
+loading it. Load the saved call from this store, rather than accepting a
+continuation or new arguments from the browser or agent.
 
-The submit and resume blocks are separate invocations: after saving a wait,
-return from the submit handler. Run the resume block only after the required
-review; keep the original client identity and protected callback.
+The submit handler returns “Awaiting approval” after saving. The resume function
+runs in a later invocation, once the required review is complete.
 
 <Tabs items={['Node.js', 'Go', 'Python']} groupId="sdk-language" persist>
+
 <Tab value="Node.js">
 
 ```ts
@@ -135,6 +110,7 @@ async function resumePayment() {
 ```
 
 </Tab>
+
 <Tab value="Go">
 
 ```go
@@ -164,6 +140,7 @@ func resumePayment(ctx context.Context) error {
 ```
 
 </Tab>
+
 <Tab value="Python">
 
 ```python
@@ -191,79 +168,68 @@ async def resume_payment():
 ```
 
 </Tab>
+
 </Tabs>
 
-The SDK still checks the saved request and claims permission before execution.
-A not-yet-approved, rejected, expired or replayed request must remain stopped.
-If resume fails, keep the saved task for inspection; do not mark it completed or
-start another payment. The result check can withhold a response after an effect.
-Use [execution recovery](/docs/recovery) when an effect may have happened.
+The SDK checks the saved request before claiming permission. A request still
+waiting, rejected, expired or already consumed cannot resume through the same
+approval. Keep a failed resume available for inspection rather than marking
+its task completed or starting another payment. If the tool may have run,
+follow [execution recovery](/docs/recovery).
 
-### How reviewers are notified
+A changed amount, account or target is a new request that needs its own decision.
+That lets a person explicitly request different work after a denial without
+turning it into an automatic retry. Splitting requests to evade a rule, or
+changing keys to conceal an uncertain original effect, does not resolve the
+original request.
 
-AuthRail creates an in-app notice for the active named reviewers when a request
-is ready for approval. Runtime notification preferences control delivery.
-Email is opt-in and requires a verified address; enable Runtime email in your
-notification settings if you want these messages. A queued email is not proof
-that it arrived, and a notification is not approval.
+## Let reviewers know they have work
 
-The notice opens **Runtime → Approvals**. Select the correct organisation, then
-inspect the waiting request. Notifications keep request values out of email;
-the authenticated review screen contains the details needed to decide.
+AuthRail creates an in-app notice for active named reviewers when a request is
+ready. In notification settings, reviewers can enable Runtime email with a
+verified address. Email is opt-in and leaves the request values on the signed-in
+review screen, so the notice can direct someone to the right organisation and
+approval without sending those details through email. A queued message describes
+delivery work still pending, not confirmation that the recipient received it.
 
 <details className="guide-details">
-<summary>Approval expiry and the execution permit are different deadlines</summary>
+<summary>Choose reviewers and provide useful review context</summary>
 
-The signed deployment configuration has a validity period of 24 hours from
-activation. Approval uses its remaining validity, not a new 24-hour window
-from submission. Trusted facts can shorten
-that deadline further. Publishing or selecting another configuration does not
-extend an existing request, and the application must still pass the checks
-required to resume it.
+A Runtime manager opens a Rail for the action and its **Approval reviewers**
+section. Under **Who can approve this action?**, choose active organisation
+members and the number required, then **Save reviewers**. This needs Rail
+publishing and AI Inventory management access. The selection belongs to that
+action version and is shared by its Rails.
 
-After review, the SDK claims a one-use execution permit. It lasts **up to 30
-seconds from the claim**, and can be shorter when the request or signed proof
-expires sooner. The application must retain its execution-start report while
-that permission is valid. This short permit window does not limit a reviewer
-to 30 seconds and is not a promise that the business operation finishes in
-30 seconds.
+A named authorised reviewer may also be the requester where permitted. Their
+explicit decision is still recorded, although it does not represent independent
+review by another person. Choose and operate the reviewer policy accordingly
+when separation of duties is needed.
+
+The developer supplies a signed `reviewSummary` with a short title and enough
+business information to decide. A valid summary is required to enter approval;
+it should explain the request without including credentials, raw prompts or
+complete provider responses.
 
 </details>
 
 <details className="guide-details">
-<summary>More about setting up reviewers and review context</summary>
+<summary>Approval expiry and the shorter execution permit</summary>
 
-A Runtime manager opens **Rails → Connected actions**, chooses the action,
-then opens **View action details → Approval reviewers**. Select authorised
-organisation members and the required number of approvals.
+A signed deployment configuration lasts 24 hours from activation or renewal.
+Approval uses what remains of that period, shortened further by the facts it
+relies on. Renewing the deployment does not refresh that earlier request.
 
-The developer supplies a signed `reviewSummary` with a short title and the
-facts needed to decide. A request without the required valid summary cannot
-enter the approval flow. Keep credentials, raw prompts and full provider
-responses out of it.
-
-Approval requires valid organisation membership and an unexpired request. A
-named authorised reviewer may approve their own request where permitted; that
-is not independent review. Where separation of duties is needed, configure and
-operate the reviewer policy accordingly.
+After approval, the SDK claims a one-use execution permit lasting up to 30
+seconds, or less if the request or signed proof expires sooner. The application
+must establish its start report within that period. This is the window to
+begin the attempt, not a 30-second review deadline or a requirement that the
+business function finish within 30 seconds.
 
 </details>
 
 <details className="guide-details">
-<summary>More about how an application resumes approval</summary>
-
-After approval, the adapter obtains a short-lived **one-use permit** for the
-same Action and input. It records the execution start before invoking the
-business function and checks the result before releasing it to the agent.
-
-Changing the amount, account or message requires a new checked request. An
-approval cannot authorise replacement input from the model. Expired and
-cancelled requests remain historical; resuming must not revive them.
-
-If the workflow waits across requests or restarts, save the SDK's **approval
-continuation**, the context needed to resume, in private persistent application
-storage. Tie it to the original organisation, user, deployment and business
-task. Restore it from that storage, not from agent-supplied replacement context.
+<summary>Resume APIs and a lost permit response</summary>
 
 | SDK | Same-process continuation | Saved continuation | Lost permit response |
 | --- | --- | --- | --- |
@@ -271,26 +237,16 @@ task. Restore it from that storage, not from agent-supplied replacement context.
 | Go | `ResumeApproval` | `ResumeApprovalFrom` | `RecoverApprovalFrom` |
 | Python | `resume_approval` | `resume_approval_from` | `recover_approval_from` |
 
-Restore the original business function and arguments. The SDK does not save the
-continuation for you. See the [Node](/docs/node), [Go](/docs/go) and [Python](/docs/python) guides for the
-application integration.
+The application supplies persistence and restores the original function and
+arguments. If a permit response was lost, recovery can read an existing valid
+permit for an attempt that has not started. It does not create another permit
+or authorise an already started attempt. Keep execution stopped if permission
+cannot be established, and inspect the Action; investigate the effect instead
+if the function may already have run.
 
-</details>
-
-<details className="guide-details">
-<summary>More about a lost response or a blocked result</summary>
-
-A lost permit response differs from a failed business operation. Recovery can
-read an existing valid permit for an attempt that has not started; it cannot
-issue another permit or authorise an attempt already started.
-
-If permission cannot be established, keep the function stopped and inspect the
-Action. If the business effect may have happened, follow
-[execution recovery](/docs/recovery) rather than claiming permission again.
-
-A result check may still require approval because it sees the same business
-arguments. The SDK releases that saved result only with the original Action's
-claimed permit. A denied, missing or mismatched result stays withheld even if
-the operation completed.
+A result check may encounter the same approval condition because it also sees
+the business arguments. The SDK can release that result using the original
+Action's claimed permit. A denied, absent or mismatched result remains withheld,
+even when the operation itself completed.
 
 </details>

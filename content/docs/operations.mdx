@@ -1,195 +1,196 @@
 ---
 title: "Monitor your deployment"
-description: "Check that your application's rule checker is running, then follow a request through its records."
+description: "Check the connection, follow a request and diagnose the sidecar running beside your application."
 icon: ListChecksIcon
 ---
 
-Your application has stopped a request, or a decision has not appeared in
-AuthRail. Where should you look? Start with the deployment's connection, then
-follow the affected request.
+When a request stops unexpectedly or its decision has not appeared in AuthRail,
+start with the application's connection and follow the request from there.
+The deployment page tells you whether its sidecar is communicating; the Action
+explains the business decision; local logs help the operator find a process or
+delivery problem.
 
 A **deployment** is one configured installation of your AI application. Its
-**sidecar** is the rule-checking process running beside it. **Health** describes
-whether that process is running, has usable rules and has reports waiting for
-delivery. It is separate from the Health assessment of a governance Control.
+**sidecar** runs beside it to evaluate the selected Rails. **Connection health**
+describes that process and its reporting, rather than the governance Health
+of a Control. You can use these checks without setting up a separate monitoring
+service.
 
-There are three places to look, each with a different purpose:
+## Check the connection
 
-| Information | Where to find it | What it helps you answer |
-| --- | --- | --- |
-| Connection status and Action records | Your AuthRail workspace. | Is the deployment communicating, and what happened to this request? |
-| Local process logs | The terminal, service manager or Docker running your sidecar. | What checks and reporting steps did the sidecar handle? |
-| Optional monitoring data, called telemetry | Your own monitoring system. | Which technical step is slow or failing? |
+1. In **AI Inventory**, choose the AI system and open the deployment.
+2. On **Overview**, find **Connection health** and its last update time.
+3. Choose **Check again** and read any message about rules or reports waiting
+   for delivery.
 
-The first two work without setting up a monitoring service. This page starts
-with them; optional telemetry setup comes afterwards.
+A recent update shows that the installation is communicating and helps you
+check whether it has usable rules. If the update is old, the sidecar operator
+can check the process, network and deployment credential. Communication alone
+does not establish that every application tool uses the SDK; that is part of
+the [execution-access review](/docs/security).
 
-## Check the connection in AuthRail
+## Follow one request
 
-1. Open **AI Inventory** and choose your AI system.
-2. Under **Deployments**, open the installation you want to inspect.
-3. In **Overview**, find **Connection health** and its last update time.
-4. Select **Check again**. Read any message about rules or reports waiting for
-   delivery.
+In the deployment's **Actions & decisions**, open **Connection log**. Find the
+request event and choose **View related action**. If the application supplied
+a business request key, use **Find an exact action key** to locate it directly.
+Then follow the Action's checks, approval and **What the application reported**.
 
-<ProductShot src="/screenshots/runtime-deployment-overview.jpg" alt="A sample deployment Overview showing Connection health, last update time and selected Rails" caption="Connection health helps you check communication with this deployment. Selected Rails show which rules it is configured to use." />
+<ProductShot src="/screenshots/runtime-connection-log.jpg" alt="Deployment connection log with a View related action link beside an event" caption="Open the related Action to move from a diagnostic event to the request's decision and execution reports." />
 
-**Expected result:** a recent connection update and usable rules for the
-intended deployment. If the update is old, check that the sidecar is running
-and can reach AuthRail. Ask the person operating it to check its network and
-deployment credential.
+This lets you explain what the rules decided and what the application reported.
+To confirm a provider effect independently, compare it with the provider's own
+record. An uncertain effect needs [recovery](/docs/recovery) before another
+write. If the log cannot refresh, restore its connection and try again rather
+than treating the older list as a current view.
 
-A recent update confirms communication. Check that the application's actual
-tools use the SDK before relying on Enforce protection; see the
-[security review](/docs/security).
+## Read the sidecar's local output
 
-## Follow a request in the connection log
+The sidecar's output is useful when the process or delivery path needs
+investigation. Guided native setup writes `sidecar.log` in its private setup
+directory; a foreground process uses its terminal, and an operated service
+uses its service manager's output.
 
-An **Action** is AuthRail's record of a particular request. Use it to investigate
-one payment, reply or other protected operation:
-
-1. In the deployment, open **Actions & decisions** and find **Connection log**.
-2. Find the event for the request and select **View related action**. If your
-   application supplies a business request key, enter it under **Find an exact
-   action key**.
-3. Open the Action's checks, approval and execution reports. Read the request
-   decision separately from the application's reported outcome.
-
-<ProductShot src="/screenshots/runtime-connection-log.jpg" alt="A deployment connection log showing recorded decisions, reported execution events and links to related Actions" caption="View related action opens the request behind a log entry. Its execution report describes what the application reported." />
-
-**Expected result:** you can explain the decision and whether the application
-reported completion. To confirm a provider effect independently, inspect the
-matching record in that provider. If the outcome is uncertain, follow
-[execution and recovery](/docs/recovery) before retrying.
-
-If the log cannot refresh, retry after restoring the connection. An older list
-does not tell you whether a newer event happened.
-
-## Follow the sidecar's local logs
-
-Use local logs when you need to see what the running process handled. For a
-native process started in the foreground, read its terminal. For a service,
-read the output captured by its service manager.
-
-For the Docker setup, run this from the sidecar checkout:
+For guided Docker setup, replace `YOUR_SIDECAR_CONTAINER` with the container
+name printed by setup:
 
 ```sh
-docker compose -p authrail-runtime -f docker/compose.yaml logs --tail 50 --follow sidecar
+docker logs --tail 50 --follow YOUR_SIDECAR_CONTAINER
 ```
 
-Try a safe request in your application. Look for `decision` events and any
-`execution_report` events. These include identifiers that help you find the
-related Action in AuthRail. See the [sample terminal output](/docs/application-example#4-read-the-sidecar-events)
-for an allowed, denied and approval-required sequence.
+For the native quickstart, use your own `--directory` location:
 
-**Expected result:** log entries appear as requests are checked. Press
-**Ctrl+C** to stop following the output; the sidecar keeps running. Local logs
-work with or without telemetry. They omit arguments, source text, provider
-responses and credentials.
+```sh
+tail -n 50 -f "$HOME/.local/share/authrail/my-deployment/sidecar.log"
+```
+
+Native Runtime 0.2.0 and the separately published 0.2.0 image write structured
+`decision` and `execution_report` events, with references to the related Action.
+The guided Docker installer selects Runtime 0.1.0, whose output does not include
+this event stream. Use its local health and central Action records instead;
+[compatibility](/docs/compatibility) explains the version difference.
+
+Press **Ctrl+C** when you finish following the output; this stops the log viewer
+while the sidecar keeps running. Local logs omit business arguments, source
+text, provider responses and credentials. Your operator manages their capture,
+rotation and retention.
 
 <details className="guide-details">
-<summary>More about local status and log events</summary>
+<summary>Read local health and understand log events</summary>
 
-For a native sidecar, check its status on the same host:
+On the native sidecar's host, request its local health:
 
 ```sh
 curl --fail --silent --show-error http://127.0.0.1:7078/health
 ```
 
-A **bundle** is the signed set of Rails and settings sent by AuthRail. In the
-status response, `bundleValid: true` means the loaded bundle passes its checks
-and has not expired. Compare `mode` with the mode selected in AuthRail.
-`pendingReports` counts reports waiting for delivery; `blockedReports` counts
-reports needing local review. Preserve those reports while investigating.
+The response describes its **bundle**, the signed collection of rules and
+settings from AuthRail. `bundleValid: true` means the loaded configuration is
+valid and unexpired. Compare `mode` with the deployment's selection, and check
+`pendingReports` for waiting delivery and `blockedReports` for reports needing
+operator review. Preserve those reports during investigation.
 
-For Docker, run the supplied health command from the sidecar checkout:
+In Docker, use the installed container's health command:
 
 ```sh
-docker compose -p authrail-runtime -f docker/compose.yaml exec sidecar /usr/local/bin/authrail-container health
+docker exec YOUR_SIDECAR_CONTAINER /usr/local/bin/authrail-container health
 ```
 
-It prints no JSON and exits `0` for a valid loaded bundle, or `1` otherwise.
-The listener is inside Docker's private application network. Follow the
-[Docker placement guide](/docs/docker) to connect the SDK to it.
+It exits `0` when the loaded bundle is valid and `1` otherwise, without printing
+JSON. Its listener is inside the container's private network namespace; the
+[Docker guide](/docs/docker) explains how the application reaches it.
+
+Runtime 0.2.0's structured events have these meanings:
 
 | Event | Meaning |
 | --- | --- |
-| `decision` | A call or result check, its mode, outcome and reporting status. |
-| `execution_report` | The application reported an attempt's start, completion, failure or uncertainty. |
-| `report_delivered` | AuthRail acknowledged a previously queued report. This does not resume a held action. |
+| `decision` | A call or result check, with its mode, outcome and recording status. |
+| `execution_report` | The application reported starting an attempt or its completion, failure or uncertainty. |
+| `report_delivered` | AuthRail acknowledged a queued report. Delivery does not resume a waiting action. |
 | `check_unavailable` | The sidecar could not establish trusted request history. |
-| `request_completed` | A local SDK request finished. Read the decision outcome separately from its HTTP status. |
+| `request_completed` | A local SDK request finished. Its HTTP status is separate from the rule's outcome. |
 
-`retained` means AuthRail acknowledged the report. `queued` means the sidecar
-saved it locally for later delivery. A reported success describes the
-application's assertion, rather than an independent provider lookup.
+A `retained` report reached AuthRail; a `queued` report is waiting locally.
+Logs themselves are best-effort diagnostics and may lose entries when their
+queue fills or output fails. Where available, `logDrops` counts those losses.
+Durable Actions and report queues serve separate purposes, so preserve
+recording-gap files rather than rerunning an operation to recreate its log.
 
-Logs are best-effort diagnostics. Slow or failed output can drop entries;
-`logDrops` counts queue overflow and output errors. Your operator owns log
-capture, rotation and retention. Durable Actions and the report queue have
-separate responsibilities. Keep recording-gap files when reporting cannot be
-confirmed; do not rerun an operation just to recreate its report.
-
-In AuthRail's Connection log, authorised users can select a date range and
-export diagnostic entries. Removing diagnostic logs does not remove Actions,
-decisions, approvals or execution receipts.
+Authorised users can also choose a date range and export the workspace's
+Connection log. Deleting diagnostic logs leaves Actions, decisions, approvals
+and execution receipts under their own retention rules.
 
 </details>
 
-## Optional: use your own monitoring system
+## Diagnose the symptom you are seeing
 
-If your operations team already uses monitoring tools, the sidecar can send
-**traces** and **metrics** there. A trace follows the technical steps of a
-request; a metric counts or measures repeated activity.
+Start with the same business request and its saved Action key. Keep the original
+reports and application recovery state while investigating; recreating a payment
+or release to obtain a cleaner log can create a second effect.
 
-**OpenTelemetry Protocol (OTLP)** is the transport used to send this data. A
-**Collector** receives it and forwards it to your monitoring service. This is
-your team's monitoring setup. AuthRail's Action records continue to use their
-separate reporting connection to AuthRail.
+| Symptom | What it may mean | Next useful check |
+| --- | --- | --- |
+| The application gets connection refused before any rule decision. | Its sidecar process is stopped, the URL is wrong, or the application is in a different network namespace. | Check the process output and configured sidecar address. For Docker, follow the shared-network placement rather than assuming the application's localhost reaches another container. |
+| Local health reports `bundleValid: false`. | The process has no usable signed configuration or the loaded one has expired. | Read its synchronisation error and deployment status; check API reachability and deployment credentials. Wait for valid configuration before relying on Enforce. |
+| The function returned in Observe, but no Action is visible yet. | Observe can complete while a report is queued or its check is unavailable. | Inspect the SDK's observation result, `recordingStatus`, local health and reporting queue. Search the exact Action key in the correct deployment. |
+| `pendingReports` stays above zero. | Durable reports are waiting for delivery. | Inspect network/authentication and synchronisation errors, then watch delivery after correcting them. Preserve the queue; delivery alone does not resume an approval. |
+| `blockedReports` is above zero. | A saved decision report is blocked from delivery, for example because its application key no longer accepts reports. | Keep the queue and the related key, Action and attempt references. Review the reported recording gap and key-rotation history; do not delete it or rerun the operation to manufacture a replacement report. |
+| The request has an allowed decision but no confirmed effect. | Permission was granted; the application may still be waiting, may have failed, or may have lost a response. | Read execution reports and the application's task. If an effect is uncertain, reconcile the original provider request as described in [recovery](/docs/recovery). |
+| A reviewer approved, but the application is still waiting. | Review is complete but the application has not resumed the saved continuation. | Check the originating application's task/worker and approval expiry. Do not submit a second operation to make it continue. |
+| Actions arrive, but the Collector shows no trace or metric. | Optional telemetry configuration or export failed separately from Action reporting. | Check the operated process's OTLP setting, Collector base URL and receiving service. Guided setup does not forward the OTLP setting to its child process. |
 
-To enable it:
+For support, keep the component version, time, request/Action/attempt references
+and a redacted diagnostic message. Do not include tokens, private keys, raw
+arguments or provider responses in a public report. A customer-visible Runtime
+log, an Action's retained history and a provider's own record answer different
+questions; use each for the part of the problem it can establish.
 
-1. Ask your operations team for its **OTLP/HTTP Collector address**.
-2. Set `AUTHRAIL_OTLP_ENDPOINT` to that address in the sidecar's private deployment
-   configuration.
-3. Check the receiving monitoring service for traces and metrics.
+## Send optional monitoring data to your own service
 
-For a native sidecar launched from a terminal, add this to its settings before
-starting it. Replace the example address with your team's Collector base URL:
+The sidecar can export **traces**, which follow a request's technical steps,
+and **metrics**, which count or measure repeated activity. It sends them through
+**OpenTelemetry Protocol (OTLP)** to your team's **Collector**, a process that
+forwards the data to your monitoring service. Action reports still reach
+AuthRail through their separate reporting connection.
+
+Ask your operations team for its OTLP/HTTP Collector base URL, then set
+`AUTHRAIL_OTLP_ENDPOINT` in the sidecar's process configuration. For a native
+process with its other connection settings already supplied:
 
 ```sh
 export AUTHRAIL_OTLP_ENDPOINT="https://collector.example.com:4318"
 ./authrail-sidecar
 ```
 
-The sidecar adds `/v1/traces` and `/v1/metrics` itself. For Docker, put the same
-setting under the sidecar service's `environment` in your private Compose
-configuration, then apply it through your normal restart process. This address
-belongs to your monitoring system; do not use the AuthRail API address here.
+The sidecar adds `/v1/traces` and `/v1/metrics`. For a Docker process managed by
+your own deployment tooling, supply the same value in its container environment.
+Use your Collector's address here, not the AuthRail API URL, and check the
+receiving service for traces and metrics.
 
-Leave the setting unset if you do not use a Collector. The exporter does not
-forward the sidecar's process log lines. A telemetry failure does not change a
-Rail decision; investigate Action reporting separately.
+Guided setup does not forward this telemetry setting to its native child
+process or offer an OTLP flag. Use the [manual process configuration](/docs/configuration)
+when enabling export. Leaving the setting unset disables it. The exporter does
+not send process log lines. An unavailable monitoring service does not stop an
+Action; investigate failed Action delivery separately.
 
 <details className="guide-details">
-<summary>More about response time and maintenance</summary>
+<summary>Investigate slowness or prepare for maintenance</summary>
 
-A request can include a model call, business-data lookups, a local rule check,
-required AuthRail reports, the provider operation and a result check. Measure
-each part when investigating slowness. Keep the selected Rails, model settings
-and installation details with the measurements. Test with safe effects and
-compare typical and slow runs; a single fastest run cannot describe every
-deployment. Human approval is a separate waiting period.
+A request may include data lookups, contextual assessment, the local rule check,
+required reports, the provider function and a result check. Measure these parts
+separately when investigating response time, with the selected Rails and
+installation settings recorded alongside typical and slow runs. Human review
+is a separate waiting period.
 
-Trace identifiers help you find related technical events; they grant no
-permission. Keep prompts, credentials, source documents and provider bodies out
-of diagnostic fields. `telemetryFailures` counts dropped telemetry and export
-errors, rather than proving that a Collector retained the data.
+Trace identifiers help correlate those technical events, without granting
+permission. Keep credentials, prompts, documents and provider bodies out of
+diagnostic fields. `telemetryFailures` counts dropped telemetry and export
+errors; it does not confirm that the Collector retained an event.
 
-Before a restart or upgrade, pause protected work and preserve the **whole**
-private state directory. Keep keys, credentials, queued reports and recovery
-history. Check the new process's rules and queues before resuming work. Avoid
-restoring an older snapshot to clear a warning. The
-[compatibility guide](/docs/compatibility) explains the upgrade review.
+Before restarting or upgrading, pause work and preserve the whole private state
+directory, including keys, credentials, queued reports and recovery history.
+Check the new process's rules and queues before resuming. Restoring an older
+snapshot to remove a warning can also remove recovery information, so follow
+the [compatibility and upgrade guidance](/docs/compatibility).
 
 </details>

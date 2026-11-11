@@ -6,29 +6,42 @@ icon: CodeIcon
 
 import { AUTHRAIL } from '@/lib/constants';
 
-The Go SDK adds AuthRail checks around a function your application already
-uses. It asks the local sidecar to check the requested call and returned result,
-then gives your application those decisions.
+The Go SDK connects a function in your application to AuthRail. When an
+agent requests that function, the SDK asks a nearby **sidecar** to check the
+request against your published Rails. It can also check the function's result
+before your application returns it to the agent.
 
-This guide connects one invoice reader in **Observe**. You will read its call
-and result decisions and find the request in AuthRail. Observe keeps the
-function running even when a rule would deny it, so start with a safe system.
+In this guide, you will connect an invoice reader that reads a small local
+file. You will see its result alongside AuthRail's decisions, without calling
+a payment provider. The example uses **Observe** mode, which lets the function
+run while showing what your rules would decide. Even a deny decision leaves
+the function running in this mode.
 
-You need Go 1.26 or newer, an application module and a running sidecar. Complete
-[the dashboard setup](/docs/getting-started) and [connection details](/docs/identity)
-first. Keep the organisation ID, deployment ID, reviewed Operation Version ID,
-adapter-token file and private-key file available to your application.
+Before you begin, complete the workspace steps in
+[your first application](/docs/getting-started) and start the sidecar using
+[native setup](/docs/native). You need Go 1.26 or newer and a new
+sample project directory. The program will read the private connection files
+created during setup.
+
+These instructions install SDK 0.1.1 and use a Policy Rail that compares the
+invoice ID. If you want to use automatic Data readers, the expanded Guard
+protections or Rail-owned Contextual AI, first check
+[which releases support them](/docs/compatibility#released-capability-boundary).
+Those features are not included in SDK 0.1.1.
 
 ## 1. Add the SDK to your module
 
-From your application's module directory, install the
+Create a sample module and install the
 <a href={AUTHRAIL.packages.go}>versioned Go module</a>:
 
-<CommandBlock lang="bash" code={`go get github.com/AuthRail/authrail-sdk-go@v${AUTHRAIL.releases.sdkVersion}`} />
+<CommandBlock lang="bash" code={`mkdir authrail-invoice-example &&
+cd authrail-invoice-example &&
+go mod init example.com/authrail-invoice-example &&
+go get github.com/AuthRail/authrail-sdk-go@v${AUTHRAIL.releases.sdkVersion}`} />
 
-For a new application, create its directory and run `go mod init` with your
-module path first. `go get` records the SDK version in `go.mod` and `go.sum`;
-it does not start the sidecar or your application.
+`go get` records the dependency in `go.mod` and `go.sum`. For an existing
+application, install it in that application’s current module instead of
+creating another one.
 
 <details>
 <summary>Build from source when contributing</summary>
@@ -42,130 +55,374 @@ A successful build exits without starting a service.
 
 </details>
 
-## 2. Connect to the sidecar
+## 2. Prepare the invoice and connection settings
 
-Use imports `context`, `os`, `strings`, and `authrail "github.com/AuthRail/authrail-sdk-go"` in the surrounding Go file. Inside your application's setup function:
+Guided setup created a private directory for this deployment. The examples
+use `$HOME/.local/share/authrail/my-deployment`; if you chose another location,
+change the program's path to match it. Leave the generated `connection.json`,
+`adapter-token` and `executor-private.pem` in place.
 
-```go
-privatePEM, err := os.ReadFile(config.ExecutorPrivateKeyFile)
-if err != nil { return err }
-privateKey, err := authrail.ParseExecutorPrivateKeyPEM(privatePEM)
-if err != nil { return err }
-adapterToken, err := os.ReadFile(config.AdapterTokenFile)
-if err != nil { return err }
-client, err := authrail.NewClient(authrail.Config{
-    SidecarURL: "http://127.0.0.1:7078",
-    OrganisationID: config.OrganisationID,
-    DeploymentID: config.DeploymentID,
-    AdapterToken: strings.TrimSpace(string(adapterToken)),
-    ExecutorPrivateKey: privateKey,
-})
-if err != nil { return err }
+Add a file named `example-config.json` to that directory:
+
+```json
+{"operation_version_id":"YOUR_REVIEWED_OPERATION_VERSION_ID"}
 ```
 
-`config` is your application-owned configuration. Its file paths refer to the private `adapter-token` and `executor-private.pem` prepared during setup. Never mount the private key into the sidecar or expose it to the agent.
+Replace the placeholder with the **Reviewed Operation Version ID** from your
+confirmed action, or the action version listed by setup. This tells the SDK
+which description of the function to use. Its input should be a text field
+named `invoiceId`, and its result should have text fields named `invoiceId`
+and `status`.
 
-Use the [native sidecar](/docs/native) if this program runs on your host,
-or follow the [Docker application placement](/docs/docker#4-connect-your-application-container) if it runs in Docker. The local URL must reach the sidecar beside this application.
+Next, add `invoice.json` in the same directory:
 
-## 3. Check an invoice read
+```json
+{"invoiceId":"invoice_123","status":"open"}
+```
 
-Here the application has authenticated a staff session and resolved an invoice before calling its own invoice reader:
+This file stands in for your application's invoice store. The program checks
+that it contains the expected invoice and fields before returning it. Keep
+the directory private because it also contains the application's signing key
+and connection credentials.
+
+The program below runs on the same host as the native sidecar. If your
+application runs in a container, follow
+[Docker placement](/docs/docker#3-connect-your-application-container) and use
+the path where you mounted its private files.
+
+## 3. Observe the function
+
+Save this complete program as `main.go` in the sample directory:
 
 ```go
-invoiceResult, checks, err := authrail.Observe(ctx, client, authrail.Operation{
-    VersionID: config.InvoiceReadOperationVersionID,
-    ActionKey: request.StableBusinessKey,
-    PrincipalID: session.StaffID,
-    SessionID: session.ID,
-    ResourceID: invoice.ID,
-    PrincipalSource: "application_session",
-    ResourceSource: "application_lookup",
-}, map[string]any{"invoiceId": invoice.ID},
-    func(ctx context.Context) (map[string]any, error) {
-        return invoiceService.Read(ctx, invoice.ID)
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
+
+    authrail "github.com/AuthRail/authrail-sdk-go"
+)
+
+func main() {
+    if err := run(); err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(1)
+    }
+}
+
+func run() error {
+    home, err := os.UserHomeDir()
+    if err != nil { return err }
+    privateDirectory := filepath.Join(home, ".local/share/authrail/my-deployment")
+    readPrivate := func(name string) ([]byte, error) {
+        return os.ReadFile(filepath.Join(privateDirectory, name))
+    }
+    var connection struct {
+        OrganisationID string `json:"organisationId"`
+        DeploymentID string `json:"deploymentId"`
+    }
+    var settings struct {
+        OperationVersionID string `json:"operation_version_id"`
+    }
+    data, err := readPrivate("connection.json")
+    if err != nil { return err }
+    if err := json.Unmarshal(data, &connection); err != nil { return err }
+    data, err = readPrivate("example-config.json")
+    if err != nil { return err }
+    if err := json.Unmarshal(data, &settings); err != nil { return err }
+    privatePEM, err := readPrivate("executor-private.pem")
+    if err != nil { return err }
+    privateKey, err := authrail.ParseExecutorPrivateKeyPEM(privatePEM)
+    if err != nil { return err }
+    adapterToken, err := readPrivate("adapter-token")
+    if err != nil { return err }
+    client, err := authrail.NewClient(authrail.Config{
+        SidecarURL: "http://127.0.0.1:7078",
+        OrganisationID: connection.OrganisationID,
+        DeploymentID: connection.DeploymentID,
+        AdapterToken: strings.TrimSpace(string(adapterToken)),
+        ExecutorPrivateKey: privateKey,
     })
-if err != nil { return err }
-observation := <-checks
-```
+    if err != nil { return err }
 
-`ctx`, `config`, `request`, `session`, `invoice` and `invoiceService` belong to your application. The reader returns a bounded JSON object matching the reviewed Operation's result contract; adapt the example to your actual types. An action without a target record leaves `ResourceID` empty and uses `ResourceSource: "not_applicable"`.
-
-`invoiceResult` and `err` come from your business function. The function runs even if a Rail would deny the request or the sidecar is missing. The checks finish separately. Inspect `observation.CallError` and `ResultError` before reading `CallDecision` and `ResultDecision`.
-
-## 4. Read the decisions
-
-With a healthy setup, both phase decisions are available and their outcomes follow the selected Rails. `RecordingStatus == "retained"` means AuthRail stored the check; `"queued"` means the sidecar saved it for later delivery. Open the deployment's **Actions & decisions** to review retained Actions and certificates.
-
-Use one stable business `ActionKey` across retries of the same request. A different request needs a different key. A callback result and an allow decision are separate: neither independently proves that a provider completed an effect.
-
-## Next: require permission before the function runs
-
-Once you have checked the Observe decisions and [reviewed other access routes](/docs/security),
-use Enforce to stop the function unless permission is established. Read
-[Observe and Enforce](/docs/modes), [human approvals](/docs/approvals) and
-[recovery](/docs/recovery) before changing that boundary.
-
-<details className="guide-details">
-<summary>Switch this integration to Enforce</summary>
-
-In the deployment's **Overview → Review Enforce setup**, resolve any missing
-setup or call/result reports, confirm the protected boundary and select
-**Turn on Enforce**. Replace the advisory wrapper with `Enforce`:
-
-```go
-receipt, call, result, err := authrail.Enforce(ctx, client, operation,
-    refundRequest, func(ctx context.Context, checked RefundRequest,
-        execution authrail.ExecutionContext) (RefundReceipt, error) {
-        if err := ledger.SaveRecovery(ctx, execution); err != nil {
-            return RefundReceipt{}, err
+    readInvoice := func(ctx context.Context) (map[string]any, error) {
+        data, err := readPrivate("invoice.json")
+        if err != nil { return nil, err }
+        var invoice map[string]any
+        if err := json.Unmarshal(data, &invoice); err != nil { return nil, err }
+        if len(invoice) != 2 || invoice["invoiceId"] != "invoice_123" ||
+            invoice["status"] != "open" {
+            return nil, fmt.Errorf("invoice fixture does not match this request")
         }
-        return payments.Refund(ctx, checked, execution.ProviderIdempotencyKey)
-    })
-```
+        return map[string]any{"invoiceId": "invoice_123", "status": "open"}, nil
+    }
+    invoice, checks, err := authrail.Observe(context.Background(), client,
+        authrail.Operation{
+            VersionID: settings.OperationVersionID,
+            ActionKey: "invoice-read-request-001",
+            PrincipalID: "staff_123",
+            SessionID: "task_123",
+            ResourceID: "invoice_123",
+            PrincipalSource: "application_session",
+            ResourceSource: "application_lookup",
+        }, map[string]any{"invoiceId": "invoice_123"}, readInvoice)
+    if err != nil { return err }
+    observation := <-checks
+    fmt.Println("Invoice status:", invoice["status"])
+    printCheck("call", observation.CallDecision, observation.CallError)
+    printCheck("result", observation.ResultDecision, observation.ResultError)
+    return nil
+}
 
-This refund example uses your own `operation`, input/output types, `ledger` and
-`payments` service. The SDK requires a covered allow decision or valid approval
-permit, saved by AuthRail, and a saved execution-start report before calling
-the function. Use its checked input and provider idempotency key.
-
-Save recovery context before calling the provider. A result check can withhold
-`receipt` after an effect exists; it cannot undo that effect.
-
-</details>
-
-<details className="guide-details">
-<summary>Save an approval wait and recover uncertain outcomes</summary>
-
-Use `errors.As` from Go's `errors` package to get a pending approval:
-
-```go
-var pending *authrail.ApprovalRequired
-if errors.As(err, &pending) {
-    continuation, snapshotErr := pending.Continuation()
-    if snapshotErr != nil { return snapshotErr }
-    // Encrypt and save continuation with this authenticated business request.
+func printCheck(phase string, decision *authrail.Decision, err error) {
+    if err != nil {
+        fmt.Println(phase, "check unavailable:", err)
+    } else if decision != nil {
+        fmt.Println(phase, decision.Outcome, decision.RecordingStatus)
+    } else {
+        fmt.Println(phase, "check unavailable")
+    }
 }
 ```
 
-The continuation includes private input and context. Encrypt it and save it
-with the original user, organisation, deployment and Action. Never accept a
-replacement continuation from an agent.
+Run it from that directory:
 
-After approval, `ResumeApprovalFrom[Input, Output]` resumes the saved call. If a
-permit claim response was lost, `RecoverApprovalFrom` reads the existing permit.
-Both still require a saved execution start before an effect.
+```sh
+go run .
+```
 
-On `OutcomeUnknownError`, inspect `Recovery`, query the provider by the original
-key, and call `client.Reconcile` only when the result is established. Leave
-unresolved effects unknown. See [recovery](/docs/recovery) for the complete flow.
+The program should print `Invoice status: open`, followed by the call and
+result decisions. With the sample Rails from the quickstart, both should say
+`allow retained`: the rules allowed the read and AuthRail saved the reports.
+If it prints `check unavailable`, use the error and
+[sidecar diagnostics](/docs/operations) to investigate the connection or missing
+checks. The file read can still finish because this is Observe mode.
 
-The <a href={`${AUTHRAIL.repositories.go}#readme`}>SDK README</a> covers complete
-signatures, source facts, Guard handlers and discovery. From the SDK checkout,
-`go build ./...` compiles it and `go test ./...` runs its source checks. Neither
-starts the sidecar or establishes coverage of your application's other routes.
+The sample uses fixed staff, session and invoice identifiers so you can run it
+without building a login flow. When you add the wrapper to your application,
+get the caller and session from its login or service authentication, and look
+up which invoice that caller may access. The agent can ask for an invoice, but
+your application chooses the identity, account and credentials used to read it.
+
+The `actionKey` identifies the business request. Reuse it when recovering the
+same request; use a new key when the user asks for different work.
+
+## 4. Find the request in AuthRail
+
+Open **Actions & decisions** on the deployment and select the invoice Action.
+You can read the reasons for the call and result decisions separately. A report
+marked `retained` has reached AuthRail; `queued` means it is saved by the sidecar
+and still needs delivery. The [monitoring guide](/docs/operations) explains what
+to check if a request is missing.
+
+The invoice came from your function, while the decisions explain how the Rails
+applied to it. In a provider integration, the application's completion report
+would be another piece of information: you would check the provider's own
+record to establish the effect independently.
+
+## 5. Make this same application enforce its rules
+
+The next stage keeps the same invoice reader, connection files and reviewed
+Operation Version. You will now make the function wait for permission, then
+try a request that your rule denies. There is no provider account to create
+and no payment to make.
+
+First follow [Observe and Enforce](/docs/modes#move-an-application-from-observe-to-enforce):
+review the application's routes and credentials, confirm the deployment's
+Enforce setup and select **Turn on Enforce**. Keep its published invoice Rail
+selected. The sample code must use the Enforce wrapper as well as an Enforce
+deployment; changing only a dashboard setting does not replace an Observe wrapper.
+
+<a href="/examples/sdk/enforce-invoice.go" download>Download the complete Go Enforce application</a>
+and save it as `enforce-invoice.go` in your sample project. It uses SDK 0.1.1 and the
+connection settings already prepared above. Read the file before running it.
+All of its task storage and lookup helpers are included; the excerpt below
+shows the part around the protected function.
+
+Add a second harmless fixture, `invoice-denied.json`, in the same private
+deployment directory as `invoice.json`:
+
+```json
+{"invoiceId":"invoice_456","status":"open"}
+```
+
+The application has a fixed private catalogue mapping `invoice_123` to
+`invoice.json` and `invoice_456` to `invoice-denied.json`. It checks the requested
+identifier against that catalogue before calling the SDK, then reads the file
+only inside the protected callback. An agent-supplied identifier never becomes
+a filesystem path, deployment ID or credential choice.
+
+The program joins four responsibilities: parse the request, resolve the
+application's record, ask AuthRail for permission, then return the checked
+result. This excerpt is part of the complete downloadable program:
+
+```go
+invoice, call, result, err := authrail.Enforce(ctx, client, operation,
+    task.Input, func(ctx context.Context, checked Input,
+        execution authrail.ExecutionContext) (Invoice, error) {
+        task.Status, task.Recovery = "started", &execution
+        if err := store.save(task); err != nil { return Invoice{}, err }
+        return lookupInvoice(checked.InvoiceID)
+    })
+// Handle err before returning invoice; a result check may withhold it.
+```
+
+In the full program, `store.save` writes the application's encrypted task journal and
+`lookupInvoice` reads the selected fixture and validates
+its fields. The callback also prints **Protected reader invoked**, so you can
+see whether it was entered. The SDK saves permission and execution-start
+reports before entering it, and checks its returned result before returning
+that result to this application.
+
+Run an allowed request with a new business request key. The commands below
+use a language-specific prefix so trying another SDK against the same deployment
+does not reuse this application's earlier Action:
+
+```sh
+go run enforce-invoice.go submit invoice_123 go-read-allowed-001
+```
+
+Under the original quickstart Policy, expect **Protected reader invoked**,
+`Invoice status: open`, and an allowed, retained result decision. Open the
+printed Action in **Actions & decisions** and compare the request decision,
+execution reports and result decision. The file came from your function; the
+Action explains how permission and reporting applied to that function.
+
+### Try an actual denied call
+
+Now ask for the second known invoice using a different request key:
+
+```sh
+go run enforce-invoice.go submit invoice_456 go-read-denied-001
+```
+
+The quickstart's Deny rule matches this identifier. Expect **Saved task:
+blocked**, with no **Protected reader invoked** and no returned invoice status.
+The private catalogue knows the record exists, but AuthRail's rule prevents
+the protected reader from opening it. On its Action, inspect the call decision
+and reason; this path has no successful function execution or result check to
+claim as completion.
+
+A message saying **unavailable** or an error from configuration or transport
+is different from the intended deny result. Resolve it using
+[diagnostics](/docs/operations), rather than counting every stopped call as a
+passing rule test. The [compatibility guide](/docs/compatibility) identifies
+what the installed SDK and Runtime can evaluate together.
+
+## 6. Save an approval wait and continue after review
+
+You can use the same read to learn approval continuation without introducing
+a money-moving function. Prepare a new version of the sample Policy stating
+that reading `invoice_123` requires one named person's approval, while other
+invoice identifiers remain denied. In its Policy Rail, replace the ordinary
+Allow rule for `invoice_123` with **Require approval**; keep the Deny rule for
+other identifiers. Cite the new published Policy passage, test the expected
+approval and deny cases, review publication and select this Rail Version for
+the deployment. Do not leave an old Allow rule as an accidental alternative.
+
+The reviewed action must support approval. Expand **Approval reviewers** on
+the reviewed action. Under **Who can approve this action?**, select an active person, set **Approvals needed** to `1`, and save
+the reviewers. This can be the sole operator of the sample workspace. These
+are AuthRail account members; the sample application's fixed `staff_123`
+principal does not cast anyone's approval.
+
+Once the deployment is using the new version, submit a fresh request:
+
+```sh
+go run enforce-invoice.go submit invoice_123 go-read-review-001
+```
+
+Expect **Saved task: awaiting_approval**, an Action reference and no callback
+marker. The program has saved the SDK's continuation before exiting. It
+contains the original checked call and decision, so the next invocation does
+not reconstruct the request from a new model response.
+
+Sign in as the named reviewer, open the waiting Action, review its values and
+expiry, then approve it. Return to the application and resume the original key:
+
+```sh
+go run enforce-invoice.go resume go-read-review-001
+```
+
+The SDK claims the saved call's one-use permit, records the start, invokes the
+same reader and checks its result. Expect the callback marker and
+`Invoice status: open`. The Policy's result decision may still say
+`approval_required`: it still describes the rule's review requirement. The SDK
+releases that result only with the permit for this same approved Action.
+Approval, the execution report and the released result remain separate records.
+
+Keep the input and request key unchanged when resuming. A completed, denied or
+unknown task cannot be submitted again under that key through this program.
+A genuinely different request gets a new key and its own rule decision; a new
+key is not a way to recover the original task.
+
+<details className="guide-details">
+<summary>How the local task journal handles restarts and uncertain outcomes</summary>
+
+The complete program creates `go-invoice-tasks` inside your private deployment
+directory. It generates a 32-byte journal key there and encrypts task snapshots
+with AES-GCM. The authenticated binding includes the organisation, deployment,
+Operation Version, principal, session and business request key. Preserve this
+key and directory together; replacing the key does not recover existing tasks.
+The SDK continuation and execution context remain outside the agent's access.
+
+Each invocation exclusively locks its task, writes a new encrypted snapshot,
+flushes it to disk and atomically replaces the previous file. A normal exit
+releases the lock. A process crash leaves its lock in place so another process
+does not assume the work is safe to repeat. An operator must establish that the
+original process is gone and inspect the Action and saved attempt before
+repairing a crash-left lock. Clearing a lock is not permission to reset a task,
+replace its key or repeat its execution. A missing or changed binding fails closed.
+
+Use the status command to inspect a normally unlocked task without running it:
+
+```sh
+go run enforce-invoice.go status go-read-review-001
+```
+
+Before claiming an approval permit, the program saves **claiming**. If that
+claim's response is lost before the callback begins, keep this task and use:
+
+```sh
+go run enforce-invoice.go recover-permit go-read-review-001
+```
+
+This calls the SDK's existing-permit recovery method. It cannot issue a new
+permit, revive expired approval or rerun a started attempt. Run **resume** only
+after the reviewer has approved: an early, rejected or unavailable claim may
+leave the task held for inspection rather than automatically trying another
+claim. A task marked **started**, **outcome_unknown** or **result_withheld**
+requires investigation; the program does not offer an automatic execution retry.
+
+These downloadable journal programs run on macOS or Linux: their local file
+permissions, user-ownership checks and directory flushing use POSIX behaviour.
+That restriction belongs to this example, not a new SDK platform restriction.
+Run one command at a time as the same trusted application user. This file store
+is a complete single-host, single-operator teaching example, not a scheduler. In a multi-user application, bind tasks to its authenticated
+users and resources, use its durable workflow store and exclusive worker claims,
+and let the user or worker continue saved work. For provider writes, keep the
+SDK recovery context before sending and use the provider idempotency key when
+supported. Follow [human approvals](/docs/approvals) and
+[execution recovery](/docs/recovery) for those application contracts.
 
 </details>
 
-The [Runtime walkthrough](/docs/application-example) shows a connected
-application and the decisions it retained in AuthRail.
+## Bringing the integration into your own application
+
+Replace the fixed sample identities with values from your application's login
+or workload authentication, and replace the catalogue with an authorised
+resource lookup. Keep provider credentials behind the function. The wrapper
+belongs around that function, before the model can call an equivalent route
+without checks. Return the checked result or a useful held/blocked state to
+your agent loop; the SDK does not need to interpret the person's chat message.
+
+The [application-building guide](/docs/build-your-app) shows how to put those
+responsibilities into a tool handler. Continue with
+<a href={AUTHRAIL.repositories.go + '/blob/v0.1.1/README.md'}>the released Go API reference</a>
+for additional signatures and [compatibility](/docs/compatibility) before using
+newer Data, Guard or Contextual AI capabilities.

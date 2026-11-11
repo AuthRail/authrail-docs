@@ -1,92 +1,162 @@
 ---
 title: "Policies and Controls"
-description: "Write an expectation, describe how the team follows it and connect that practice to a duty."
+description: "Explain what your organisation expects and how people and systems put it into practice."
 icon: ShieldCheckIcon
 ---
 
-A **Policy** says what your organisation expects. A **Control** describes how
-people and systems put that expectation into practice.
+A **Policy** states what your organisation expects. A **Control** explains how
+people and systems carry out that expectation. Keeping both helps the team
+understand its responsibilities and gives a reviewer something concrete to
+check.
 
-For example, a support Policy may require human review before sensitive account
-changes. Its Control explains who reviews a request, what they check, how the
-application waits and where the decision is saved. Use these records when you
-need a practice that a team can follow and a reviewer can inspect.
+For example, a support Policy may require human approval before sensitive
+account changes. The Control describes who reviews a request, what they
+inspect, how the application waits and where the decision is saved. The same
+practice can support several Frameworks without becoming a separate document
+for each one.
 
-## Document one review practice
+## Follow one practice from expectation to coverage
 
-### 1. Write the expectation in a Policy
+Continue Northstar's example from [Frameworks and scope](/docs/frameworks). Its
+AI Operations Standard version 1 requires human review before an assistant changes
+customer account access. The organisation will rely on **Human oversight of
+account changes**, a Policy, and **Review assistant account-access changes**, a
+Control. These are names for the worked example; your documents should describe
+the people and systems your organisation actually uses.
 
-Open **Policies** and prepare the organisation's document. Give it a responsible
-owner, an audience and a review schedule. State which requests need human
-review and why. Policy Library material can provide a starting point, but your
-organisation still reviews and publishes its own document.
+## Write the expectation
 
-Ask the authorised reviewers to review it. Publication keeps the agreed
-edition available for the people and Controls that rely on it.
+Open **Policies** and prepare your organisation's document. Explain which
+requests need review, why the review matters and who is responsible for it.
+Choose the audience, owner and review schedule so people know whether the
+Policy applies to them and who maintains it.
 
-<ProductShot src="/screenshots/policy-published-version.jpg" alt="Published Policy showing its purpose, owner, audience and review dates" caption="The Policy records the expectation and who is responsible for maintaining it." />
+For Northstar's Policy, write the expectation in terms a support colleague can
+use:
 
-### 2. Describe the working process in a Control
+> The support assistant may prepare an account-access change, but the application
+> must hold it until a named support lead approves the same customer, change and
+> purpose. Rejected or expired requests must not execute. The application must
+> retain the reviewed request and the outcome of any attempted change.
 
-Open **Controls** and describe the practice that fulfils the expectation. For
-the support review process, include:
+Set the owner to the person accountable for customer support and include the
+support and engineering teams in the appropriate audience. A quarterly review
+can check whether responsibilities and supported account changes have changed;
+it does not replace checking individual requests when they occur.
 
-- **Outcome:** sensitive account changes receive the required human review.
-- **Responsibility:** who maintains the process and who reviews requests.
-- **Procedure:** what the reviewer inspects and how the application waits for
-  the decision.
-- **Verification:** how the team will check the requests and saved approvals
-  over a defined period.
+The Policy Library can provide starting material. Adopt an entry through
+**Add to Policies**, then adapt the resulting draft to your organisation's
+systems and responsibilities. Library updates will not change your document
+later without your team's involvement.
 
-If the practice relies on a Policy, select the published Policy version that
-supplies the expectation. Review and approve the Control when it accurately
-describes the work.
+Save the complete draft before asking for review. When eligible independent
+reviewers are available, assign them and complete their review; an authorised
+publisher can then choose **Publish version**. If no independent reviewer is
+available, an authorised sole operator can publish directly. AuthRail checks
+that this option is still permitted, and it cannot bypass a review that is
+already open or rejected.
 
-<ProductShot src="/screenshots/control-approved-with-draft.jpg" alt="Control showing an approved practice, its maintainer and separate draft changes" caption="An approved Control is the practice in use. Separate draft changes still need review before replacing it." />
+<ProductShot src="/screenshots/policy-published-version.jpg" alt="A published Policy with its purpose, owner, audience and review dates" caption="Publication preserves the edition that people and Controls rely on." />
 
-### 3. Connect the practice to the duty it addresses
+## Describe how the team follows it
+
+Open **Controls** and write the process that puts the Policy into practice.
+For the support example, explain which changes require approval, who reviews
+them and what happens while the application waits. Include the records the
+team keeps and how someone will check the process over a defined period. A
+colleague should be able to follow this description without asking its author
+to fill in the missing steps.
+
+The Control should turn that expectation into an operating procedure. For this
+example, its description can explain the following sequence in connected prose:
+the application authenticates the requester and finds the customer account;
+AuthRail holds the protected access-change request for the named support lead;
+the lead reviews the customer, exact change and reason; the application resumes
+the saved request only after approval; and it records the result. A rejected,
+expired or uncertain request stays with the support team for the appropriate
+follow-up instead of being replaced silently.
+
+Also describe the monthly check: reconcile the application's account-change
+history with the saved requests, approvals and execution reports, and investigate
+any difference. That comparison matters because reviewing only AuthRail's records
+cannot reveal a route that never passed through AuthRail. The
+[Tests and Evidence example](/docs/tests-evidence) supplies the period and pass
+criteria for this check.
+
+Before approving Northstar's Control, add the monthly Test and Evidence
+requirement described in [Tests and Evidence](/docs/tests-evidence). They are part
+of the version the Mapping will rely on. If the process relies on a Policy,
+select its published version and the sections that govern it. Save the Control draft and choose **Submit for review** when
+independent reviewers are available. Its author cannot review the same draft in
+that round. Where no eligible independent reviewer exists, an authorised
+manager with review access can use **Approve Control** instead.
+
+<ProductShot src="/screenshots/control-approved-with-draft.jpg" alt="A Control showing its approved practice, maintainer and separate draft changes" caption="The approved version stays in use while proposed changes go through review." />
+
+## Connect the Control to a Framework duty
 
 Return to the active Framework's **Obligations** and choose **View coverage**
-for the relevant duty. Select or review the approved Control that addresses
-it. The Framework's **Controls** section also offers **Choose Controls for
-Obligations** and **Create Control** when your access permits them.
+for the duty it addresses. Select the approved Control and explain how its
+practice fulfils that duty. This connection is a **Mapping**: it records the
+applicability decision, the Control version your organisation relies on and
+when the connection takes effect.
 
-This reviewed connection is called a **Mapping**. It records which approved
-practice your organisation relies on for that applicable duty. Explain how the
-practice addresses the duty; a similar title alone is not enough.
+For Northstar, select the approved version of **Review assistant account-access
+changes** against the applicable duty in AI Operations Standard version 1. In the
+Mapping rationale, explain:
 
-You should now have a published expectation, an approved working practice and a
-reviewed connection to the obligation. Next, [Tests and Evidence](/docs/tests-evidence)
-shows how to check whether the practice works.
+> This Control implements the duty's before-change review through a named
+> approver and a saved request. Its monthly Test reconciles account changes with
+> those approvals, and its required Evidence preserves the review material.
+> Coverage is limited to the account-access function and application described
+> by the Control; other assistant tools need their own coverage assessment.
+
+Review the selected applicability decision, Control version and effective date
+before accepting the Mapping. Then review the collective coverage of the duty.
+Do not mark it fully covered if the duty also requires a practice this Control
+does not address. An accepted Mapping identifies what will be assessed; it does
+not say that the Test has passed or its Evidence has been accepted.
+
+Several Controls may contribute to one duty. Review whether they cover it
+together and record your reasoning; similar titles alone do not establish
+coverage. Adding or withdrawing a Mapping changes that basis, so the coverage
+review needs to be repeated. The Framework's **Controls** area also offers
+**Choose Controls for Obligations** and **Create Control** when your access
+permits them.
+
+With the practice approved and its relationship to the duty established,
+continue to [Tests and Evidence](/docs/tests-evidence). That is where you define
+how to check whether the practice works.
 
 <details className="guide-details">
-<summary>More about reusing Controls and Policies</summary>
+<summary>When a team operates the Control differently</summary>
 
-Policies and Controls belong to the organisation. Reuse one approved practice
-when several Frameworks call for the same process. Creating a copy for each
-Framework makes it harder to maintain one reliable account of the work.
-
-A scoped **Implementation** describes a genuine variation of a Control. For
-example, a separate support operation may have a different reviewer and
-procedure. Use an Implementation when that difference matters, not simply
-because the Control supports another Framework.
+Controls normally describe organisation-wide practice. Add a scoped
+**Implementation** only when a department, team or AI system operates it
+differently—for example, when a separate support operation uses a different
+review procedure. Describe that difference and complete its review. A second
+Framework or a different owner alone does not require another Implementation.
 
 </details>
 
 <details className="guide-details">
-<summary>More about approval and later changes</summary>
+<summary>Maintaining published Policies and approved Controls</summary>
 
-A draft and an AI suggestion still need human review. A published Policy or
-approved Control version preserves the edition that was reviewed. Later edits
-do not overwrite what was approved before.
+Later edits create drafts rather than replacing what was approved. A Mapping
+continues to refer to its selected Control version until you review a
+replacement. When that Control requires a Policy to remain current, expiry,
+archive or supersession can affect its Health until the Policy relationship is
+updated and the replacement Control is approved.
 
-A Mapping preserves the obligation's applicability decision and the selected
-approved Control version. A draft, a free-text Policy mention or a newer Control
-version does not silently replace that reviewed connection. Review a replacement
-when the duty or practice changes.
+Policy renewal begins a draft from a published edition. Review its audience,
+responsibilities and due date along with the text. Unpublishing a Library entry
+stops new adoptions but leaves existing organisation Policies and their history
+intact.
 
-If a Control cannot be selected, check its approval state, audience and your
-access. If several Controls contribute, review their combined coverage rather
-than assuming one partial practice fulfils the whole duty.
+To investigate a possible contradiction, open **Policies → Conflicts** and read
+both cited passages, audiences and effective dates. Confirm or dismiss it with
+a reason another person can follow. AI suggestions require this human review;
+a Policy conflict has its own workflow rather than automatically becoming a
+Framework Finding.
 
 </details>

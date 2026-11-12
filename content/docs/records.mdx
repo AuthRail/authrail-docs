@@ -4,6 +4,8 @@ description: "Follow a request from the rule's decision to the application's rep
 icon: ClockCounterClockwiseIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 An **Action** brings together the history of one Runtime request: the application
 and AI system, rule checks, approval and execution reports. It is the place to
 look when someone asks why a payment was stopped or whether an allowed account
@@ -19,7 +21,7 @@ outcome without promising more than the available records show.
 
 ### 1. Find its Action
 
-Open **Actions & decisions**, or follow **View in AuthRail** from the originating
+Open <a href={AUTHRAIL.clientOrigin}>AuthRail</a> and choose **Actions & decisions**, or follow **View in AuthRail** from the originating
 application. Check the AI system, deployment, target and mode so you are reading
 the intended request. In Observe, a completed operation can appear beside a
 **Would deny** check because Observe did not stop it.

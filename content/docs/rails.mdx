@@ -4,6 +4,8 @@ description: "Turn your organisation's rules into checks at an application's too
 icon: StackIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 A **Rail** tells AuthRail how to handle an action your application can perform.
 A support agent might be allowed to refund a payment only up to its remaining
 refundable amount, while another request needs a person's approval. Rails make
@@ -41,7 +43,7 @@ arguments, target, business effect and returned information the rules can use.
 
 ### 1. Choose the Policy and action
 
-In **Rails → Create Rail**, choose **Policy Rail**, then the published
+In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **Rails → Create Rail** and choose **Policy Rail**, then the published
 **Policy to follow**. Choose **Write rules** or **Suggest with AI**, and select
 estimate creation under **Actions registered by your connected applications**.
 If it is missing, work with the application's developer through **Connect an

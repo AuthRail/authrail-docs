@@ -4,6 +4,8 @@ description: "Learn how your rules behave, then apply their decisions before a f
 icon: ShieldCheckIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 **Observe** lets you see how your Rails respond while the application continues
 its normal work. **Enforce** makes the application wait for permission before
 running the connected function. Each deployment uses one of these two modes.
@@ -21,7 +23,7 @@ once its route and credentials are in place.
 
 ### 1. Observe representative requests
 
-In **AI Inventory**, confirm the AI system and deployment, then choose the
+In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **AI Inventory** and confirm the AI system and deployment, then choose the
 published action and Rails it should use. Connect the application's Observe
 adapter at its call and result hooks, following the [SDK guide](/docs/getting-started).
 Check [compatibility](/docs/compatibility) when choosing a rule that requires
@@ -176,7 +178,8 @@ before invoking the function and checks a successful result before releasing
 it to the agent. A **retained** report is one AuthRail has acknowledged; a
 **queued** report is still waiting locally for that acknowledgement.
 
-Connecting hosted AuthRail MCP provides management access to configuration and
+Connecting <a href={AUTHRAIL.mcpEndpoint}>hosted AuthRail MCP</a> through the
+[MCP setup guide](/docs/mcp) provides management access to configuration and
 records. Business tools, shell commands and provider APIs need their own SDK
 route; management access cannot add those hooks to another tool.
 

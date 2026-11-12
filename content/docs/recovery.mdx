@@ -4,6 +4,8 @@ description: "Find out what happened to an interrupted request before deciding w
 icon: GitBranchIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 A payment request can time out after the provider has made the payment but
 before your application receives the response. An immediate retry could pay
 twice. Recovery starts with the original request: find its saved attempt, check
@@ -22,7 +24,7 @@ its business operation:
 
 1. Pause automatic retries for this task and keep its original arguments,
    Action and attempt IDs, and provider request key.
-2. Open the Action and read **Permission to run** and **What the application
+2. In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open the Action and read **Permission to run** and **What the application
    reported**. An attempt with a start report may have reached the provider.
 3. Look up the original operation in the same provider account or your durable
    business ledger. Match its request key, resource and amount or other details

@@ -13,6 +13,12 @@ policies and compliance requirements.
 **[Getting started](https://docs.authrail.io/docs/getting-started)** ·
 **[Watch the demonstration](https://docs.authrail.io/docs/application-example)**
 
+Sign in at **[app.authrail.io](https://app.authrail.io)**. Sidecar setup connects
+to **[api.authrail.io](https://api.authrail.io)**; the
+[API reference](https://api.authrail.io/docs) describes its endpoints. Connect an
+assistant using **[https://mcp.authrail.io/mcp](https://mcp.authrail.io/mcp)** and
+the [MCP setup guide](https://docs.authrail.io/docs/mcp).
+
 ## Applying your rules to an agent's tools
 
 An assistant helping a finance team may be allowed to read invoices but need

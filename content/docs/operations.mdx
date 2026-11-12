@@ -4,6 +4,8 @@ description: "Check the connection, follow a request and diagnose the sidecar ru
 icon: ListChecksIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 When a request stops unexpectedly or its decision has not appeared in AuthRail,
 start with the application's connection and follow the request from there.
 The deployment page tells you whether its sidecar is communicating; the Action
@@ -18,7 +20,7 @@ service.
 
 ## Check the connection
 
-1. In **AI Inventory**, choose the AI system and open the deployment.
+1. In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **AI Inventory** and choose the AI system and open the deployment.
 2. On **Overview**, find **Connection health** and its last update time.
 3. Choose **Check again** and read any message about rules or reports waiting
    for delivery.
@@ -123,6 +125,10 @@ and execution receipts under their own retention rules.
 </details>
 
 ## Diagnose the symptom you are seeing
+
+The sidecar's hosted API address is <a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>.
+Use <a href={AUTHRAIL.clientOrigin}>{AUTHRAIL.clientOrigin}</a> to inspect the
+deployment in your browser. The workspace URL is not the sidecar's API setting.
 
 Start with the same business request and its saved Action key. Keep the original
 reports and application recovery state while investigating; recreating a payment

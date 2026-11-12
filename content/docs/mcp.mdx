@@ -25,6 +25,9 @@ Add AuthRail as a remote MCP connection in your assistant, using this address:
 
 <CommandBlock lang="text" code={AUTHRAIL.mcpEndpoint} />
 
+The full connection URL is <a href={AUTHRAIL.mcpEndpoint}>{AUTHRAIL.mcpEndpoint}</a>.
+Your organisation workspace is <a href={AUTHRAIL.clientOrigin}>{AUTHRAIL.clientOrigin}</a>.
+
 1. Open your assistant's MCP or connector settings and add the address above.
    Choose its standard OAuth connection flow. A compatible assistant can identify
    itself automatically; you do not need to create a client ID first.
@@ -40,17 +43,12 @@ uses a published client identity document (CIMD), with automatic registration
 available for clients that use that flow instead. Both identify the assistant;
 your sign-in and consent are what give it access to your organisation.
 
-The public service address is **mcp.authrail.io/mcp**. Its live availability has
-not yet been verified for this documentation update; a connection failure at
-that address does not mean you need to run a local server or supply a different
-organisation's credentials.
-
 <details className="guide-details">
 <summary>When your assistant asks for a client ID</summary>
 
 Some clients require a pre-registered ID. Obtain the OAuth callback address
-from that client's setup instructions, then sign in to AuthRail and open
-`/mcp/clients`. Enter a recognisable name and the callback under **Register an
+from that client's setup instructions, then open
+<a href={`${AUTHRAIL.clientOrigin}/mcp/clients`}>Assistant clients in AuthRail</a>. Enter a recognisable name and the callback under **Register an
 assistant client**. Copy the resulting public client ID into the assistant's
 settings and restart its connection flow.
 
@@ -159,7 +157,8 @@ start a replacement request. See [approvals](/docs/approvals) and
 
 ## Managing access and connection problems
 
-Open `/mcp/connections` in your AuthRail workspace to review **Assistant
+Open <a href={`${AUTHRAIL.clientOrigin}/mcp/connections`}>Assistant connections</a>
+in your AuthRail workspace to review **Assistant
 connections** and revoke a grant you no longer need. Expiry, sign-out, revoked
 consent or lost membership may require the assistant to reconnect through the
 normal sign-in flow.

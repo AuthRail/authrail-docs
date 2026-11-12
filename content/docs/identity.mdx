@@ -4,6 +4,8 @@ description: "Understand the private connection files, authenticated caller and 
 icon: FingerprintIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 When your application asks AuthRail to check a tool call, the request needs to
 identify the installation, the caller and the record being used. These answers
 come from different places. A **deployment** identifies one installation of
@@ -73,10 +75,11 @@ its registered key and credentials unless you are carrying out a planned change.
 
 ### Copy the deployment settings
 
-Under **Configure the sidecar**, copy these values into your private deployment
+In <a href={AUTHRAIL.clientOrigin}>your AuthRail workspace</a>, open the deployment
+and **Integration setup → Configure the sidecar**. Copy these values into your private deployment
 configuration:
 
-- **AuthRail URL:** the API address the sidecar connects to.
+- **AuthRail URL:** <a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>, the API address the sidecar connects to.
 - **Organisation ID:** the organisation that owns this setup.
 - **Deployment ID:** the installation you are connecting.
 - **Trusted signing key:** identifies the AuthRail key that signs your rules.

@@ -13,9 +13,9 @@ installation when your Node.js, Go or Python application runs directly on the
 host; use [Docker](/docs/docker) when it runs in a container.
 
 Before you begin, prepare the action, published Rail and deployment in
-[your workspace](/docs/getting-started). You will need the API address supplied
-by your installation administrator and a macOS or Linux terminal with `curl`
-and `tar`. The download includes the executable, so you do not need Go or a
+<a href={AUTHRAIL.clientOrigin}>your AuthRail workspace</a>, following the
+[quickstart](/docs/getting-started). You also need a macOS or Linux terminal with
+`curl` and `tar`. Setup connects to <a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>. The download includes the executable, so you do not need Go or a
 source build.
 
 ## 1. Download the sidecar
@@ -84,16 +84,11 @@ Keep this terminal in the extracted directory for setup.
 
 ## 2. Connect and start
 
-Replace `YOUR_AUTHRAIL_API_ORIGIN` with the API address from your installation
-administrator. This is the service the sidecar connects to, rather than the
-workspace website you open in a browser. The `--directory` option puts the
-installation’s private files in a location you can reuse across restarts.
+Run this command to connect to the AuthRail API. The `--directory` option
+puts the installation’s private files in a location you can reuse across restarts.
 
-```sh
-export AUTHRAIL_API_URL='YOUR_AUTHRAIL_API_ORIGIN'
-./authrail-sidecar setup --api-url "$AUTHRAIL_API_URL" \
-  --directory "$HOME/.local/share/authrail/my-deployment" --runtime native
-```
+<CommandBlock lang="bash" code={`./authrail-sidecar setup --api-url ${AUTHRAIL.apiOrigin} \\
+  --directory "$HOME/.local/share/authrail/my-deployment" --runtime native`} />
 
 When the browser opens, sign in and choose the organisation and deployment
 you want to connect. Setup creates the application’s signing key on your

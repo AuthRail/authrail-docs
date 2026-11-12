@@ -18,20 +18,16 @@ You need Docker Engine or Docker Desktop, a macOS or Linux terminal, and the
 a source checkout or a local image build.
 
 First prepare the action, published Rail and deployment in
-[your workspace](/docs/getting-started). Ask your installation administrator for
-the API address reachable over HTTPS from Docker, as well as the workspace
-address used for sign-in.
+<a href={AUTHRAIL.clientOrigin}>your AuthRail workspace</a>, following the
+[quickstart](/docs/getting-started). The command below connects to
+<a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>.
 
 ## 1. Connect this deployment
 
-From the directory containing the downloaded executable, run the command below.
-Replace the API placeholder with the address supplied by your administrator:
+From the directory containing the downloaded executable, run:
 
-```sh
-export AUTHRAIL_API_URL='YOUR_AUTHRAIL_API_ORIGIN'
-./authrail-sidecar setup --api-url "$AUTHRAIL_API_URL" \
-  --directory "$HOME/.local/share/authrail/my-deployment" --runtime docker
-```
+<CommandBlock lang="bash" code={`./authrail-sidecar setup --api-url ${AUTHRAIL.apiOrigin} \\
+  --directory "$HOME/.local/share/authrail/my-deployment" --runtime docker`} />
 
 Sign in when the browser opens and select the organisation and deployment.
 Setup creates a signing key for the application and registers its public key
@@ -45,12 +41,24 @@ configuration AuthRail sends for this deployment, signed so the sidecar can
 verify its origin. Setup also prints the container name and the network setting
 your application will need. You will connect the application in step 3.
 
-**Version note:** setup executable 0.2.0 starts Runtime image
-`sha256:cb6e60475146ead55bcec56d5da14fcc75e2bf7e776b584b01ace5426a5356f4`
-with internal version 0.1.0/revision `5547cc5`. The setup executable and the
-running service have separate versions; this command does not select the
-`:0.2.0` image tag. The [compatibility guide](/docs/compatibility) explains which
-features are available in each combination.
+The setup program downloads the Docker image automatically. The published
+versions support the first Policy Rail example; check the
+[compatibility guide](/docs/compatibility#released-capability-boundary) before
+adding automatic Data readers, expanded Guards or Contextual AI.
+
+<details className="guide-details">
+<summary>Which Docker image does this command run?</summary>
+
+Setup version 0.2.0 selects image
+`sha256:cb6e60475146ead55bcec56d5da14fcc75e2bf7e776b584b01ace5426a5356f4`,
+whose reported version is 0.1.0 and revision is `5547cc5`. The downloaded setup
+program and the container are separate release artifacts. A Docker tag named
+`0.2.0` also exists, but this setup command does not use it. Keep the image
+selected by setup when following this guide; see the
+[release details](/docs/compatibility#release-identities-for-upgrades-and-support)
+when investigating or planning an upgrade.
+
+</details>
 
 ## 2. Check the installation
 

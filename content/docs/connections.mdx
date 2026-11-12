@@ -4,6 +4,8 @@ description: "Collect provider records and bring them into a Control's Tests and
 icon: PlugsConnectedIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 A **Connection** lets AuthRail collect read-only records from a provider account
 your organisation authorises. It can save your team from repeatedly exporting
 files when a Control needs current source material, such as an account
@@ -16,7 +18,7 @@ does not by itself make a Test pass or a Framework duty ready.
 
 ## Choose the source your check needs
 
-Open **Connections** and choose the capability available in your workspace.
+In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **Connections** and choose the capability available in your workspace.
 Read its setup instructions to understand which account or project it can
 access, the permissions it needs, the records it collects and how often it
 collects them. Support for one part of a provider does not imply support for

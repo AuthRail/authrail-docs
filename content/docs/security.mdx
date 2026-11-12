@@ -4,6 +4,8 @@ description: "Keep credentials and alternative tool routes outside the agent's r
 icon: KeyIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 AuthRail can stop a refund through a connected tool only if the agent cannot
 make the same refund another way. An agent that also has the Stripe credential
 could call Stripe directly, leaving the tool's rule checks behind. Enforce
@@ -87,7 +89,8 @@ flow, and keep raw text out of your own diagnostic fields as well.
 
 ## Separate management access from execution access
 
-AuthRail MCP uses the connected person's organisation permissions to inspect
+<a href={AUTHRAIL.mcpEndpoint}>AuthRail MCP</a>, connected through the
+[assistant setup guide](/docs/mcp), uses the person's organisation permissions to inspect
 records and prepare supported changes. Publication and approval still require
 that person's authenticated confirmation. Provider access remains a separate
 application responsibility; a chat assertion of consent cannot supply it.

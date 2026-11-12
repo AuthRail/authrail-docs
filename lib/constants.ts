@@ -2,6 +2,8 @@ export const AUTHRAIL = {
   name: 'AuthRail',
   description: 'Govern how your organisation uses AI: understand its activity, control actions, review sensitive decisions and connect oversight to compliance requirements.',
   docsOrigin: 'https://docs.authrail.io',
+  clientOrigin: 'https://app.authrail.io',
+  apiOrigin: 'https://api.authrail.io',
   mcpEndpoint: 'https://mcp.authrail.io/mcp',
   assistants: {
     chatgpt: 'https://chatgpt.com/',

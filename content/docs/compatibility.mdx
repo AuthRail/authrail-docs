@@ -32,31 +32,26 @@ installation or an upgrade.
 Run the sidecar with [Docker](/docs/docker), the recommended setup, or use a
 [native binary](/docs/native). Both run the same local decision process.
 
-## Record the components you will run
+## Install the SDK and sidecar
 
-The installation guides pin SDK **{AUTHRAIL.releases.sdkVersion}**, available
-from <a href={AUTHRAIL.packages.node}>npm</a>,
-<a href={AUTHRAIL.packages.python}>PyPI</a> and the public Go module proxy.
-The setup executable/native Runtime release is
-<a href={`${AUTHRAIL.repositories.sidecar}/releases/tag/v${AUTHRAIL.releases.sidecarVersion}`}>{AUTHRAIL.releases.sidecarVersion}</a>.
-The SDK, setup executable and running Runtime service have their own versions.
-In particular, the Docker installer currently chooses a different Runtime
-version from the native executable.
+Install the SDK for your application's language and download sidecar version
+**{AUTHRAIL.releases.sidecarVersion}**. The sidecar download contains one program,
+`authrail-sidecar`. You can ask that program to start a Docker container, or run
+the sidecar directly on your computer with `--runtime native`. “Native” means
+running the program directly, without Docker.
 
-| Component | Released identity used by these guides |
+| What you install | Version and instructions |
 | --- | --- |
-| Node.js SDK | `@authrail/sdk-node@0.1.1`; Node.js 20 or newer. |
-| Go SDK | `github.com/AuthRail/authrail-sdk-go@v0.1.1`; Go 1.26 or newer. |
-| Python SDK | `authrail==0.1.1`; Python 3.11 or newer. |
-| Setup executable / native Runtime | `0.2.0`, revision `1f436c89d52f6e19c778fda561815cb7c27415ea`. |
-| Runtime selected by released Docker setup | Internal version `0.1.0`, revision `5547cc5041558aaa23437b484e7a789600de6c5e`, manifest `sha256:cb6e60475146ead55bcec56d5da14fcc75e2bf7e776b584b01ace5426a5356f4`. |
-| Separately published Docker tag `0.2.0` | Manifest `sha256:5ca550de03a591c42d490374229bca57980b3e000b7b86bb3366174b317b48b4`; Linux amd64 and arm64. Released setup does not select it. |
+| Node.js SDK | <a href={AUTHRAIL.packages.node}>@authrail/sdk-node 0.1.1</a>; [Node.js guide](/docs/node), for Node.js 20 or newer. |
+| Go SDK | <a href={AUTHRAIL.packages.go}>authrail-sdk-go v0.1.1</a>; [Go guide](/docs/go), for Go 1.26 or newer. |
+| Python SDK | <a href={AUTHRAIL.packages.python}>authrail 0.1.1</a>; [Python guide](/docs/python), for Python 3.11 or newer. |
+| Sidecar program | <a href={`${AUTHRAIL.repositories.sidecar}/releases/tag/v${AUTHRAIL.releases.sidecarVersion}`}>Download version {AUTHRAIL.releases.sidecarVersion}</a>, then follow [Docker setup](/docs/docker) or [run it directly](/docs/native). |
 
-An image **digest** identifies the contents of a container image; a tag is a
-name that can later point to different contents. Keep the digest, executable
-version and SDK version in your deployment notes so you can identify what is
-running. Your installation administrator supplies the API and workspace
-addresses separately from these downloads.
+Sign in to <a href={AUTHRAIL.clientOrigin}>{AUTHRAIL.clientOrigin}</a> to prepare
+the deployment and its Rails. The setup command connects to
+<a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>. To manage AuthRail through
+an assistant, connect <a href={AUTHRAIL.mcpEndpoint}>{AUTHRAIL.mcpEndpoint}</a>
+using the [MCP instructions](/docs/mcp).
 
 ## Released capability boundary
 
@@ -128,5 +123,31 @@ combination in a safe installation first. Review coverage again when changing
 sandbox access, provider accounts, processing handlers or network permissions.
 A missing handler or unavailable required isolation cannot be treated as a
 passing Enforce check.
+
+</details>
+
+## Release identities for upgrades and support
+
+<details className="guide-details">
+<summary>Versions, Docker images and build identities</summary>
+
+The downloaded sidecar program and the Docker image it starts are separate
+release artifacts. Version 0.2.0 of the program selects an older Docker image;
+it does not automatically select the Docker tag with the same version number.
+These details help you identify an existing installation or discuss an upgrade.
+The installation guides show which command to run without asking you to choose
+an image manually.
+
+| Installed component | Identity |
+| --- | --- |
+| Sidecar program 0.2.0, also used when running without Docker | Revision `1f436c89d52f6e19c778fda561815cb7c27415ea`. |
+| Docker image started by that program | Reported version `0.1.0`, revision `5547cc5041558aaa23437b484e7a789600de6c5e`, image digest `sha256:cb6e60475146ead55bcec56d5da14fcc75e2bf7e776b584b01ace5426a5356f4`. |
+| Docker tag `0.2.0`, published separately | Image digest `sha256:5ca550de03a591c42d490374229bca57980b3e000b7b86bb3366174b317b48b4`; Linux amd64 and arm64. Guided setup does not choose this image. |
+
+An image digest identifies the contents of a container image. A tag is a name
+that can later point to different contents. Keep the installed SDK version,
+program version and Docker image digest in your deployment notes. Preserve the
+installation's private connection files and state before an upgrade, and check
+the required capabilities as well as the version numbers.
 
 </details>

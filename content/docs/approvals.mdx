@@ -4,6 +4,8 @@ description: "Review a waiting request and continue the saved work in its applic
 icon: ClipboardTextIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 A **human approval** gives a named person a chance to decide before an action
 proceeds. Your organisation might let an agent read invoices automatically,
 for example, while asking someone to review a proposed payment. In Enforce,
@@ -15,7 +17,7 @@ its eventual execution appear separately on the Action.
 
 ## Review and continue a request
 
-1. Open **Actions & decisions → Approvals for you** with the account named in
+1. In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **Actions & decisions → Approvals for you** with the account named in
    the approval setup. You can also review through the Action detail when its
    controls are available to you. If a request is missing, ask its owner to
    check the named reviewer list.

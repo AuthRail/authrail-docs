@@ -4,6 +4,8 @@ description: "Give a rule reliable business information or help it interpret sel
 icon: FileTextIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 Some rules need a value from a business system; others need to understand what
 a piece of text means. An invoice rule can look up the remaining balance. A
 code-change rule may need to assess whether a diff weakens authentication.
@@ -47,7 +49,7 @@ not required to understand or reproduce this explicit path.
 
 ### 1. Choose where the information comes from
 
-Open **Rails → Create Rail → Data Rail** and choose **Connect a source**, or
+In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **Rails → Create Rail → Data Rail** and choose **Connect a source**, or
 use an existing source. Setup takes you through **Where is the information?**,
 **Choose the account**, **Find the record**, **Choose the information**, and
 **Review and save**.

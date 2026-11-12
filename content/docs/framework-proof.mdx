@@ -4,6 +4,8 @@ description: "Define what an application's saved requests should demonstrate dur
 icon: ClipboardTextIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 Runtime records can help you check whether a Control worked in a connected
 application. Suppose a Control prevents an assistant from paying an invoice
 outside its permitted account. An **AI actions Test** can inspect saved requests
@@ -16,7 +18,7 @@ records yet, start with [the quickstart](/docs/getting-started).
 
 ## Open the Control that addresses the duty
 
-Open the active Framework and find the applicable duty under **Obligations**.
+In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open the active Framework and find the applicable duty under **Obligations**.
 Read its coverage and open the mapped Control's **Tests and Evidence** area.
 This keeps the check associated with the practice and version your organisation
 has agreed to rely on.

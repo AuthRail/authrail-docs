@@ -4,6 +4,8 @@ description: "Learn how AuthRail applies your organisation's rules when an appli
 icon: SquaresFourIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 AuthRail Runtime connects your organisation's rules to the functions an AI
 application uses to do work. It checks a request before a connected function
 runs and can check its result before information returns to the agent. This
@@ -52,7 +54,7 @@ in one sidecar implementation allows the language SDKs to use the same rule
 engine. It also gives your operator a separate process to monitor, with its own
 persistent state and report-delivery queue.
 
-In the **AuthRail workspace**, your team reviews the AI system, prepares and
+In the <a href={AUTHRAIL.clientOrigin}>AuthRail workspace</a>, your team reviews the AI system, prepares and
 publishes Rails, selects the versions for each deployment, handles approvals
 and inspects its records. [Management MCP](/docs/mcp) provides assistant tools for
 supported work in that workspace, using the connected person's permissions.

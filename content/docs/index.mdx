@@ -4,6 +4,8 @@ description: "Understand AuthRail and how it helps your organisation govern the 
 icon: BookOpenIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 AuthRail is an AI governance platform that helps organisations decide what their
 AI agents are allowed to do, apply those decisions when an agent uses a tool,
 and understand the outcome afterwards. It connects the rules your organisation
@@ -21,6 +23,13 @@ AuthRail helps you express those boundaries in the applications you connect.
 You can introduce it while building an agent application, or add it to an
 existing workflow, so authority is considered alongside the tools and business
 functions rather than left to the model's judgement.
+
+Open <a href={AUTHRAIL.clientOrigin}>AuthRail at {AUTHRAIL.clientOrigin}</a>
+to sign in and work with your organisation. Developers connect the sidecar to
+<a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>; assistants connect through
+<a href={AUTHRAIL.mcpEndpoint}>{AUTHRAIL.mcpEndpoint}</a>, following the
+[MCP setup guide](/docs/mcp). These are separate addresses for the workspace,
+the API and the assistant connection.
 
 ## From an organisation's rule to an agent's action
 

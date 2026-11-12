@@ -4,6 +4,8 @@ description: "Understand how AuthRail fits between an agent's request and the bu
 icon: CodeIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 An agent application combines language understanding with functions that do
 work. The model helps a person express what they want and chooses a tool to
 request it; the application connects that request to its users, accounts,
@@ -28,6 +30,13 @@ the SDK without making an external change. This guide explains the surrounding
 application design so that you can extend that integration to more consequential
 work. The invoice-shaped request below illustrates the tool-call format; the
 same pattern applies to your reviewed release, access-change or export function.
+
+Prepare your AI system and deployment in
+<a href={AUTHRAIL.clientOrigin}>AuthRail at {AUTHRAIL.clientOrigin}</a>.
+The [sidecar setup guides](/docs/native) use <a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>
+for configuration and reporting. If you want an assistant to help prepare Rails,
+add <a href={AUTHRAIL.mcpEndpoint}>{AUTHRAIL.mcpEndpoint}</a> using the
+[MCP connection guide](/docs/mcp).
 
 ## Following a request through the application
 

@@ -4,6 +4,8 @@ description: "Find each connection value and give it to the process that needs i
 icon: GearIcon
 ---
 
+import { AUTHRAIL } from '@/lib/constants';
+
 The application and sidecar need different connection settings because they
 have different jobs. The sidecar downloads rules for a deployment and reports
 its decisions. Your application signs requests to that sidecar and keeps the
@@ -42,7 +44,8 @@ in your shell will not automatically pass it into the child process or container
 
 ## Copy these values from AuthRail
 
-Open your AI system's deployment, then **Integration setup → Configure the
+Open <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, select your AI system's deployment,
+then **Integration setup → Configure the
 sidecar**. Copy the API address, organisation ID, deployment ID and trusted
 signing-key fingerprint. Under **Get a deployment token**, select **Create
 token** and save its one-time value privately.
@@ -51,7 +54,7 @@ token** and save its one-time value privately.
 
 | Sidecar setting | Value to use |
 | --- | --- |
-| `AUTHRAIL_CONTROL_PLANE_URL` | The **AuthRail URL** shown in setup. It is the API address, not the workspace website. Use HTTPS; plain HTTP is accepted only for local-loopback development. |
+| `AUTHRAIL_CONTROL_PLANE_URL` | <a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>, the API address shown as **AuthRail URL** in setup. Use HTTPS; plain HTTP is accepted only for local-loopback development. |
 | `AUTHRAIL_ORGANISATION_ID` | **Organisation ID** from setup. |
 | `AUTHRAIL_DEPLOYMENT_ID` | **Deployment ID** from setup. |
 | `AUTHRAIL_TRUSTED_KEY_SHA256` | **Trusted signing key** from setup. Keep both displayed fingerprints during a key change. Do not get this trust value from an unverified bundle. |

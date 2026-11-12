@@ -2,3 +2,4 @@ node_modules/
 .next/
 .source/
 *.tsbuildinfo
+.DS_Store

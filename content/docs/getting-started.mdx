@@ -20,14 +20,14 @@ decide. This makes a harmless read a good starting point, before you use
 **Enforce** to require permission before a function runs.
 
 You need an AuthRail account with permission to manage AI Inventory, Policies
-and Rails, plus access to your organisation's workspace. Ask your installation
-administrator for the workspace address and the API address used by developer
-setup. The [application integration guide](/docs/build-your-app) explains how
+and Rails. Sign in to <a href={AUTHRAIL.clientOrigin}>{AUTHRAIL.clientOrigin}</a>
+and choose your organisation. Developer setup connects to
+<a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a>. The [application integration guide](/docs/build-your-app) explains how
 the SDK fits between an agent's tool request and your own function.
 
 ## 1. Add the AI system
 
-Open your AuthRail workspace and select your organisation. In **AI Inventory**, add or select the AI system you are
+Open <a href={AUTHRAIL.clientOrigin}>your AuthRail workspace</a> and select your organisation. In **AI Inventory**, add or select the AI system you are
 connecting. Review its details and confirm its identity.
 
 AI Inventory identifies the system whose rules and activity you want to manage.

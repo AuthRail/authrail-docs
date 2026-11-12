@@ -29,8 +29,8 @@ and checksums from the
 <a href={`${AUTHRAIL.repositories.sidecar}/releases/tag/v${AUTHRAIL.releases.sidecarVersion}`}>version {AUTHRAIL.releases.sidecarVersion} release</a>,
 then follow [Docker](/docs/docker) or [native setup](/docs/native). The
 [compatibility reference](/docs/compatibility) explains which capabilities are
-included in the published versions and how the setup executable's selected
-Docker image differs from the native Runtime release.
+included in the published versions. Its advanced release details help with
+upgrades and support.
 
 ## Public repositories
 
@@ -48,14 +48,25 @@ reference application for people with repository access. It has no hosted
 version, and its example provider bindings do not make every provider operation
 available through the public SDKs.
 
-## Your organisation's AuthRail addresses
+## AuthRail services
 
-Use the workspace address supplied by the person administering your AuthRail
-installation. Sidecar setup also needs the matching API origin, and an assistant
-connection uses AuthRail MCP at `https://mcp.authrail.io/mcp`.
-These addresses serve different purposes; the workspace or documentation URL
-cannot replace the API address in a sidecar command. The [connection
-guides](/docs/getting-started) explain where each is used.
+| Service | Address | What you use it for |
+| --- | --- | --- |
+| AuthRail workspace | <a href={AUTHRAIL.clientOrigin}>{AUTHRAIL.clientOrigin}</a> | Sign in, choose your organisation, prepare Rails and review records. |
+| AuthRail API | <a href={AUTHRAIL.apiOrigin}>{AUTHRAIL.apiOrigin}</a> | Connect sidecar setup and Runtime reporting. Browse the <a href={`${AUTHRAIL.apiOrigin}/docs`}>API reference</a> for endpoint contracts. |
+| AuthRail MCP | <a href={AUTHRAIL.mcpEndpoint}>{AUTHRAIL.mcpEndpoint}</a> | Connect an assistant using the [MCP guide](/docs/mcp). |
+
+Copy the API address for sidecar setup:
+
+<CommandBlock lang="text" code={AUTHRAIL.apiOrigin} />
+
+Copy the MCP address into your assistant's connector settings:
+
+<CommandBlock lang="text" code={AUTHRAIL.mcpEndpoint} />
+
+The workspace website and documentation site cannot replace the API address
+in a sidecar command. Your SDK normally talks to the nearby sidecar; it does
+not use the MCP connection as its decision endpoint.
 
 ## Other integration references
 

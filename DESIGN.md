@@ -40,24 +40,31 @@ product, a fabricated GitHub star count or a link to the private reference app.
 
 ## Navigation and learning order
 
-The November 2 founder direction supersedes the earlier Framework-first order.
-Lead with what AuthRail does for agent authority and behaviour, then a useful
-first result. The primary path is:
+The November 12 founder direction keeps agent governance as the primary path.
+Explain authority, visibility and human oversight through supported behaviour;
+keep compliance fully documented and easy to find as a secondary assessment
+path. The primary learning order is:
 
 1. A short introduction to AuthRail, coverage and the meaning of its records.
 2. A quickstart using verified released setup artifacts and a safe example.
 3. MCP/agent setup: sign-in, permissions, preparing configuration and exact
    human confirmation, alongside how the real business tool is protected.
-4. Runtime, Rails, Observe/Enforce, usable Guards, Data sources and contextual AI.
-5. Approvals/resume, records, diagnostics, recovery and useful operating insights.
-6. Connected governance: Policies, Controls, Frameworks, Tests/Evidence, readiness
-   and remediation, with their exact proof semantics intact.
-7. Detailed SDK, deployment, compatibility, security and configuration references.
+4. Policies, Runtime, Rails, Observe/Enforce, usable Guards, Data sources and
+   contextual AI, with account Connections and their granted access in context.
+5. Approvals/resume, records, diagnostics, recovery and operating insights.
+6. Detailed SDK, deployment, compatibility, security and configuration references.
+7. A visible Compliance and evidence section for Frameworks, Tests/Evidence,
+   readiness and the worked proof journey, preserving their exact semantics.
 
-Readers should not have to learn Framework scope or create a compliance programme
-before trying one Runtime action. Keep governance fully explained in its own
-path; do not make an audience chooser the substitute for a clear main journey.
-The landing's approved heading is **“AI governance for your organisation.”**
+Keep every existing guide and connection capability. Changes in prominence do
+not authorise hiding routes, removing provider definitions or deleting saved
+data. Provider account/tool gateway plans and agentgateway adoption remain in
+internal planning until their complete customer journey is implemented and
+verified; do not describe a future connection flow as usable product setup.
+Readers can publish a Policy and protect a function without a Framework or a
+compliance programme. Explain that direct governance task before the optional
+assessment path. The landing's approved heading is
+**“AI governance for your organisation.”**
 Its approved paragraph is: “AuthRail helps organisations govern how they use AI.
 Understand what your AI systems are doing, control which actions they can take,
 and bring sensitive decisions to a human for approval. Connect that oversight

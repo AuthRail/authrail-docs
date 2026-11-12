@@ -1,389 +1,174 @@
 ---
 title: "NVIDIA OpenShell"
-description: "Combine an agent sandbox with business rules applied by your application."
+description: "Run your agent in a sandbox while AuthRail governs the business functions it can call."
 icon: TerminalIcon
 ---
 
 import { AUTHRAIL } from '@/lib/constants';
 
 <a href={AUTHRAIL.references.openshell}>NVIDIA OpenShell</a> runs an agent in a
-**sandbox**, restricting the files and network services it can reach. AuthRail
-checks the business action requested through your application. For example,
-OpenShell can keep a support agent away from payment credentials while AuthRail
-asks for approval when it requests a sensitive refund.
+sandbox: an environment with restrictions on files, processes and network access.
+AuthRail checks the business operations your application performs for that agent.
+Together, they let an agent do useful work through a controlled route while
+keeping its access to the surrounding system limited.
 
-The application runs outside the sandbox with the Node SDK and a local sidecar.
-It holds the credential and performs the business operation after permission,
-so the agent needs access to the application's entry point rather than the
-provider itself.
+For example, an engineering agent could prepare a release inside OpenShell and
+ask your release service to deploy it. OpenShell would restrict the agent's file
+and network access, while AuthRail would check the requested application,
+environment and approval before the release service uses its deployment
+credential. The service holds that credential outside the agent's sandbox.
 
-```text
-Agent in OpenShell → your protected application → business tool
-                              ↕
-                    AuthRail SDK and sidecar
-```
+## Choose this integration when you operate the agent
 
-This arrangement covers calls made through the connected application. Other
-commands and provider routes need their own access restrictions; installing
-a sandbox alone does not add AuthRail checks to them.
+Use OpenShell when you or your team run the agent workload and can configure its
+execution environment. It is optional: your application can use AuthRail without
+running an OpenShell sandbox. Connecting an assistant to AuthRail does not install
+OpenShell around that assistant's hosted chat service.
 
-## Before you start
-
-You need a working [Node integration](/docs/node), an Enforce deployment and
-an OpenShell installation operated by your team. This example uses **OpenShell
-0.1.6**, **Node 22.13 or newer**, sidecar source **v0.2.0** and Node SDK source
-**v0.1.1**. Use the corresponding version of the
-<a href={AUTHRAIL.references.openshell}>NVIDIA documentation</a>, and consult
-[compatibility](/docs/compatibility) when choosing the AuthRail components.
-
-The example lives in the sidecar repository and links a sibling SDK source
-checkout. It records a simulated amount in local SQLite, letting you try the
-route without moving money or deploying a cloud service. Your business function
-will replace that sample, with its own provider idempotency and reconciliation
-behaviour. The ordinary [Docker setup](/docs/docker) continues to use released
-artifacts without compiling Go or building an image; the source steps here are
-for this optional integration.
-
-## 1. Define the sample operation and rules
-
-The sample application records a simulated amount in SQLite and returns
-`{"accepted":true}`. It never sends a payment. In
-<a href={AUTHRAIL.clientOrigin}>your AuthRail workspace</a>, describe this
-operation with one numeric input, `amount`, and a result containing the boolean
-`accepted`. It has no resource identity and needs both call and result checks.
-Confirm the AI Inventory identity and deployment, register the application's
-public signing key through [setup](/docs/getting-started), and select the
-reviewed Operation Version.
-
-Create and publish a Policy explaining that this sample may record positive
-amounts up to 100. In the Policy Rail editor, add these call rules against the
-reviewed operation's **amount** field, using **A fixed value**:
-
-| Comparison | Value | Outcome | Reason |
-| --- | --- | --- | --- |
-| At most | 100 | Allow | The amount is within the sample allowance. |
-| At most | 0 | Deny | The sample requires a positive amount. |
-| Greater than | 100 | Deny | The amount exceeds the sample allowance. |
-
-Attach each rule to the relevant published Policy section. A denial takes
-precedence when more than one rule matches, so zero is denied even though it
-also meets the first condition. Missing or unsuitable input does not become
-permission. Test `80` as `allow`, `120` as `deny`, and `0` as `deny`, then publish
-and select the Rail Version for the deployment. See [Rails](/docs/rails) for the
-editor workflow and publication review. These numbers are a local example,
-not AuthRail's limits for payouts or refunds.
-
-Next, prepare the result check. Create a **Guard Rail** for the same operation
-and open **Custom checks → Add custom check**. Under **When should this check
-run?**, choose **After the result**. Select the reviewed result field `accepted`,
-choose **Is → A fixed value → Yes**, and choose **Clear this check** when it
-matches. Give it a reason such as “The sample returned its declared acceptance.”
-Add a companion result check for `accepted` **Is → A fixed value → No** with
-**Block** and a reason explaining that an unaccepted result must not be released.
-This makes both successful and unsuccessful result handling explicit.
-
-In the Guard examples, choose **Boundary → After the tool result** and enter:
-
-```json
-{"arguments":{"amount":80},"result":{"accepted":true}}
-```
-
-Set **Expected outcome → Cleared**. Add the same example with `accepted: false`
-and **Expected outcome → Blocked**. Save, test, publish and select this Guard
-Version alongside the Policy Rail. A missing result remains unresolved; the
-absence of a matching block is not a clear result.
-
-Complete **Review Enforce setup** and select **Turn on Enforce** after reviewing
-these selected Rails and the executor boundary. The supplied executor requires
-Enforce; an Observe deployment cannot be substituted for it.
-
-## 2. Configure the example application
-
-Place separate checkouts of sidecar **v0.2.0** and Node SDK **v0.1.1** beside
-each other. From the sidecar directory, build the sibling SDK, install the
-example and copy its settings template:
-
-```sh
-npm --prefix ../authrail-sdk-node ci
-npm --prefix ../authrail-sdk-node run build
-cd integrations/openshell
-npm ci
-cp operator-settings.example.json operator-settings.json
-```
-
-The settings belong to the application operator, outside the sandbox. Here is
-the complete shape of `operator-settings.json`; replace the illustrative values
-and file paths for your deployment:
-
-```json
-{
-  "host": "127.0.0.1",
-  "port": 7443,
-  "organisationId": "YOUR_ORGANISATION_ID",
-  "deploymentId": "YOUR_DEPLOYMENT_ID",
-  "operationVersionId": "YOUR_REVIEWED_OPERATION_VERSION_ID",
-  "principalId": "sandbox-service",
-  "sessionId": "reviewed-agent-session",
-  "stateDirectory": "/private/authrail-executor-state",
-  "adapterTokenFile": "/private/runtime/adapter-token",
-  "executorPrivateKeyFile": "/private/runtime/executor-private.pem",
-  "sandboxRequestTokenFile": "/private/runtime/sandbox-request-token",
-  "journalKeyFile": "/private/runtime/journal-key-hex",
-  "tlsKeyFile": "/private/runtime/executor-tls-key.pem",
-  "tlsCertFile": "/private/runtime/executor-tls-chain.pem",
-  "containment": {
-    "cli": "/usr/local/bin/openshell",
-    "gateway": "YOUR_REVIEWED_GATEWAY",
-    "workspace": "default",
-    "sandboxName": "customer-agent",
-    "sandboxId": "YOUR_IMMUTABLE_SANDBOX_ID",
-    "policyVersion": 1,
-    "policySha256": "YOUR_REVIEWED_EFFECTIVE_POLICY_DIGEST"
-  }
-}
-```
-
-The first three private credential files come from the application's connection
-setup or your operator's provisioning. The **adapter token** lets the SDK talk
-to its sidecar; the **executor private key** signs application assertions. The
-**sandbox request token** is a different credential, at least 32 characters,
-which authorises this sandbox to call this application's fixed route. It
-provides no direct access to the sidecar or provider. Give each sandbox its own
-token and binding; never replace it with the adapter token.
-
-Create the state directory with mode `0700`, owned by the application process.
-Create a separate journal key with `openssl rand -hex 32`, storing those 64 hex
-characters in the private `journalKeyFile`. The example uses it to encrypt its
-saved execution and approval context. Keep the key with the journal across
-restarts; losing it makes those saved requests unreadable. Keep all private
-files readable only by their owning process or operator.
-
-The TLS certificate must cover the hostname the sandbox will call. The example
-listener is HTTPS on `127.0.0.1:7443`, which the sandbox cannot reach directly.
-Arrange private ingress, such as a trusted HTTPS reverse proxy, to expose only
-the application route at `https://executor.example.com/execute`. Use your real
-hostname and trusted certificate chain, and keep port `7078` and the private
-files inaccessible to the sandbox. In a container, choose its private listener
-and network placement deliberately; see [Docker networking](/docs/docker).
-The sandbox and executor must not share the executor's private filesystem.
-
-The `containment` values are collected in the next step. They tell the
-application which running sandbox and policy it must check before accepting
-work; they are not information supplied by the agent's request.
-
-## 3. Connect the sandbox to the application
-
-Review the bundled `policy.yaml` with the OpenShell operator. Its network
-rule allows only the selected executable to send `POST /execute` to the
-application. Replace the example hostname and binary path with those in your
-actual sandbox image:
-
-```yaml
-network_policies:
-  protected_executor:
-    name: authrail-protected-executor
-    endpoints:
-      - host: executor.example.com
-        port: 443
-        protocol: rest
-        enforcement: enforce
-        rules:
-          - allow:
-              method: POST
-              path: /execute
-    binaries:
-      - path: /usr/bin/curl
-```
-
-This is the network section of the complete policy, not a replacement for its
-filesystem and Landlock settings. Keep `include_workdir: false` and
-`landlock.compatibility: hard_requirement`, and review every allowed path and
-provider-added rule. The policy does not grant direct payment-provider access,
-sidecar access or access to the executor's credential directory. The
-[NVIDIA policy schema for v0.1.6](https://github.com/NVIDIA/OpenShell/blob/v0.1.6/docs/how-it-works/policies/schema.mdx)
-explains those settings. Model inference destinations need their own reviewed
-configuration; this template deliberately includes only the protected route.
-
-After preparing your gateway and sandbox image using NVIDIA's installation
-guide, create and inspect the sandbox with the reviewed policy:
-
-```sh
-openshell sandbox create --name customer-agent --policy policy.yaml
-openshell sandbox get customer-agent -o json
-openshell policy get customer-agent --full -o json
-openshell policy get customer-agent --rev 1 -o json
-```
-
-Select the intended gateway and workspace when several exist. Read the immutable
-sandbox ID from `sandbox get`, and confirm that the sandbox is Ready and the
-chosen policy revision is loaded. Desired configuration alone does not establish
-that a sandbox is running it. Save the full effective-policy response privately,
-then, from `integrations/openshell`, calculate its policy digest:
-
-```sh
-node --input-type=module -e 'import {readFileSync} from "node:fs"; import {effectivePolicyDigest} from "./containment.mjs"; console.log(effectivePolicyDigest(JSON.parse(readFileSync(process.argv[1],"utf8")).policy))' /private/effective-policy.json
-```
-
-Put the reviewed revision, digest, sandbox ID, gateway and workspace into
-`operator-settings.json`. The application checks these against live OpenShell
-inspection before accepting work. Recreating a sandbox changes its identity
-even when its display name is reused.
-
-OpenShell's network supervisor must trust the application's HTTPS certificate,
-as must the sandbox's HTTP client. Provision a certificate signed by a chain
-both trust; installing a private CA only inside the workload is insufficient.
-Keep certificate verification enabled throughout.
-
-<details className="guide-details">
-<summary>Certificate trust, networking and sandbox identity</summary>
-
-The binding uses the sandbox ID and loaded policy revision, together with the
-gateway, workspace and policy digest. A digest identifies the policy content;
-recreating a sandbox changes its ID even if you give it the same name.
-
-Keep OpenShell's required filesystem enforcement enabled and review all effective
-rules, including provider-added ones. The agent should not reach host sockets,
-the sidecar port, credential directories or a direct provider route.
-
-The OpenShell network supervisor must trust the application's HTTPS certificate;
-adding a private certificate authority only inside the agent image is not enough.
-With Docker, the application can join the sidecar's private network namespace
-and expose only its HTTPS entry point. The
-<a href={`${AUTHRAIL.repositories.sidecar}/tree/v0.2.0/integrations/openshell`}>integration guide</a>
-provides the certificate, network and policy inspection commands.
-
-</details>
-
-## 4. Send a sample request
-
-From `integrations/openshell`, start the configured application:
-
-```sh
-node start.mjs ./example-config.mjs
-```
-
-In the sandbox's terminal, provision a private curl configuration file at
-`/sandbox/authrail-request.curl` through your approved credential handoff. It
-contains only this sandbox's application request header:
+The application containing your business functions runs outside the sandbox,
+with an AuthRail SDK and its sidecar. The agent reaches that application through
+an authenticated entry point; the application checks permission before calling
+the provider or changing your data.
 
 ```text
-header = "Authorization: Bearer YOUR_SANDBOX_REQUEST_TOKEN"
+Agent in OpenShell → your application → business system
+                            ↕
+                   AuthRail SDK and sidecar
 ```
 
-Set its file mode to `0600`. This limited route credential may be used in the
-sandbox; the adapter token, provider credentials, signing key and journal key
-must remain outside it. Supplying the header through a file avoids putting its
-value in the command itself.
+The SDK follows the language of your application. An agent in the sandbox can
+call a service written in Node.js, Go or Python; it does not need to use the same
+language as the service. The existing OpenShell-specific reference implementation
+is Node.js. Go and Python use their own SDK integration and require your service
+to implement the sandbox identity, authentication and recovery boundary described
+below; there is no automatic OpenShell wrapper for those languages.
 
-Run the following from the actual sandbox, using your application's hostname:
+## 1. Protect your application's function
 
-```sh
-curl --config /sandbox/authrail-request.curl \
-  --request POST https://executor.example.com/execute \
-  --header 'Content-Type: application/json' \
-  --data-binary '{"requestKey":"sample-invoice-001","arguments":{"amount":80}}' \
-  --write-out '\nHTTP %{http_code}\n'
-```
+Start with the function that performs the work, such as `deployRelease`,
+`changeCustomerAccess` or `readCustomerRecord`. Follow
+[Building your own application](/docs/build-your-app) to describe its inputs and
+results, bind the caller and account from trusted application context, and wrap
+the function with the SDK. Use the guide for your service's language:
 
-With the sample Rail selected and containment ready, the application responds
-with HTTP `200` and this shape:
-
-```json
-{"status":"allowed","actionId":"ACTION_ID","result":{"accepted":true}}
-```
-
-In a separate operator terminal, inspect the private sample ledger read-only.
-Use the state directory from your settings; do not mount it into the sandbox:
-
-```sh
-node --input-type=module -e 'import {DatabaseSync} from "node:sqlite"; const db = new DatabaseSync(process.argv[1], {readOnly:true}); console.log(db.prepare("SELECT provider_key, amount FROM sample_effects ORDER BY provider_key").all()); db.close();' /private/authrail-executor-state/executor.sqlite
-```
-
-The SQLite sample ledger should contain the simulated amount. Now submit
-`amount: 120` with a new request key, such as `sample-invoice-002`. Expect HTTP
-`409` with `status: "blocked"`, and no new ledger effect. The deny should come
-from AuthRail's amount rule; the sample executor also has its own independent
-1,000-unit ceiling, which is a separate last check on this demonstration.
-
-Repeat the original `sample-invoice-001` body unchanged only to inspect duplicate
-handling: it must not create a second effect. The supplied application blocks
-a duplicate instead of pretending to return a cached successful result. A new
-key identifies new work, so changing keys is not a recovery mechanism.
-
-Open **Actions & decisions** in AuthRail and inspect the request's permission,
-call and result checks, and **What the application reported**. Compare them
-with the sample ledger. Permission, the executor's completion report and the
-ledger entry answer different questions; a `200` response alone is not proof
-of a real provider effect.
-
-| Response | Meaning and next step |
+| Application language | Integration guide |
 | --- | --- |
-| `allowed` | Call and result checks passed and the executor reported completion. Read the checked `result`. |
-| `blocked` | No new business effect was run for this attempt. Read its decision or duplicate state. |
-| `approval_required` | Saved work is waiting for human review. Resume through the protected application workflow. |
-| `result_withheld` | An effect may exist, but its output was stopped. Inspect the saved attempt before further action. |
-| `outcome_unknown` | Investigate the original attempt and provider reference; do not send a replacement. |
-| HTTP `503` | Containment, required context or recovery storage is unavailable. Restore the missing dependency before retrying. |
+| JavaScript or TypeScript | [Connect a Node application](/docs/node) |
+| Go | [Connect a Go application](/docs/go) |
+| Python | [Connect a Python application](/docs/python) |
 
-## Use the integration in your own application
+Connect the sidecar using [Docker](/docs/docker) or [native setup](/docs/native).
+Keep the provider client and credential inside the application process or its
+private execution service. The sandbox needs permission to request a business
+operation, rather than possession of the provider credential itself.
 
-The sample's `example-config.mjs` supplies the actual business callback. Replace
-its SQLite `execute(input, recovery)` with your application's operation. The
-executor calls it only after the SDK has obtained permission and retained the
-execution-start report; it supplies the checked input and execution context.
-Keep the callback's provider client and credentials in this protected process.
+In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, review the operation and publish
+the Rails for it. For the release example, a Policy Rail could require an assigned
+reviewer's approval for production releases, while a result Guard could restrict
+which fields the agent receives afterwards. Choose protections your installed
+SDK and sidecar support; [compatibility](/docs/compatibility) explains the released
+capability boundary.
 
-For a release service, the reviewed input might identify an application and
-artifact, while trusted application code resolves the permitted environment and
-release account. For a customer-access service, resolve the target account and
-allowed role through your own store. Update the reviewed Operation Version,
-input validation, returned fields and Rails together when changing the operation;
-renaming the tool alone does not change its authorization contract.
+## 2. Give the sandbox one authenticated route
 
-`prepare` supplies trusted resource identity and facts before the SDK check.
-`record` saves the encrypted approval and recovery events. Preserve both when
-replacing `execute`, and use `recovery.providerIdempotencyKey` with a provider
-that supports idempotency. A provider timeout needs the original saved context
-and a lookup of its authoritative record, not another call from the sandbox.
-The [app-builder guide](/docs/build-your-app) shows how to connect tool input and
-trusted application context, and [recovery](/docs/recovery) covers uncertain effects.
+Expose only the application entry points the agent needs. Your application's
+authentication must identify the calling sandbox and resolve its permitted user
+or workload, organisation, deployment and operation. An agent-supplied account ID
+or sandbox name is not sufficient proof of that identity.
 
-The example has no sandbox-accessible resume or reconcile endpoint. Its
-operator-only recovery function loads the original encrypted event, verifies
-its sandbox and deployment binding, checks human approval and live containment,
-then resumes the saved work. A production application needs an authenticated
-owner-facing continuation workflow; the agent cannot supply approval or choose
-an arbitrary saved event to resume. See [human approvals](/docs/approvals).
+Give the sandbox a credential limited to its application access. Keep provider
+credentials, the SDK's adapter token, signing keys and recovery storage outside
+the sandbox. A caller allowed to request a release should not also be able to
+select another deployment's credentials or replace the operation being checked.
 
-## Check access before connecting a real tool
+Use HTTPS when the request crosses a network boundary, with a certificate trusted
+by both the sandbox client and OpenShell's network supervisor. The sidecar remains
+on the application's private network; it is not the endpoint exposed to the
+agent. [Identity and deployment](/docs/identity) explains the separate application
+and workload identities.
 
-Try the routes from the actual sandbox, not only from the operator's terminal.
-Confirm that allowed work reaches the application, denied work cannot run its
-function, and the agent cannot read its credentials or reach the provider
-directly. The
-<a href={`${AUTHRAIL.repositories.sidecar}/tree/v0.2.0/integrations/openshell#lifecycle-and-bypass-review`}>boundary checklist</a>
-helps apply this review to your image, policy and business function.
+## 3. Restrict the agent's environment
+
+Install and operate OpenShell using the
+<a href={AUTHRAIL.references.openshell}>NVIDIA documentation</a>. Review a policy
+for your own agent image, executable and application address. It should allow the
+agent to reach its authorised application route and any separately approved model
+or development services, while keeping the application's private files and
+credentials inaccessible.
+
+For the release service, allow the application route that requests a release;
+keep direct cloud deployment endpoints and host administration sockets outside
+the agent's access. Otherwise the agent could bypass the function you wrapped.
+Review filesystem, process and network restrictions together, including any rules
+added by OpenShell provider configuration.
+
+If your application relies on a particular sandbox policy for protection, bind
+that requirement to the running sandbox's identity and effective policy. Check
+that the required restrictions are loaded before accepting work and again when
+resuming a saved request. A reused sandbox name or a policy file on disk does not
+establish that the running sandbox has those restrictions. The reference
+implementation linked below shows this containment check for OpenShell 0.1.6.
+
+## 4. Handle the decision and returned result
+
+The application sends the operation through its AuthRail SDK. With Enforce enabled,
+a denial stops the function before it runs, and an approval-required decision
+leaves the original work saved for an authorised reviewer. After approval, the
+application resumes that request with its original identity and execution context;
+the agent cannot provide its own approval.
+
+When the function completes, the SDK applies the configured result checks before
+releasing information back to the sandbox. Withholding a result does not undo a
+business operation that already happened. If a provider times out after accepting
+a write, retain its original reference and use [recovery](/docs/recovery) to
+establish the outcome before another attempt. [Human approvals](/docs/approvals)
+explains the saved-request lifecycle.
+
+Your application owns an authenticated continuation workflow for its users or
+operators. Keep approval and recovery records across restarts, and prevent repeated
+requests from creating repeated effects. These responsibilities apply whether
+your application uses Node.js, Go or Python.
+
+## Check the complete access path
+
+From the running sandbox, exercise one permitted operation and one operation its
+Rails deny. Check that the allowed function runs, the denied function does not,
+and the sandbox cannot reach the provider or read the application's private
+credentials through another route. For approval-required work, confirm that the
+saved request resumes through the application after the named reviewer decides.
+
+Inspect the Action in AuthRail alongside your application's execution record and,
+where applicable, the provider's own record. Permission, reported completion and
+independently established effects answer different questions. OpenShell's access
+restrictions and AuthRail's business checks must both cover the path you intend
+to protect; installing either component does not secure unrelated tools.
 
 <details className="guide-details">
-<summary>Waiting requests, interruptions and upgrades</summary>
+<summary>OpenShell 0.1.6 reference implementation</summary>
 
-`approval_required` means the request is saved for human review. Its application
-owns resumption after that person decides; the agent cannot supply the approval.
-`result_withheld` means a response was stopped after the function may already
-have run. `outcome_unknown` means the effect still needs investigation through
-[recovery](/docs/recovery).
+The sidecar repository includes a
+<a href={`${AUTHRAIL.repositories.sidecar}/tree/v0.2.0/integrations/openshell`}>Node.js OpenShell integration</a>
+with an authenticated HTTPS entry point, sandbox/policy inspection, SDK call and
+result checks, and saved approval/recovery handling. It is a source integration
+reference, not a separate installer or a prerequisite for using AuthRail.
 
-The example blocks a duplicate request rather than creating another effect.
-It also stops new work if the sandbox stops, its policy changes or containment
-state cannot be checked. Restore and inspect that connection before continuing.
-Preserve the application journal, encryption key, sample ledger and whole
-sidecar state across restarts so an interruption remains recoverable.
+That implementation targets OpenShell **0.1.6**, sidecar source **v0.2.0** and
+Node SDK source **v0.1.1**. Its example uses Node **22.13 or newer** and links a
+sibling SDK checkout. The accompanying demonstration callback writes a simulated
+value to local SQLite; it performs no payment or other provider operation.
+Use the implementation to understand the boundary, then supply your own business
+function and its provider idempotency and reconciliation behaviour.
 
-When upgrading OpenShell beyond this example's 0.1.6 integration, check the
-loaded policy, filesystem enforcement, network rules, certificate trust and
-containment inspection again. A version number or ready status alone does not
-show that the same restrictions hold. The sandbox's access controls, AuthRail's
-business decision and the provider's eventual effect each need their own
-supporting information.
+Its source README owns the certificate, private file, policy and state-directory
+settings needed to run that reference. The application checks the immutable
+sandbox identity and effective policy rather than trusting caller assertions.
+Its continuation and reconciliation functions are operator-facing; it does not
+provide a sandbox-accessible resume endpoint. A production service must supply
+its own authenticated continuation experience.
+
+When changing OpenShell versions, verify the supported policy schema, effective
+restrictions and containment inspection against NVIDIA's documentation for that
+version. Keep the application's saved requests and required sidecar state intact
+through restarts and upgrades.
 
 </details>

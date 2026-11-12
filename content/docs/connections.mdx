@@ -1,22 +1,29 @@
 ---
-title: "Connections and source records"
-description: "Collect provider records and bring them into a Control's Tests and Evidence."
+title: "Connections and account access"
+description: "Connect an organisation account, review its access and understand the provider records it supplies."
 icon: PlugsConnectedIcon
 ---
 
 import { AUTHRAIL } from '@/lib/constants';
 
-A **Connection** lets AuthRail collect read-only records from a provider account
-your organisation authorises. It can save your team from repeatedly exporting
-files when a Control needs current source material, such as an account
-configuration or an invoice record.
+A **Connection** links an authorised provider account to your organisation in
+AuthRail. Its account boundary and granted permissions tell your team where
+information comes from and what access the integration has. This is useful when
+you are overseeing the systems around an agent application, such as the
+repositories holding its code or the accounts supplying business records.
 
-For example, a reviewer can select a collected account record while checking
-whether the expected settings were in place. The Connection supplies that
-record; the Test or Evidence review establishes what it supports. Collection
-does not by itself make a Test pass or a Framework duty ready.
+The connectors described in this guide collect read-only provider records.
+For example, a GitHub Connection can help your team review the identity and
+visibility of repositories used by an agent application. Connecting that account
+does not give an assistant permission to change its repositories or protect an
+existing route to GitHub. Business operations need their own
+[Runtime integration](/docs/build-your-app), trusted credentials and Rails.
 
-## Choose the source your check needs
+You can inspect collected records for operational oversight and use them in
+Tests or Evidence when a review requires it. A collected record does not by
+itself make a Test pass or a Framework duty ready.
+
+## Choose the account and capability
 
 In <a href={AUTHRAIL.clientOrigin}>AuthRail</a>, open **Connections** and choose the capability available in your workspace.
 Read its setup instructions to understand which account or project it can
@@ -25,23 +32,23 @@ collects them. Support for one part of a provider does not imply support for
 all its products or operations.
 
 Choose the smallest account, organisation, project or company boundary that
-covers your check. Setup will ask you to sign in and grant consent or enter a
-restricted credential. Obtain credentials from the provider administrator and
-enter them in the private setup form, rather than an assistant conversation or
-Evidence explanation.
+covers the work you need to monitor. Setup will ask you to sign in and grant
+consent or enter a restricted credential. Obtain credentials from the provider
+administrator and enter them in the private setup form, rather than an assistant
+conversation or a record explanation.
 
-
-If the source you need is unavailable, use suitable manual Evidence rather than
-choosing an unrelated integration.
+If the source you need is unavailable, do not substitute an unrelated integration.
+For a Test or Evidence review, you can supply suitable manual proof instead.
 
 ## Example: review the repository holding your agent application
 
 Suppose Northstar keeps its support application in the GitHub repository
-`northstar-example/support-agent`. A separate inventory Control requires the team
-to know which repositories contain deployed agent code and whether their
-visibility matches the organisation's expectations. GitHub metadata can support
-that narrow check; it does not establish code review, branch protection or the
-approval of a customer account change.
+`northstar-example/support-agent`. The team wants to know which repositories
+contain deployed agent code and whether their visibility matches its access
+expectations. GitHub metadata can support that oversight; it does not establish
+code review, branch protection or approval of a customer account change. Later
+in this guide, the same repository snapshot also supports a Control's inventory
+review.
 
 Choose GitHub's **Repository discovery and monitoring** capability. The current
 AuthRail connector uses a fine-grained personal access token and the
@@ -80,10 +87,11 @@ produced it and whether that run completed successfully.
 
 Review Resources on the Connection with **Monitor**, **Don't monitor** or
 **Decide later**. Monitoring makes their source records available for later
-selection. You still decide whether they answer the question posed by a
-Control's Test or Evidence requirement.
+selection. Check their identity, contents and collection time before relying on
+them. When using a record in a Control's Test or Evidence review, also decide
+whether it answers that review's specific question.
 
-## Bring a record into the Control
+## Use collected records in Tests and Evidence
 
 Open the approved Control's **Tests and Evidence** area. While recording a Test
 result, select the provider records you inspected. If an Evidence requirement

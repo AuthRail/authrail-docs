@@ -7,24 +7,26 @@ icon: ShieldCheckIcon
 import { AUTHRAIL } from '@/lib/constants';
 
 A **Policy** states what your organisation expects. A **Control** explains how
-people and systems carry out that expectation. Keeping both helps the team
-understand its responsibilities and gives a reviewer something concrete to
-check.
+people and systems carry out that expectation. A published Policy supplies the
+authority for a Policy Rail; the Rail applies its rules at a connected action.
+A Control documents the practice and how the team checks it. You can publish a
+Policy and use it in Runtime without activating a Framework.
 
 For example, a support Policy may require human approval before sensitive
 account changes. The Control describes who reviews a request, what they
 inspect, how the application waits and where the decision is saved. The same
-practice can support several Frameworks without becoming a separate document
-for each one.
+practice can later support several Frameworks without becoming a separate
+document for each one.
 
 ## Follow one practice from expectation to coverage
 
-Continue Northstar's example from [Frameworks and scope](/docs/frameworks). Its
-AI Operations Standard version 1 requires human review before an assistant changes
-customer account access. The organisation will rely on **Human oversight of
-account changes**, a Policy, and **Review assistant account-access changes**, a
-Control. These are names for the worked example; your documents should describe
-the people and systems your organisation actually uses.
+Suppose Northstar wants human review before its support assistant changes
+customer account access. The team will write **Human oversight of account
+changes**, a Policy, and describe its operating practice in **Review assistant
+account-access changes**, a Control. These are names for the worked example;
+your documents should describe the people and systems your organisation uses.
+The Policy can govern the connected action through a [Policy Rail](/docs/rails).
+The later Framework section shows how to reuse the practice for an assessment.
 
 ## Write the expectation
 
@@ -96,6 +98,11 @@ manager with review access can use **Approve Control** instead.
 <ProductShot src="/screenshots/control-approved-with-draft.jpg" alt="A Control showing its approved practice, maintainer and separate draft changes" caption="The approved version stays in use while proposed changes go through review." />
 
 ## Connect the Control to a Framework duty
+
+When the organisation also needs a compliance assessment, it can reuse this
+Policy and Control. The [Frameworks and scope example](/docs/frameworks) creates
+Northstar's AI Operations Standard version 1 with an obligation requiring this
+same before-change review.
 
 Return to the active Framework's **Obligations** and choose **View coverage**
 for the duty it addresses. Select the approved Control and explain how its

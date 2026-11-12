@@ -1,289 +1,126 @@
-# AuthRail documentation design brief
+# AuthRail documentation design
 
-This brief records the founder's agreed direction for the public documentation.
-The lead owns the docs pass, with independent reviews for clarity and
-setup accuracy. Node, Go and Python installation guides use the verified
-published SDK versions. Passing a build does not substitute for founder review.
+## Purpose and audience
 
-## Reference and visual direction
+The public site helps business owners understand agent governance and helps
+builders connect real tools and applications. Lead with the customer's task,
+useful access, rules, human decisions and understandable outcomes. Compliance
+remains clearly accessible as a secondary path.
 
-Inspect the actual Authlier landing and documentation at
-https://authlier.vercel.app/ and the local source at
-/Users/macbook/Codes/Projects/consumel/authlier/website. Study both the landing
-and getting-started pages before proposing the AuthRail design. Follow their
-clear hierarchy, direct product explanation, grouped sidebar, useful icons,
-readable code blocks and straightforward setup. Use AuthRail's own real logo,
-mark, favicon and blue identity. Do not invent another text-only logo or generic
-favicon. Use Phosphor icons throughout authored docs UI; do not use Lucide. Import the current `SomethingIcon` exports, not deprecated
-aliases; use the same names in page icon metadata.
-Verify responsive layouts, accessibility, light/dark themes, keyboard
-navigation, search and on-page contents in the browser.
-Default to dark mode for a first visit. Keep the theme switch and respect a
-visitor's saved choice.
+Explain the experience in direct language. Use business names in instructions;
+keep internal IDs, infrastructure names and version mechanics in technical
+references only where the reader must act on them. A backend resource model does
+not determine the navigation, page hierarchy or setup form.
 
-## Typography
+## Brand and typography
 
-Use Oxanium semibold for the landing heading, with a smaller 64px desktop cap.
-Use IBM Plex Sans for paragraphs, navigation, brand text and documentation.
-Keep the brand text compact (20px desktop, 19px mobile). The landing retains its
-approved composition; typography must remain readable at narrow widths.
+Use the real AuthRail mark and favicon through `components/brand.tsx` and the
+existing image assets. Brand text is compact: 20px on desktop and 19px on narrow
+screens. Authored UI uses the existing Phosphor icons where they aid recognition.
 
-## Landing page: one direct introduction
+IBM Plex Sans is the reading font for articles, navigation and paragraphs.
+Oxanium semibold is reserved for the landing heading, capped at 64px on desktop.
+Use the Fumadocs reading hierarchy and code treatment inside documentation.
+Headings retain the existing tight letter spacing; paragraphs need comfortable
+line length and spacing rather than dashboard density.
 
-Follow Authlier's actual simple landing: compact logo/navigation, one factual
-heading, one short product paragraph and a small documentation entry area.
-No refund card, feature grids, audience chooser, screenshots, product-story
-sections or slogans on the landing. Use AuthRail blue and a dark lower entry
-area with generous spacing. The landing states what AuthRail does; the docs
-pages explain why and how. Do not add a fake install command for the whole
-product, a fabricated GitHub star count or a link to the private reference app.
+## Colour and theme
 
-## Navigation and learning order
+`app/global.css` extends Fumadocs neutral styles with AuthRail colours. Preserve
+these existing tokens rather than inventing a separate palette per page.
 
-The November 12 founder direction keeps agent governance as the primary path.
-Explain authority, visibility and human oversight through supported behaviour;
-keep compliance fully documented and easy to find as a secondary assessment
-path. The primary learning order is:
+| Token | Light | Dark | Purpose |
+| --- | --- | --- | --- |
+| authrail-blue | #1761df | #1761df | Approved landing hero |
+| authrail-ink | #071018 | #071018 | Landing text and commands |
+| fd-primary / fd-ring | #145bd7 | #8db9ff | Article links and focus |
+| fd-accent | #edf3ff | #152641 | Highlighted interactive surfaces |
+| fd-accent-foreground | #174aab | #bad4ff | Accent text |
 
-1. A short introduction to AuthRail, coverage and the meaning of its records.
-2. A quickstart using verified released setup artifacts and a safe example.
-3. MCP/agent setup: sign-in, permissions, preparing configuration and exact
-   human confirmation, alongside how the real business tool is protected.
-4. Policies, Runtime, Rails, Observe/Enforce, usable Guards, Data sources and
-   contextual AI, with account Connections and their granted access in context.
-5. Approvals/resume, records, diagnostics, recovery and operating insights.
-6. Detailed SDK, deployment, compatibility, security and configuration references.
-7. A visible Compliance and evidence section for Frameworks, Tests/Evidence,
-   readiness and the worked proof journey, preserving their exact semantics.
+The docs provider defaults to dark mode and retains the visitor's theme choice.
+The approved landing has its own fixed blue and dark composition. Preserve clear
+focus, readable code and contrast in both article themes.
 
-Keep every existing guide and connection capability. Changes in prominence do
-not authorise hiding routes, removing provider definitions or deleting saved
-data. Provider account/tool gateway plans and agentgateway adoption remain in
-internal planning until their complete customer journey is implemented and
-verified; do not describe a future connection flow as usable product setup.
-Readers can publish a Policy and protect a function without a Framework or a
-compliance programme. Explain that direct governance task before the optional
-assessment path. The landing's approved heading is
-**“AI governance for your organisation.”**
-Its approved paragraph is: “AuthRail helps organisations govern how they use AI.
-Understand what your AI systems are doing, control which actions they can take,
-and bring sensitive decisions to a human for approval. Connect that oversight
-to your organisation’s policies and compliance requirements.” Preserve this
-wording and the compact composition, typography and brand. The Runtime-first
-learning order applies inside the documentation; it does not authorise replacing
-this landing copy. Social previews use the same approved introduction.
+## Landing and layout
 
-## Quickstart and first useful result
+Keep the approved minimal landing: real brand, compact GitHub/Get started
+navigation, one heading and paragraph, then the dark documentation entry area.
+Preserve the heading, “AI governance for your organisation.” and the exact existing
+paragraph in `app/page.tsx`. Do not add feature grids, product-story sections,
+install banners, audience choosers or decorative screenshots to that composition.
 
-The acceptance target is a measured fifteen-minute first result on a documented
-clean environment. Record prerequisites and time the actual steps before making
-that public promise. Use a verified prebuilt sidecar image and supported SDK;
-the normal Docker guide must not require Go or building source. Present only a
-real released installer/command. The approved entry is `authrail-sidecar setup`
-in the existing Go executable. Browser connection and key registration alone do
-not establish the full installer; validate private credential provisioning,
-startup and recovery before presenting it as the normal public setup path.
+Landing navigation and introduction cap at 1180px with 32px side gutters; below
+680px the gutters become 18px. Navigation actions provide at least 44px height.
+The hero heading scales down for narrow screens. Article layout uses Fumadocs
+sidebar, search and on-page contents with the shared brand and theme controls.
+Keep long code, tables and media within the article's responsive boundary.
 
-The first task should connect one safe operation and show its decision and
-record. A complete walkthrough then shows allow, deny, saved human review/resume
-and result checking. Make the developer's remaining job explicit: wrap the real
-function and bind trusted caller/resource/credential context. Guided setup can
-handle mechanical key/credential/configuration work, but cannot automatically
-secure arbitrary uninstrumented tools or network bypasses.
+Screenshots and videos use the existing 8px border radius and thin themed border.
+Captions explain what matters; they do not repeat the surrounding instruction.
+Use progressively disclosed technical details when they help a reader complete
+the task without obscuring the ordinary setup path.
 
-Explain hosted MCP management and customer tool enforcement separately and show
-how they join. Connecting AuthRail MCP does not wrap another assistant's Stripe,
-browser or shell tool. One-time sign-in/consent and exact human confirmation
-remain necessary even when users work through their assistant.
+## Customer journeys and navigation
 
-Every introduction should explain one concept and familiar example before the
-instructions, while letting the quickstart reach a result before deep internals.
-No refund/approval feature card, slogan, internal architecture tour or public
-progress/status commentary belongs on the landing or beginner entry.
+Keep introduction, setup, connected accounts, Rails, approvals and recovery ahead
+of deeper references. Expand the following journeys as the matching capabilities
+become usable, with their actual permission and coverage boundaries:
 
-Public integration guides use the supported Node, Go and Python adapters. Do not publish
-a DIY HTTP implementation guide or present a custom adapter as an equivalent
-customer path. The underlying wire contract stays with the source implementation.
-Do not claim a latency figure without a representative measurement. Explain the
-parts of response time and how a customer can measure its own deployment.
+- **Hosted assistant:** connect AuthRail, sign in, choose an organisation, consent
+  to access, discover authorised tools and handle human review or saved work.
+- **Custom MCP:** connect a customer-owned server, review tools and account access,
+  apply Rails and handle changed schemas, reconnects and interrupted work.
+- **A2A:** connect permitted agents, submit a scoped task, follow updates/results,
+  request cancellation and recover saved work without assuming effects reversed.
+- **Own application:** install a supported Node, Python or Go SDK, run the
+  customer-side sidecar and wrap the real function with trusted identity, account
+  and credential binding. Optional OpenShell guidance teaches a real protected
+  application; the Node reference demonstration is an optional advanced example.
 
-## Editorial voice and introductions
+Explain Policy, Data and Guard Rails through their business purpose and simple
+setup. Contextual AI is AuthRail-operated per Rail; disclose selected material and
+its recipient without asking customers for our private model-provider setup.
+Show how a human reviews and publishes exact changes. Collection account access
+does not automatically grant tool execution, Runtime reads or writes.
 
-Write for a person learning AuthRail and deciding how to use it. Begin with a
-proper explanation of the subject: what it is, the problem it helps with, and a
-familiar situation that makes its purpose clear. Connect the explanation to the
-reader's task before introducing implementation details or numbered steps.
-Use natural paragraphs with enough sentence variety to develop an idea. Short
-sentences can clarify a point, but a sequence of terse assertions and warnings
-makes the guide harder to understand. Do not address the reader as an agent or
-write internal acceptance notes as customer instructions.
+Keep the existing guides and integration coverage available. Preserve the 34
+provider/product integrations and document added providers when their real flows
+are ready. The API reference remains a separate linked technical reference.
+Compliance pages retain their exact proof and permission semantics without
+becoming a prerequisite for publishing a Policy Rail.
 
-Define product terms in context and explain relationships rather than presenting
-a taxonomy before the reader understands the task. Preserve necessary security,
-release, permission and recovery limits, placing each where it helps the reader
-make a decision. Avoid mechanically repeating “exact”, “bounded”, “retained”,
-“reviewed”, “protected” and “actual” as substitutes for an explanation. One clear
-account of a boundary is better than repeating it in every paragraph.
+## Released behavior and intended behavior
 
-Worked implementation guides continue one application through Observe, Enforce,
-a denied call and saved approval with matching Node.js, Go and Python examples.
-Give readers complete downloadable programs when the lifecycle is too large for
-an inline excerpt. Explain configuration, expected output, record inspection and
-how the example fits into their authenticated application. Distinguish complete
-teaching programs from integrations requiring the application's existing services.
+Public setup follows verified released artifacts and available services. Source
+implementation, local validation and a named public URL do not prove deployment.
+Mark planned capabilities clearly instead of presenting future hooks or provider
+tools as working integrations. Match examples to the selected released SDK and
+sidecar versions; never substitute current source behavior silently.
 
-For product workflows, use filled field values, example decisions and the next
-visible result. Governance examples should follow one coherent source-to-proof
-relationship, including periods, due dates, exact versions and review. Depth means
-that a reader can perform and explain the task; equal page lengths are not a goal.
+Keep public origins, repository links and the approved video URL in the existing
+constants module. Never publish credentials or private continuation material.
+Use practical supported-client examples; no guaranteed setup time or universal
+protection, isolation, undo or raw-content-locality claims without evidence.
 
-Screenshots should explain a screen or a step that the prose refers to. Do not
-add a still from the video merely to repeat what the player already shows.
-The video page needs a short introduction and useful explanation of what the
-viewer is seeing, not playback instructions or a transcript-like list of every
-on-screen action. Keep native player accessibility, a concise automatic-caption
-notice and a direct-recording fallback without narrating its controls.
+## Copying, media and accessibility
 
-Keep setup complete. Advanced explanations and uncommon failure cases belong
-in clearly named, keyboard-accessible details sections. This is a writing and
-information-hierarchy rule, not permission to drop identity, disclosure,
-permission, retention or recovery requirements.
-## Teaching and evidence
+Preserve Copy page, Use with AI and View Markdown. Copy resolved Markdown with
+useful links and all language examples; opening an assistant is a separate user
+action. Announce success or failure and keep a selectable Markdown fallback when
+clipboard access fails. These actions do not change the guide's human voice.
 
-The GitHub README introduces AuthRail and links the public sidecar, SDK and docs
-repositories. It is a product entry point, not a contributor setup page.
-Introduce contextual AI explicitly as an AuthRail feature. Define health,
-telemetry and any other technical term before using it; state who supplies each
-setup value, where to obtain it and where any data is sent. Remove internal
-progress/acceptance commentary from public guides. Major concept pages need
-relevant genuine screenshots, including Policies, Controls and contextual AI.
+Preserve the approved walkthrough video with native controls, no autoplay,
+captions, an accessible name, responsive sizing and a direct recording fallback.
+Keep the existing disclosure that automatic captions may contain errors.
 
-Each guide defines the concept, why it exists, who uses it, and how to complete
-a real task. Explain prerequisites, commands, expected results and recovery in
-order. Write inviting SDK, sidecar and reference-app READMEs for new users.
-Use real screenshots of the tenant dashboard, Actions and decisions, approvals,
-Runtime logs, reference application and Framework/Control/Test/Evidence journey.
-Existing screenshots are in public/screenshots; assess framing, accuracy and
-sensitive information before reuse. Show examples and visual evidence rather
-than long pages of abstract text. Do not invent successful product states.
+Use semantic headings, descriptive links, visible keyboard focus and accessible
+names for icon-only actions. Search, navigation, disclosures and page actions
+must work by keyboard. Show clear unavailable/error states and useful next steps.
+Preserve reading position and usable navigation on narrow screens and with zoom.
 
-Explain Contextual AI as an AuthRail-operated service enabled on the Rail that
-needs interpretation. The user describes the business rule; AuthRail prepares
-the assessment. The published version fixes its question, permitted fields and
-typed answer. The SDK selects those fields after required local processing and
-sends them through the sidecar to AuthRail. AuthRail returns a signed bounded
-finding, and the local deterministic sidecar applies the rule. Interpretation
-is not permission.
+## Implementation references
 
-Do not name the private provider/model, ask customers for model credentials,
-expose prompts/settings hashes or publish a provider catalogue for this flow.
-AuthRail receives selected contextual material; do not repeat the old claim that
-raw text stays out of AuthRail. Explain transient processing, retained bounded
-findings, uncertainty and the disclosure review. Required local filtering must
-happen before sending text; a later check cannot undo disclosure. A Rail with
-Contextual AI off causes no contextual request. Missing identities, failed
-lookups and expired approvals keep their ordinary failure handling.
-
-## Teach usable contextual AI, Guards and Data Rails
-
-Use the detailed product contract in AUTHRAIL_PRODUCT_STORY.md rather than
-maintaining another catalogue of promised provider support in this file.
-The docs must let a beginner answer:
-
-- Contextual AI: where do I enable it on a Rail, describe the intended rule,
-  review the prepared assessment and permitted material, test uncertain/missing
-  answers and inspect the decision? Show code/diff and document examples as
-  well as business text. MCP prepares the same draft under actual permissions;
-  exact publication remains a person's decision. No separate model setup.
-- Guard Rails: which ready-made protection can I select, what boundary does it
-  check, what does it block/change and how can I test its limits? A literal demo
-  marker or custom callback is not a general credential or injection detector.
-- Data Rails: which supported source/value can I select, which account/resource
-  supplies it, how fresh is it and what happens if the lookup fails? The SDK
-  should handle the supported reader once the customer binds trusted identity
-  and credentials. A collection Connection does not automatically grant Runtime
-  source or business-write access.
-
-Use one joined example where local disclosure filtering runs before the model,
-a trusted lookup supplies a value and a deterministic rule evaluates the facts.
-Never claim that a model can prevent disclosure of text already sent to it.
-Unknown/unsupported providers or detectors, low confidence, malformed values,
-timeouts, stale facts and missing capabilities do not become successful checks.
-Explain actual data recipients and retained metadata, without promising the
-entire control-plane ledger is customer-hosted or that every source stays local.
-
-## URLs, metadata and repositories
-
-Use one constants module for public URLs and links. The first slice replaced lib/site.ts's
-AUTHRAIL_DOCS_URL environment-variable/localhost fallback; do not introduce
-public endpoint env configuration. The docs origin is https://docs.authrail.io;
-other public origins must be verified against the approved deployed targets.
-The November 2 direction moves deployment workflows to main and removes staging
-as the deployment branch. Do not retain staging API/workspace links as unlabeled
-public setup defaults. Do not invent replacement production hosts or treat a
-branch change as proof they exist. Secrets belong in private storage/Secrets
-Manager, never constants or public examples. Hosted MCP/server runtime deployment
-configuration still uses environment settings/koanf as requested; this is separate
-from the documentation website's constants module.
-
-Add proper title/description metadata, canonical URLs, Open Graph/social tags,
-real favicon and robots/sitemap behavior. Link verified public SDK/sidecar and
-other appropriate repositories. Check repository visibility; the reference
-application was private at the engineering handoff. Do not call a private repo
-public or change visibility without authorization.
-
-The reference app is clone-and-run only, using its local SQLite storage. There
-will be no hosted reference-app version. Its README must explain full local
-setup, dependencies, AuthRail connection, safe scenarios and troubleshooting.
-
-## Workflow
-
-The November 11 founder direction starts the public docs pass after the finished
-video, accepted client record-detail update and refreshed in-app Guide. Embed the
-supplied recording in the relevant walkthrough with an accessible video player,
-keyboard controls and a usable narrow layout. Keep its URL in the existing
-constants module. Verify playback rather than inferring it from an MP4 link.
-The exact supplied URL and current validation status are in the root continuation. Use native video controls without autoplay, an accessible name, captions and a concise direct-recording fallback. Keep the player within the article width on narrow screens.
-This does not change the compact landing or authorise deployment/publication.
-
-The founder approved the simple Authlier-style landing and asked work to begin.
-Implement and inspect that first slice before expanding the documentation. Update this brief and canonical root MD files with the
-agreed decisions. Then implement and visually inspect the site slice by slice.
-The Python adapter is released alongside Node and Go. Shared implementation
-tasks use persistent Node.js, Go and Python tabs with working SDK examples;
-UI-only governance tasks keep their screenshots and steps. Do not deploy or publish the
-rejected draft merely because its source is committed on main.
-
-## First-class MCP documentation
-
-The founder prioritised the public Go AuthRail MCP service before the chat-first
-reference-app revamp. Give supported MCP workflows dedicated introduction and
-connection guides alongside the SDK integrations, with practical examples of
-sign-in/consent, organisation permissions, available tools, governance work,
-Runtime management, human confirmations, saved work, failures and troubleshooting.
-
-Explain that the hosted MCP calls AuthRail server APIs on behalf of the user.
-The server retains its domain checks and history. Customer tools still need
-the protected SDK/sidecar boundary; connecting MCP alone does not install that
-protection. Public instructions follow implemented tools and a verified hosted
-endpoint; repository preparation alone does not justify live setup instructions.
-
-The retained MCP work packages and the new setup/usable-Rails priority sequence
-are in the workspace's plan.md. Write
-usable documentation alongside each implemented slice, then complete the full
-MCP onboarding and workflow review in the retained documentation package. The final documentation slice
-does not defer setup or permission explanations needed to use earlier slices.
-Use real supported-client examples and screenshots. Teach how a person signs
-in, chooses an organisation, grants/revokes access, reviews an exact proposed
-change and handles a failed or interrupted request. Keep secrets and private
-continuations out of model-visible examples and results.
-
-## Page-wide copying
-
-Each documentation article offers Copy page and a compact Use with AI menu for
-copying the full page to an agent, ChatGPT or Claude. Copy resolved Markdown with
-all language examples, useful links and source attribution; raw MDX imports or a
-localhost URL alone are not a usable handoff. Opening an assistant is a separate
-explicit action. Provide accessible feedback and a selectable Markdown fallback
-when clipboard access fails. These actions do not change the human voice of the
-guide or the approved landing composition.
+Visual sources are `app/global.css`, `app/layout.tsx`, `app/page.tsx`,
+`app/docs/layout.tsx`, `components/brand.tsx`, `page-actions.tsx`,
+`walkthrough-video.tsx` and `lib/constants.ts`. These establish the current design;
+the journey guidance above describes intended coverage, not a claim of release.
